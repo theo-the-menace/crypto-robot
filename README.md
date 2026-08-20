@@ -22,6 +22,8 @@ The local credential file is `.env` (created from `.env.example`). Keep `BINANCE
 
 Production Binance writes belong to the standalone execution service in `execution/`. It listens on `127.0.0.1:8888`, persists every order before submission, deduplicates by `clientOrderId`, and reconciles an unknown result before allowing any retry. The service starts with `BINANCE_EXECUTION_MODE=disabled`; use Testnet before considering live execution. Its read-only dashboard API reports actual service, risk, order, and strategy state without exposing Binance credentials.
 
+The local frontend connects to the server's read-only dashboard proxy (`8890`). The proxy accepts only `GET` health, dashboard, and order-state requests and forwards them to the execution service over loopback. It never exposes order submission or Binance credentials.
+
 ```bash
 npm install
 npm run dev -- crypto-agent

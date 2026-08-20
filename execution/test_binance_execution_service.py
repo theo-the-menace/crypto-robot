@@ -11,6 +11,7 @@ TEMP.close()
 os.environ.update(BINANCE_EXECUTION_DB=TEMP.name, BINANCE_EXECUTION_MODE="live", BINANCE_ENV="live", BINANCE_API_KEY="key", BINANCE_SECRET_KEY="secret")
 
 from execution import binance_execution_service as service
+from execution import dashboard_proxy
 
 
 class FakeClient:
@@ -46,6 +47,10 @@ class ExecutionTest(unittest.TestCase):
         self.assertTrue(dashboard["service"]["healthy"])
         self.assertEqual(dashboard["strategies"], [])
         self.assertIn("maxOrderUsdt", dashboard["risk"])
+
+    def test_dashboard_proxy_exposes_only_read_paths(self):
+        self.assertEqual(dashboard_proxy.PUBLIC_KEY, "")
+        self.assertIn(("/health", "/v1/dashboard"), dashboard_proxy.Handler.do_GET.__code__.co_consts)
 
 
 if __name__ == "__main__": unittest.main()
