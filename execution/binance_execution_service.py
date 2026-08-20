@@ -21,7 +21,7 @@ from typing import Any
 
 
 HOST = os.getenv("BINANCE_EXECUTION_HOST", "127.0.0.1")
-PORT = int(os.getenv("BINANCE_EXECUTION_PORT", "8791"))
+PORT = int(os.getenv("BINANCE_EXECUTION_PORT", "8888"))
 DB_PATH = Path(os.getenv("BINANCE_EXECUTION_DB", "/var/lib/binance-execution/orders.sqlite"))
 SERVICE_KEY = os.getenv("BINANCE_EXECUTION_API_KEY", "")
 API_KEY = os.getenv("BINANCE_API_KEY", "")
@@ -67,6 +67,10 @@ def database() -> sqlite3.Connection:
         client_order_id TEXT PRIMARY KEY, product TEXT NOT NULL, symbol TEXT NOT NULL,
         state TEXT NOT NULL, request_json TEXT NOT NULL, response_json TEXT,
         error TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS strategies (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
+        symbol TEXT NOT NULL, updated_at INTEGER NOT NULL
     )""")
     return db
 
@@ -136,6 +140,19 @@ class ExecutionEngine:
         with database() as db:
             return public_order(db.execute("SELECT * FROM orders WHERE client_order_id=?", (client_order_id,)).fetchone())
 
+    def dashboard(self) -> dict[str, Any]:
+        with database() as db:
+            states = {row["state"]: row["count"] for row in db.execute("SELECT state, COUNT(*) AS count FROM orders GROUP BY state")}
+            strategies = [dict(row) for row in db.execute("SELECT id, name, status, symbol, updated_at FROM strategies ORDER BY updated_at DESC")]
+            recent_orders = [public_order(row) for row in db.execute("SELECT * FROM orders ORDER BY updated_at DESC LIMIT 20")]
+        return {
+            "service": {"environment": ENVIRONMENT, "mode": MODE, "healthy": True},
+            "risk": {"allowedSymbols": sorted(ALLOWED_SYMBOLS), "maxOrderUsdt": MAX_ORDER_USDT, "recvWindowMs": RECV_WINDOW},
+            "orders": {"byState": states, "unknown": states.get("EXECUTION_UNKNOWN", 0)},
+            "strategies": strategies,
+            "recentOrders": recent_orders,
+        }
+
     def update(self, client_order_id: str, state: str, response: Any = None, error: str | None = None) -> dict[str, Any]:
         with database() as db:
             db.execute("UPDATE orders SET state=?, response_json=?, error=?, updated_at=? WHERE client_order_id=?",
@@ -196,6 +213,8 @@ class ExecutionEngine:
 
 ENGINE = ExecutionEngine()
 
+DASHBOARD_HTML = """<!doctype html><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Crypto Robot</title><style>body{max-width:980px;margin:32px auto;padding:0 16px;font:14px system-ui;color:#1d232b;background:#f6f7f8}h1{margin:0}.sub{color:#68717c}.token{display:flex;gap:8px;margin:20px 0}.token input{flex:1;padding:10px}.token button{padding:10px 14px;background:#20262d;color:white;border:0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{padding:16px;border:1px solid #dde2e6;background:#fff}.label{font-size:11px;color:#68717c;text-transform:uppercase}.value{font-size:21px;font-weight:700;margin-top:8px}section{margin-top:12px;padding:16px;border:1px solid #dde2e6;background:#fff}table{width:100%;border-collapse:collapse}td,th{padding:9px 4px;border-bottom:1px solid #edf0f2;text-align:left}th{font-size:11px;color:#68717c}.empty{color:#68717c;padding:10px 0}@media(max-width:640px){.grid{grid-template-columns:1fr}}</style><main><h1>Crypto Robot</h1><p class=sub>Read-only execution console</p><div class=token><input id=token type=password placeholder=\"Management access token\"><button onclick=load()>Connect</button></div><div id=app hidden><div class=grid><div class=card><div class=label>Environment</div><div id=environment class=value></div></div><div class=card><div class=label>Execution mode</div><div id=mode class=value></div></div><div class=card><div class=label>Unknown orders</div><div id=unknown class=value></div></div></div><section><div class=label>Risk limits</div><p id=risk></p></section><section><div class=label>Running strategies</div><div id=strategies></div></section><section><div class=label>Recent orders</div><div id=orders></div></section></div></main><script>function tab(rows,cols){return rows.length?'<table><tr>'+cols.map(c=>'<th>'+c[1]+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+String(r[c[0]]??'')+'</td>').join('')+'</tr>').join('')+'</table>':'<div class=empty>None</div>'}async function load(){let r=await fetch('/v1/dashboard',{headers:{Authorization:'Bearer '+token.value}});if(!r.ok)return alert('Access denied');let d=await r.json();environment.textContent=d.service.environment;mode.textContent=d.service.mode;unknown.textContent=d.orders.unknown;risk.textContent=d.risk.allowedSymbols.join(', ')+' · max '+d.risk.maxOrderUsdt+' USDT/order · recvWindow '+d.risk.recvWindowMs+' ms';strategies.innerHTML=tab(d.strategies,[['name','Strategy'],['symbol','Symbol'],['status','Status']]);orders.innerHTML=tab(d.recentOrders,[['client_order_id','Client order ID'],['product','Product'],['symbol','Symbol'],['state','State']]);app.hidden=false}setInterval(()=>{if(!app.hidden)load()},5000)</script>"""
+
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "BinanceExecution/1"
@@ -214,10 +233,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/":
+            raw = DASHBOARD_HTML.encode()
+            self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(raw))); self.end_headers(); return self.wfile.write(raw)
         if parsed.path == "/health": return self.json(200, {"ok": True, "environment": ENVIRONMENT, "mode": MODE})
         if not self.authorized(): return self.json(401, {"error": "Unauthorized"})
         query = urllib.parse.parse_qs(parsed.query)
         try:
+            if parsed.path == "/v1/dashboard": return self.json(200, ENGINE.dashboard())
             if parsed.path == "/v1/binance/ping": return self.json(200, ENGINE.client.public("spot", "/api/v3/ping", {}))
             if parsed.path == "/v1/binance/ticker": return self.json(200, ENGINE.client.public("spot", "/api/v3/ticker/bookTicker", {"symbol": query.get("symbol", [""])[0].upper()}))
             if parsed.path == "/v1/binance/account":

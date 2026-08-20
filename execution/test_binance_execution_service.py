@@ -41,5 +41,11 @@ class ExecutionTest(unittest.TestCase):
             self.engine.submit({"clientOrderId": "robot-test-0002", "order": {"symbol": "BTCUSDT", "side": "BUY", "type": "MARKET", "quoteOrderQty": "101"}})
         self.assertEqual(self.client.submits, 0)
 
+    def test_dashboard_reports_actual_state_without_credentials(self):
+        dashboard = self.engine.dashboard()
+        self.assertTrue(dashboard["service"]["healthy"])
+        self.assertEqual(dashboard["strategies"], [])
+        self.assertIn("maxOrderUsdt", dashboard["risk"])
+
 
 if __name__ == "__main__": unittest.main()
