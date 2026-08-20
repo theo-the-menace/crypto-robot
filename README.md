@@ -20,6 +20,8 @@ The local credential file is `.env` (created from `.env.example`). Keep `BINANCE
 
 ## Run the Binance client
 
+Production Binance writes belong to the standalone execution service in `execution/`. It persists every order before submission, deduplicates by `clientOrderId`, and reconciles an unknown result before allowing any retry. The service starts with `BINANCE_EXECUTION_MODE=disabled`; use Testnet before considering live execution.
+
 ```bash
 npm install
 npm run dev -- crypto-agent

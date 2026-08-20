@@ -1,0 +1,22 @@
+[Unit]
+Description=Crypto Robot Binance Execution Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=binance-exec
+Group=binance-exec
+WorkingDirectory=/opt/crypto-robot
+EnvironmentFile=/etc/crypto-robot/binance-execution.env
+ExecStart=/usr/bin/python3 /opt/crypto-robot/execution/binance_execution_service.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/binance-execution
+
+[Install]
+WantedBy=multi-user.target

@@ -5,3 +5,5 @@ dist/
 !.env.example
 .DS_Store
 reference-project/
+__pycache__/
+*.pyc
