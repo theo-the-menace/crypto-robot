@@ -20,9 +20,9 @@ The local credential file is `.env` (created from `.env.example`). Keep `BINANCE
 
 ## Run the Binance client
 
-Production Binance writes belong to the standalone execution service in `execution/`. It listens on `127.0.0.1:8888`, persists every order before submission, deduplicates by `clientOrderId`, and reconciles an unknown result before allowing any retry. The service starts with `BINANCE_EXECUTION_MODE=disabled`; use Testnet before considering live execution. Its read-only dashboard API reports actual service, risk, order, and strategy state without exposing Binance credentials.
+Production Binance writes belong to the standalone execution service in `execution/`. It listens on server port `8888`, persists every order before submission, deduplicates by `clientOrderId`, and reconciles an unknown result before allowing any retry. The service starts with `BINANCE_EXECUTION_MODE=disabled`; use Testnet before considering live execution. Its read-only dashboard API reports actual service, risk, order, and strategy state without exposing Binance credentials. Remote dashboard GET requests use `BINANCE_DASHBOARD_API_KEY`; write endpoints are restricted to loopback requests.
 
-The local frontend connects to the server's read-only dashboard proxy (`8890`). The proxy accepts only `GET` health, dashboard, and order-state requests and forwards them to the execution service over loopback. It never exposes order submission or Binance credentials.
+The local frontend uses the server dashboard API at `http://43.163.91.179:8888`. Set `VITE_DASHBOARD_API_URL` for another address and provide the dashboard token at runtime; never place Binance credentials in frontend code.
 
 ```bash
 npm install

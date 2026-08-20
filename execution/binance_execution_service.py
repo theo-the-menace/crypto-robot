@@ -24,6 +24,7 @@ HOST = os.getenv("BINANCE_EXECUTION_HOST", "127.0.0.1")
 PORT = int(os.getenv("BINANCE_EXECUTION_PORT", "8888"))
 DB_PATH = Path(os.getenv("BINANCE_EXECUTION_DB", "/var/lib/binance-execution/orders.sqlite"))
 SERVICE_KEY = os.getenv("BINANCE_EXECUTION_API_KEY", "")
+DASHBOARD_KEY = os.getenv("BINANCE_DASHBOARD_API_KEY", "")
 API_KEY = os.getenv("BINANCE_API_KEY", "")
 SECRET_KEY = os.getenv("BINANCE_SECRET_KEY", "")
 ENVIRONMENT = os.getenv("BINANCE_ENV", "testnet")
@@ -226,6 +227,10 @@ class Handler(BaseHTTPRequestHandler):
     def authorized(self) -> bool:
         return bool(SERVICE_KEY) and hmac.compare_digest(self.headers.get("Authorization", ""), f"Bearer {SERVICE_KEY}")
 
+    def dashboard_authorized(self) -> bool:
+        token = self.headers.get("Authorization", "")
+        return bool(DASHBOARD_KEY) and hmac.compare_digest(token, f"Bearer {DASHBOARD_KEY}")
+
     def body(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0"))
         if length > 100_000: raise BinanceError("Request body is too large.", 413)
@@ -237,7 +242,9 @@ class Handler(BaseHTTPRequestHandler):
             raw = DASHBOARD_HTML.encode()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(raw))); self.end_headers(); return self.wfile.write(raw)
         if parsed.path == "/health": return self.json(200, {"ok": True, "environment": ENVIRONMENT, "mode": MODE})
-        if not self.authorized(): return self.json(401, {"error": "Unauthorized"})
+        if parsed.path in ("/v1/dashboard",) or parsed.path.startswith("/v1/orders/"):
+            if not (self.dashboard_authorized() or self.authorized()): return self.json(401, {"error": "Unauthorized"})
+        elif not self.authorized(): return self.json(401, {"error": "Unauthorized"})
         query = urllib.parse.parse_qs(parsed.query)
         try:
             if parsed.path == "/v1/dashboard": return self.json(200, ENGINE.dashboard())
@@ -255,7 +262,8 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as error: logging.exception("request failed"); return self.json(502, {"error": type(error).__name__})
 
     def do_POST(self) -> None:
-        if not self.authorized(): return self.json(401, {"error": "Unauthorized"})
+        if self.client_address[0] not in ("127.0.0.1", "::1") or not self.authorized():
+            return self.json(403, {"error": "Write endpoints are local-only."})
         try:
             if self.path == "/v1/orders":
                 order, duplicate = ENGINE.submit(self.body())
