@@ -1,5 +1,42 @@
 export type KlineRow = Array<string | number>;
 
+export type IndicatorPoint = { time: number; value: number };
+
+function closes(rows: KlineRow[]) {
+  return rows.map((row) => ({ time: Number(row[0]), value: Number(row[4]) })).filter((point) => Number.isFinite(point.time) && Number.isFinite(point.value));
+}
+
+export function sma(rows: KlineRow[], period: number): IndicatorPoint[] {
+  if (!Number.isInteger(period) || period < 1) return [];
+  const points = closes(rows); const result: IndicatorPoint[] = []; let sum = 0;
+  for (let index = 0; index < points.length; index++) {
+    sum += points[index].value;
+    if (index >= period) sum -= points[index - period].value;
+    if (index >= period - 1) result.push({ time: points[index].time, value: sum / period });
+  }
+  return result;
+}
+
+export function ema(rows: KlineRow[], period: number): IndicatorPoint[] {
+  if (!Number.isInteger(period) || period < 1) return [];
+  const points = closes(rows); if (points.length < period) return [];
+  const multiplier = 2 / (period + 1); let value = points.slice(0, period).reduce((sum, point) => sum + point.value, 0) / period;
+  const result = [{ time: points[period - 1].time, value }];
+  for (let index = period; index < points.length; index++) { value = (points[index].value - value) * multiplier + value; result.push({ time: points[index].time, value }); }
+  return result;
+}
+
+export function bollinger(rows: KlineRow[], period = 20, deviations = 2) {
+  if (!Number.isInteger(period) || period < 1 || !Number.isFinite(deviations)) return { middle: [], upper: [], lower: [] };
+  const points = closes(rows); const middle: IndicatorPoint[] = []; const upper: IndicatorPoint[] = []; const lower: IndicatorPoint[] = [];
+  for (let index = period - 1; index < points.length; index++) {
+    const window = points.slice(index - period + 1, index + 1); const average = window.reduce((sum, point) => sum + point.value, 0) / period;
+    const deviation = Math.sqrt(window.reduce((sum, point) => sum + (point.value - average) ** 2, 0) / period);
+    middle.push({ time: points[index].time, value: average }); upper.push({ time: points[index].time, value: average + deviations * deviation }); lower.push({ time: points[index].time, value: average - deviations * deviation });
+  }
+  return { middle, upper, lower };
+}
+
 export function aggregateKlines<T extends KlineRow>(rows: T[], intervalMs: number): T[] {
   if (!rows.length || !Number.isFinite(intervalMs) || intervalMs <= 0) return rows;
   const grouped: T[] = [];

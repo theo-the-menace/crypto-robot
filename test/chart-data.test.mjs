@@ -1,10 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateKlines, appendedPointCount, chartTickSpacing, fillSecondRows, fixedTimeTickIndices, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
+import { aggregateKlines, appendedPointCount, bollinger, chartTickSpacing, ema, fillSecondRows, fixedTimeTickIndices, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, sma, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
 
 test('aggregates one-minute rows into display intervals', () => {
   const rows = [[0, 10, 12, 9, 11, 2, 59_999, 20], [60_000, 11, 13, 10, 12, 3, 119_999, 36], [300_000, 12, 14, 11, 13, 4, 359_999, 52]];
   assert.deepEqual(aggregateKlines(rows, 300_000), [[0, 10, 13, 9, 12, 5, 59_999, 56], [300_000, 12, 14, 11, 13, 4, 359_999, 52]]);
+});
+
+test('calculates moving averages and Bollinger bands from close prices', () => {
+  const rows = [[1, 0, 0, 0, 1], [2, 0, 0, 0, 2], [3, 0, 0, 0, 3], [4, 0, 0, 0, 4]];
+  assert.deepEqual(sma(rows, 2), [{ time: 2, value: 1.5 }, { time: 3, value: 2.5 }, { time: 4, value: 3.5 }]);
+  assert.deepEqual(ema(rows, 2).map((point) => ({ time: point.time, value: Number(point.value.toFixed(3)) })), [{ time: 2, value: 1.5 }, { time: 3, value: 2.5 }, { time: 4, value: 3.5 }]);
+  assert.deepEqual(bollinger(rows, 2, 1).middle, sma(rows, 2));
+  assert.equal(Number(bollinger(rows, 2, 1).upper[0].value.toFixed(3)), 2);
+  assert.equal(Number(bollinger(rows, 2, 1).lower[0].value.toFixed(3)), 1);
 });
 
 test('merges older pages and live candles without sorting or duplicates', () => {

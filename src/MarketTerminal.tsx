@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AreaSeries, CandlestickSeries, ColorType, createChart, HistogramSeries, TickMarkType } from "lightweight-charts";
+import { AreaSeries, CandlestickSeries, ColorType, createChart, HistogramSeries, LineSeries, TickMarkType } from "lightweight-charts";
+import { bollinger, ema, sma, type IndicatorPoint } from "./chart-data";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
 type Funding = { lastFundingRate?: string; nextFundingTime?: number; markPrice?: string; indexPrice?: string };
 type Line = { kind: "input" | "output" | "error"; text: string };
 type Dashboard = { service: { environment: string; mode: string; healthy: boolean }; strategies: Array<{ name: string; status: string; symbol: string }>; recentOrders: Array<{ state: string; symbol: string; client_order_id: string }>; risk: { allowedSymbols: string[]; maxOrderUsdt: number }; orders: { unknown: number } };
+type IndicatorName = "ma7" | "ma25" | "ma60" | "ma99" | "ema200" | "ema21" | "bb";
 
 const BASE = __DASHBOARD_API_URL__;
 const MARKET_BASE = "/api";
@@ -15,6 +17,7 @@ const cacheKey = (interval: string) => `crypto-robot-btcusd-perp-v4-${interval}`
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
 const cached = (interval: string): Candle[] => { try { return JSON.parse(localStorage.getItem(cacheKey(interval)) || "[]"); } catch { return []; } };
+const rows = (candles: Candle[]) => candles.map((item) => [item.time, item.open, item.high, item.low, item.close, item.volume, item.time + 59_999, item.quoteVolume]);
 const chinaTime = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const formatChinaTime = (time: number) => {
   const parts = Object.fromEntries(chinaTime.formatToParts(new Date(time * 1000)).map((part) => [part.type, part.value]));
@@ -28,11 +31,12 @@ const formatChinaTick = (time: number, type: TickMarkType) => {
   return `${parts.hour}:${parts.minute}`;
 };
 
-function Chart({ candles, loadOlder, resetViewport, line }: { candles: Candle[]; loadOlder: () => Promise<void>; resetViewport: boolean; line: boolean }) {
+function Chart({ candles, loadOlder, resetViewport, line, indicators }: { candles: Candle[]; loadOlder: () => Promise<void>; resetViewport: boolean; line: boolean; indicators: Record<string, IndicatorPoint[]> }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<any>(null);
   const series = useRef<any>(null);
   const volume = useRef<any>(null);
+  const overlays = useRef<Record<string, any>>({});
   const previous = useRef<Candle[]>([]);
   const loading = useRef(false);
   const resetApplied = useRef(false);
@@ -43,6 +47,8 @@ function Chart({ candles, loadOlder, resetViewport, line }: { candles: Candle[];
     series.current = line ? chart.current.addSeries(AreaSeries, { lineColor: "#f6c945", topColor: "#f6c94566", bottomColor: "#f6c94500", lineWidth: 2 }) : chart.current.addSeries(CandlestickSeries, { upColor: "#39c58a", downColor: "#ef6672", borderVisible: false, wickUpColor: "#39c58a", wickDownColor: "#ef6672" });
     volume.current = chart.current.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "" });
     volume.current.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    const colors: Record<string, string> = { ma7: "#f6c945", ma25: "#58a6ff", ma60: "#c678dd", ma99: "#f08c46", ema200: "#f97316", ema21: "#22c55e", bbMiddle: "#aab6c5", bbUpper: "#64748b", bbLower: "#64748b" };
+    for (const [name, color] of Object.entries(colors)) overlays.current[name] = chart.current.addSeries(LineSeries, { color, lineWidth: name.startsWith("bb") ? 1 : 2, lineStyle: name === "bbMiddle" ? 0 : 2, lastValueVisible: false, priceLineVisible: false });
     return () => chart.current?.remove();
   }, []);
 
@@ -66,6 +72,10 @@ function Chart({ candles, loadOlder, resetViewport, line }: { candles: Candle[];
     previous.current = candles;
   }, [candles, resetViewport, line]);
 
+  useLayoutEffect(() => {
+    for (const [name, series] of Object.entries(overlays.current)) series.setData((indicators[name] || []).map((point) => ({ time: Math.floor(point.time / 1000) as any, value: point.value })));
+  }, [indicators]);
+
   useEffect(() => {
     const scale = chart.current?.timeScale();
     if (!scale) return;
@@ -85,6 +95,9 @@ export function MarketTerminal() {
   const [interval, setIntervalValue] = useState(() => localStorage.getItem("crypto-robot-interval") || "5m");
   const [candles, setCandles] = useState<Candle[]>(() => cached(localStorage.getItem("crypto-robot-interval") || "5m"));
   const [funding, setFunding] = useState<Funding | null>(null);
+  const [daily, setDaily] = useState<Candle[]>([]);
+  const [weekly, setWeekly] = useState<Candle[]>([]);
+  const [enabled, setEnabled] = useState<Record<IndicatorName, boolean>>({ ma7: true, ma25: true, ma60: false, ma99: false, ema200: true, ema21: true, bb: false });
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [command, setCommand] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
@@ -127,6 +140,11 @@ export function MarketTerminal() {
   }, [history, loadOlder]);
 
   useEffect(() => {
+    const loadReference = async (value: "1d" | "1w", setValue: (rows: Candle[]) => void) => { try { const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&interval=${value}&limit=5000`, { cache: "no-store" }); if (response.ok) setValue((await response.json()).klines.map(parseRow)); } catch {} };
+    void loadReference("1d", setDaily); void loadReference("1w", setWeekly);
+  }, []);
+
+  useEffect(() => {
     const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding?symbol=BTCUSD_PERP`, { cache: "no-store" }); if (response.ok) setFunding((await response.json()).premium || null); } catch {} };
     void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
   }, []);
@@ -153,5 +171,8 @@ export function MarketTerminal() {
 
   const fundingRate = Number(funding?.lastFundingRate);
   const nextFunding = funding?.nextFundingTime ? new Date(funding.nextFundingTime).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : "--:--";
-  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => setIntervalValue(item.value)}>{item.label}</button>)}</nav><Chart key={interval} candles={candles} loadOlder={loadOlder} resetViewport={true} line={interval === "time"} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()}><div className="output">{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} /></form></section></main>;
+  const bb = bollinger(rows(candles));
+  const indicators: Record<string, IndicatorPoint[]> = { ma7: enabled.ma7 ? sma(rows(candles), 7) : [], ma25: enabled.ma25 ? sma(rows(candles), 25) : [], ma60: enabled.ma60 ? sma(rows(candles), 60) : [], ma99: enabled.ma99 ? sma(rows(candles), 99) : [], ema200: enabled.ema200 ? ema(rows(daily), 200) : [], ema21: enabled.ema21 ? ema(rows(weekly), 21) : [], bbMiddle: enabled.bb ? bb.middle : [], bbUpper: enabled.bb ? bb.upper : [], bbLower: enabled.bb ? bb.lower : [] };
+  const toggle = (name: IndicatorName) => setEnabled((current) => ({ ...current, [name]: !current[name] }));
+  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => setIntervalValue(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav><Chart key={interval} candles={candles} loadOlder={loadOlder} resetViewport={true} line={interval === "time"} indicators={indicators} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()}><div className="output">{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} /></form></section></main>;
 }
