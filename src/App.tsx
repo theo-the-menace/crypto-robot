@@ -3726,10 +3726,7 @@ export function App() {
   const [candles, setCandles] = useState<CoinMCandle[]>([]);
   const [interval, setIntervalValue] = useState("5m");
   const [command, setCommand] = useState("");
-  const [lines, setLines] = useState<TerminalLine[]>([
-    { kind: "output", text: "Crypto Robot terminal · read-only mode" },
-    { kind: "output", text: "Type help for commands." },
-  ]);
+  const [lines, setLines] = useState<TerminalLine[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const base = __DASHBOARD_API_URL__;
   const token = () => window.localStorage.getItem("crypto-robot-dashboard-token") || "";
@@ -3748,7 +3745,8 @@ export function App() {
       setDashboard(state);
       setCandles(market.klines.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) })));
     } catch (error) {
-      setLines((current) => [...current.slice(-80), { kind: "error", text: error instanceof Error ? error.message : "remote server unavailable" }]);
+      const message = error instanceof Error ? error.message : "remote server unavailable";
+      setLines((current) => current.at(-1)?.text === message ? current : [...current.slice(-80), { kind: "error", text: message }]);
     }
   }, [base, interval]);
   useEffect(() => { void refresh(); const timer = window.setInterval(refresh, 5000); return () => window.clearInterval(timer); }, [refresh]);
@@ -3758,9 +3756,14 @@ export function App() {
     const next = [...lines, { kind: "input" as const, text: `$ ${value}` }];
     const [name, ...args] = value.toLowerCase().split(/\s+/);
     try {
-      if (name === "help") next.push({ kind: "output", text: "status · strategies · orders · risk · refresh · interval 1m|5m|15m|1h|4h|1d · clear" });
+      if (name === "help") next.push({ kind: "output", text: "status · strategies · orders · risk · refresh · connect · token <dashboard-token> · interval 1m|5m|15m|1h|4h|1d · clear" });
       else if (name === "clear") next.splice(0, next.length);
-      else if (name === "refresh") { await refresh(); next.push({ kind: "output", text: "state refreshed" }); }
+      else if (name === "token") {
+        const value = args.join(" ");
+        if (!value) next.push({ kind: "error", text: "usage: token <dashboard-token>" });
+        else { window.localStorage.setItem("crypto-robot-dashboard-token", value); await refresh(); next.push({ kind: "output", text: "dashboard token saved" }); }
+      }
+      else if (name === "refresh" || name === "connect") { await refresh(); next.push({ kind: "output", text: "state refreshed" }); }
       else if (name === "interval" && ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"].includes(args[0])) { setIntervalValue(args[0]); next.push({ kind: "output", text: `chart interval: ${args[0]}` }); }
       else if (!dashboard) next.push({ kind: "error", text: "no dashboard state; run refresh" });
       else if (name === "status") next.push({ kind: "output", text: `${dashboard.service.environment} · ${dashboard.service.mode} · ${dashboard.service.healthy ? "healthy" : "offline"}` });
@@ -3771,5 +3774,5 @@ export function App() {
     } catch (error) { next.push({ kind: "error", text: error instanceof Error ? error.message : "command failed" }); }
     setLines(next.slice(-100)); setCommand("");
   };
-  return <main className="terminal-app"><header className="terminal-header"><div><span className="terminal-kicker">CRYPTO ROBOT / MARKET OPS</span><h1>BTCUSD_PERP</h1></div><div className="terminal-status"><i className={dashboard?.service.healthy ? "online" : "offline"} />{dashboard?.service.mode || "connecting"}<span>server</span></div></header><section className="terminal-chart-panel"><div className="terminal-chart-toolbar"><span>COIN-M · Binance Testnet</span><nav>{["1m", "5m", "15m", "1h", "4h", "1d"].map((item) => <button className={interval === item ? "active" : ""} key={item} onClick={() => setIntervalValue(item)}>{item}</button>)}</nav></div><LightweightBtcChart candles={candles} /></section><section className="terminal-shell" onClick={() => inputRef.current?.focus()}><div className="terminal-bar"><span>COMMAND CONSOLE</span><span>{dashboard ? `${dashboard.strategies.length} strategies · ${dashboard.orders.unknown} unknown orders` : "disconnected"}</span></div><div className="terminal-output">{lines.map((line, index) => <pre className={line.kind} key={`${index}-${line.text}`}>{line.text}</pre>)}</div><form className="terminal-input" onSubmit={(event) => { event.preventDefault(); void execute(); }}><span>$</span><input ref={inputRef} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} aria-label="Terminal command" /></form></section></main>;
+  return <main className="terminal-app"><section className="terminal-chart-panel"><div className="terminal-chart-toolbar"><nav>{["1m", "5m", "15m", "1h", "4h", "1d"].map((item) => <button className={interval === item ? "active" : ""} key={item} onClick={() => setIntervalValue(item)}>{item}</button>)}</nav></div><LightweightBtcChart candles={candles} /></section><section className="terminal-shell" onClick={() => inputRef.current?.focus()}><div className="terminal-output">{lines.map((line, index) => <pre className={line.kind} key={`${index}-${line.text}`}>{line.text}</pre>)}</div><form className="terminal-input" onSubmit={(event) => { event.preventDefault(); void execute(); }}><span>$</span><input ref={inputRef} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} aria-label="Terminal command" /></form></section></main>;
 }
