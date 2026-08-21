@@ -24,6 +24,8 @@ Production Binance writes belong to the standalone execution service in `executi
 
 The local frontend uses the server dashboard API at `http://43.163.91.179:8888`. Set `VITE_DASHBOARD_API_URL` for another address and provide the dashboard token at runtime; never place Binance credentials in frontend code.
 
+For local development, the React/Vite frontend listens on `127.0.0.1:8888` and the local Node API listens on `127.0.0.1:8889`; Vite proxies `/api` to the Node API.
+
 Wallet-routing experiments are Testnet-only in `execution/scenario_simulator.py`. They model USDT wallet transfers, close simulated COIN-M positions before returning collateral, and generate a dry-run COIN-M market-order draft for the requested 20x one-second momentum scenario. The unrestricted scenario is explicitly rejected outside Testnet and never submits a live order.
 
 ```bash

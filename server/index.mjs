@@ -7,7 +7,7 @@ import { EmergencyPolicy } from '../src/emergency-policy.mjs';
 import { analysisMessages, isTradeCommand, validImageDataUrl } from './market-context.mjs';
 import { requestedOrderBookRange } from './order-book-context.mjs';
 
-const port = Number(process.env.CRYPTO_AGENT_API_PORT || 5451);
+const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
 const liveTradingEnabled = environment === 'live' && process.env.BINANCE_LIVE_TRADING === 'true';
 const symbolConfig = (process.env.BINANCE_SYMBOLS || 'BTCUSDT,ETHUSDT').trim();
