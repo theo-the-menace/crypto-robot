@@ -90,6 +90,26 @@ async function coinMSnapshot({ symbol = 'BTCUSD_PERP', startTime, endTime, limit
   return { syncedAt: Date.now(), symbol, account, positions, trades, income, openOrders, orders };
 }
 
+function startOfTodayChina(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(now).map((part) => [part.type, part.value]));
+  return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) - 8 * 60 * 60_000;
+}
+
+async function todayCoinMFees({ symbol = 'BTCUSD_PERP' } = {}) {
+  if (!configured) throw new BinanceApiError('Configure Binance credentials before reading COIN-M fees.', { status: 503 });
+  const startTime = startOfTodayChina();
+  const endTime = Date.now();
+  const [income, premium] = await Promise.all([coinm.income({ symbol, startTime, endTime, limit: 1000 }), coinm.premiumIndex(symbol)]);
+  const rows = (Array.isArray(income) ? income : []).filter((item) => ['REALIZED_PNL', 'COMMISSION'].includes(item.incomeType));
+  const byAsset = {};
+  for (const item of rows) byAsset[item.asset] = (byAsset[item.asset] || 0) + Number(item.income || 0);
+  const markPrice = Number(Array.isArray(premium) ? premium[0]?.markPrice : premium?.markPrice);
+  const baseAsset = symbol.replace(/USD(?:_PERP)?$/, '');
+  const prices = Object.fromEntries(Object.keys(byAsset).map((asset) => [asset, asset === 'USDT' ? 1 : asset === baseAsset ? markPrice : null]));
+  const totalUsdt = Object.entries(byAsset).reduce((sum, [asset, amount]) => sum + (prices[asset] == null ? 0 : amount * prices[asset]), 0);
+  return { symbol, startTime, endTime, markPrice, income: rows, byAsset, prices, totalUsdt, unpricedAssets: Object.keys(byAsset).filter((asset) => prices[asset] == null) };
+}
+
 let assetCache = null;
 let assetCacheAt = 0;
 async function assetSnapshot() {
@@ -456,6 +476,11 @@ export function createCryptoServer() {
         if (!symbol || (symbol !== 'BTCUSD_PERP' && !symbolAllowed(symbol))) return sendJson(response, 400, { error: 'Symbol is not allowed.' });
         if ([startTime, endTime].some((value) => value !== undefined && (!Number.isFinite(value) || value <= 0))) return sendJson(response, 400, { error: 'Time range is not valid.' });
         return sendJson(response, 200, await coinMSnapshot({ symbol, startTime, endTime, limit }));
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/coinm/today-fees')) {
+        const symbol = new URL(request.url, 'http://localhost').searchParams.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
+        if (!symbol || (symbol !== 'BTCUSD_PERP' && !symbolAllowed(symbol))) return sendJson(response, 400, { error: 'Symbol is not allowed.' });
+        return sendJson(response, 200, await todayCoinMFees({ symbol }));
       }
       if (request.method === 'GET' && request.url === '/api/margin/account') {
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before reading Margin.' });

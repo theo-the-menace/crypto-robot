@@ -202,7 +202,7 @@ export function MarketTerminal() {
     void loadReference("1d", setDaily); void loadReference("1w", setWeekly);
   }, []);
   const refreshCoinm = useCallback(async () => { try { const response = await fetch(`${MARKET_BASE}/coinm/snapshot?symbol=BTCUSD_PERP&limit=100`, { cache: "no-store" }); if (response.ok) { setCoinm(await response.json()); return true; } } catch {} return false; }, []);
-  useEffect(() => { void refreshCoinm(); const timer = setInterval(() => { void refreshCoinm(); }, 2_000); return () => clearInterval(timer); }, [refreshCoinm]);
+  useEffect(() => { void refreshCoinm(); const timer = setInterval(() => { void refreshCoinm(); }, 1_000); return () => clearInterval(timer); }, [refreshCoinm]);
 
   useEffect(() => {
     const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding?symbol=BTCUSD_PERP`, { cache: "no-store" }); if (response.ok) setFunding((await response.json()).premium || null); } catch {} };
@@ -221,8 +221,12 @@ export function MarketTerminal() {
     const value = command.trim(); if (!value) return;
     const next: Line[] = [...lines, { kind: "input", text: `$ ${value}` }]; const [name, arg] = value.toLowerCase().split(/\s+/);
     if (name === "clear") next.splice(0);
-    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ncoinm-orders\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w|1M>\nclear" });
+    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees | today's fees\ncoinm-orders\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w|1M>\nclear" });
     else if (name === "sync") { next.push({ kind: "output", text: "syncing COIN-M..." }); void refreshCoinm().then((ok) => setLines((current) => [...current, { kind: (ok ? "output" : "error") as Line["kind"], text: ok ? "COIN-M synced" : "COIN-M sync failed" }].slice(-100))); }
+    else if (name === "today-fees" || name === "todays-fees" || name === "today-fee" || name === "今日手续费" || ((name === "today" || name === "today's" || name === "today’s") && arg === "fees")) {
+      next.push({ kind: "output", text: "loading today's COIN-M fees..." });
+      void fetch(`${MARKET_BASE}/coinm/today-fees?symbol=BTCUSD_PERP`, { cache: "no-store" }).then(async (response) => { if (!response.ok) throw new Error(`fees failed (${response.status})`); return response.json(); }).then((data) => { const detail = Object.entries(data.byAsset || {}).map(([asset, amount]) => `${asset}: ${Number(amount).toFixed(8)} × ${data.prices?.[asset] ?? "?"} = ${data.prices?.[asset] == null ? "unpriced" : (Number(amount) * Number(data.prices[asset])).toFixed(4)} USDT`).join("\n"); setLines((current) => [...current, { kind: "output" as Line["kind"], text: `today ${data.symbol} realized pnl + commission\n${detail || "no realized pnl or commission"}\ntotal: ${Number(data.totalUsdt || 0).toFixed(4)} USDT${data.unpricedAssets?.length ? `\nunpriced: ${data.unpricedAssets.join(", ")}` : ""}` }].slice(-100)); }).catch((error) => setLines((current) => [...current, { kind: "error" as Line["kind"], text: error instanceof Error ? error.message : "today fees unavailable" }].slice(-100)));
+    }
     else if (name === "status") next.push({ kind: "output", text: dashboard ? `${dashboard.service.environment} · ${dashboard.service.mode} · ${dashboard.service.healthy ? "healthy" : "offline"}` : "connecting" });
     else if (name === "strategies") next.push({ kind: "output", text: dashboard?.strategies.length ? dashboard.strategies.map((item) => `${item.status.padEnd(10)} ${item.symbol.padEnd(12)} ${item.name}`).join("\n") : "no active strategies" });
     else if (name === "orders") next.push({ kind: "output", text: dashboard?.recentOrders.length ? dashboard.recentOrders.map((item) => `${item.state.padEnd(18)} ${item.symbol} ${item.client_order_id}`).join("\n") : "no recent orders" });

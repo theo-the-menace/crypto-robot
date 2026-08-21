@@ -122,6 +122,7 @@ export function createBinanceCoinMClient({ apiKey, secretKey, environment = 'tes
     income: (params = {}) => request('GET', '/dapi/v1/income', { limit: 1000, ...params }, true),
     openOrders: (symbol) => request('GET', '/dapi/v1/openOrders', symbol ? { symbol } : {}, true),
     allOrders: (symbol, limit = 100) => request('GET', '/dapi/v1/allOrders', { symbol, limit }, true),
+    premiumIndex: (symbol) => request('GET', '/dapi/v1/premiumIndex', symbol ? { symbol } : {}),
   };
 }
 
