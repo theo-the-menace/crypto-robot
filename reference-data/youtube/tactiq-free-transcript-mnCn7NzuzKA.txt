@@ -1,0 +1,904 @@
+# tactiq.io free youtube transcript
+# Bitcoin: Dubious Speculation
+# https://www.youtube.com/watch/mnCn7NzuzKA
+
+00:00:00.880 Hey everyone and thanks for jumping back
+00:00:02.639 into the cryptoverse.
+00:00:04.799 Today we're going to talk about Bitcoin
+00:00:07.520 dubious speculation. If you guys like
+00:00:09.760 the content, make sure you subscribe to
+00:00:11.519 the channel, give the video a thumbs up,
+00:00:13.040 and also check out the sale on into the
+00:00:15.200 cryptoverse premium at into the
+00:00:17.119 cryptoverse.com.
+00:00:19.199 And hopefully you've already gotten your
+00:00:21.279 ticket for the ITC conference. But if
+00:00:23.199 you have not, I would encourage you to
+00:00:24.960 do so before September 1st. Prices will
+00:00:27.199 go up then. uh you can find a link to
+00:00:29.279 that in the description below. Now, in
+00:00:32.558 this video, we're going to sort of take
+00:00:34.079 in what's happened and and talk about it
+00:00:36.960 in the context of history. Now, one of
+00:00:39.600 the things that I've said probably about
+00:00:42.239 every week in the second half of the
+00:00:44.079 midterm year is that the correct
+00:00:46.719 approach in my opinion is to DCA Bitcoin
+00:00:50.399 in the second half of the midterm year.
+00:00:53.039 And I put out a video a couple of months
+00:00:55.120 ago around the low called Bitcoin
+00:00:57.760 Dynamic DCA, how I navigate crypto. I
+00:01:00.640 would encourage you to go watch that
+00:01:02.239 video. But in that video, I talk about
+00:01:05.119 how I this cycle am planning on buying
+00:01:09.200 Bitcoin under.3 risk starting in the
+00:01:12.560 second half of the midterm year. And if
+00:01:15.840 you go check in with that risk metric,
+00:01:18.640 you can see we actually did go below.3
+00:01:20.799 risk in the second half of midterm year
+00:01:23.439 in early July, late June, early July. So
+00:01:27.759 fortunately
+00:01:29.680 that strategy of DCAing worked but
+00:01:34.000 admittedly right admittedly I would not
+00:01:36.720 have fully deployed everything I would
+00:01:39.439 theoretically want to for a full-on bull
+00:01:42.960 market that would hopefully last a
+00:01:45.520 number of years. So, I want to talk
+00:01:47.280 about that and I I sort of just want to
+00:01:49.439 talk about the way I'm thinking of it
+00:01:51.200 and then strategies and kind of like
+00:01:53.439 looking at the past to see if what's
+00:01:55.280 happening now is confirmation that the
+00:01:59.840 low is in or if there's still a reason
+00:02:03.759 to to think otherwise. So, let's go
+00:02:06.719 ahead and jump in. Um,
+00:02:10.239 so far Bitcoin has spent very limited
+00:02:12.800 time below.3 risk, which is kind of my
+00:02:16.720 ideal zone. If you're not familiar with
+00:02:20.720 how I've operated the last several
+00:02:22.640 cycles and all this stuff is, you know,
+00:02:24.560 pub been published before on YouTube and
+00:02:26.319 you can go find it. But in the 2018,
+00:02:30.239 2019, 2020 cycle, I DCA Bitcoin below
+00:02:34.720 0.5 risk. And then last cycle I chose to
+00:02:39.360 buy it below 0.4 risk. And then I said
+00:02:43.040 this cycle my plan is to buy it below.3
+00:02:46.959 risk. Now you don't have to copy me,
+00:02:50.400 right? You could buy it at whatever
+00:02:52.319 levels you want to. I'm just being open
+00:02:54.720 and communicating the levels that I am
+00:02:57.840 interested in purchasing Bitcoin. And
+00:03:00.000 for me, for this cycle, it's below.3
+00:03:02.560 risk starting in the second half of the
+00:03:04.400 midterm year. So far, this is all we
+00:03:07.360 got, right? I mean, basically, starting
+00:03:09.680 on July 1st, we only had
+00:03:15.440 like three, four, about four, maybe
+00:03:19.200 five, five days below.3 risk. Five days.
+00:03:25.280 So, then the question is is, you know,
+00:03:27.680 what's going to happen from here? And
+00:03:29.040 and is what we're seeing indicative of a
+00:03:32.480 low? Have we seen it before? and and it
+00:03:34.959 is somewhat confusing admittedly. There
+00:03:38.159 are indicators that would support that
+00:03:40.799 would be more in support of the low
+00:03:42.400 being in and then others that would
+00:03:45.200 still leave it somewhat up in the air.
+00:03:47.519 Now, the argument to make for a low
+00:03:51.040 being in despite the onchain indicators
+00:03:54.400 not all fully having reset is that we
+00:03:56.879 topped on apathy rather than euphoria.
+00:03:59.760 So then the question becomes, do we have
+00:04:02.000 to fully reset? Right? If we didn't go
+00:04:04.319 all the way to the highs, do we have to
+00:04:06.879 go all the way to the lows? It's a
+00:04:09.439 reasonable question to ask.
+00:04:12.239 At this point, we only have one example
+00:04:15.599 where Bitcoin topped on apathy, and that
+00:04:18.798 was 2019. So, we're going to look a
+00:04:20.880 little bit at 2019 in this video. So,
+00:04:24.960 every time I make a video for the last
+00:04:27.040 several years comparing, you know, the
+00:04:29.759 the type of cycle that we were in back
+00:04:31.680 to the 2019 move, there's always been a
+00:04:34.000 lot of push back, right? It was because
+00:04:35.759 why are you comparing 2019 to, you know,
+00:04:38.960 to 2023? Why are you comparing it to
+00:04:40.800 2024? Why are you comparing it to 2025?
+00:04:43.440 Why do you compare it? And and so before
+00:04:46.240 we get into the video, I have to at
+00:04:48.240 least spend a couple of minutes making
+00:04:50.080 the case for why we should compare it.
+00:04:53.600 Okay, for why? And there's there's
+00:04:57.280 multiple reasons. Okay, number one is
+00:05:02.320 Bitcoin when it topped there was not a
+00:05:06.080 euphoric rally. There was not a euphoric
+00:05:08.560 rally, meaning there was no rotation
+00:05:10.960 after the euphoric rally into altcoins.
+00:05:13.520 One way to visualize
+00:05:16.160 there there not being a euphoric rally
+00:05:17.919 is look at the MVRVZ score in 2019 and
+00:05:21.759 in 2024 2025. You see how it didn't
+00:05:24.800 really go all the way up to where it
+00:05:26.240 would normally go. Another example is
+00:05:28.960 the terminal price. If you look at the
+00:05:30.960 terminal price for instance, what you'll
+00:05:33.120 notice is that Bitcoin did not reach the
+00:05:35.919 terminal price during this last bull
+00:05:37.840 market. It also did not reach it in
+00:05:39.919 2019.
+00:05:41.680 Okay? So you you can see what I'm
+00:05:43.199 talking about. But on all the other bull
+00:05:44.400 markets, it did reach the terminal
+00:05:45.840 price. It just didn't reach it in 2019.
+00:05:48.160 And also it did not reach it in 2025.
+00:05:51.919 The other comparison to make for 2025
+00:05:54.880 compared to 2019 is that quantitative
+00:05:58.320 tightening ended in 2025,
+00:06:02.639 2 months after Bitcoin topped. So
+00:06:05.440 Bitcoin topped in October, QT ended in
+00:06:08.319 December. In 2019, Bitcoin topped in
+00:06:12.160 June. QT ended in August. So about two
+00:06:15.440 months. I think back in 2019, it was
+00:06:16.960 closer to like five or six weeks. But
+00:06:18.720 again, two calendar months apart is when
+00:06:21.440 that happened. And when Bitcoin did top
+00:06:23.600 in 2019, like 2025, there was no
+00:06:27.680 rotation into into higher risk assets.
+00:06:31.039 And also another comparison to make is
+00:06:33.039 that in 2019, the Fed cut three separate
+00:06:36.479 times.
+00:06:38.160 And in 2025, the Fed cut three separate
+00:06:41.600 times.
+00:06:43.120 So
+00:06:44.639 there's plenty of comparisons that we
+00:06:48.160 can make to say, look, there is some
+00:06:51.039 reason to make the comparison. And when
+00:06:53.759 you zoom out on the weekly,
+00:06:57.280 when you zoom out on the weekly, what
+00:06:59.520 you'll notice is that this
+00:07:03.360 like what you see here in uh 2018 2019
+00:07:06.720 and then the bounce up and then interest
+00:07:08.319 rates coming down after a major rate
+00:07:10.800 hiking cycle that back there is just a
+00:07:14.240 smaller version of of this cycle, right?
+00:07:16.800 I mean, you can see QT and all that
+00:07:18.880 stuff's doing basically the same thing.
+00:07:20.720 Bitcoin is, you know, had this nice
+00:07:22.560 sell-off right after an apathetic top.
+00:07:25.360 It's more or less following the script,
+00:07:28.639 right? It's more or less following the
+00:07:30.080 same script. It's just a larger version
+00:07:32.400 of it. So, that's a reason to make the
+00:07:36.319 comparison to 2019. But there's other
+00:07:39.440 comparisons to make as well, right? This
+00:07:41.440 is a midterm year, so it makes sense to
+00:07:43.840 also compare to prior midterm years. And
+00:07:46.800 in prior midterm years, did we have
+00:07:49.039 similar rallies like this one? And
+00:07:51.039 that's something that I have to ask
+00:07:52.479 myself. In 2022, was there a rally that
+00:07:57.280 was, you know, upwards of a 20% rally
+00:08:00.240 that happened in a week before the low
+00:08:03.759 was in? Uh, did that happen? Right? And
+00:08:06.720 it's hard to remember that kind of stuff
+00:08:08.800 all these years later. So, we can go
+00:08:10.479 take a look. All right. So, what we're
+00:08:12.240 going to do is we're going to start with
+00:08:14.080 the midterm year comparison and then
+00:08:15.840 we're going to look at the 2019
+00:08:17.039 comparison. Before I go too much
+00:08:19.280 further, you know, I even said this and
+00:08:20.960 if you guys watch these videos, you'll
+00:08:22.240 probably remember me saying it back in
+00:08:24.240 May. I remember telling you guys and and
+00:08:26.639 you know going into June I remember
+00:08:27.840 saying look I've received a lot of hate
+00:08:31.520 in the in the May rally as as in the
+00:08:35.039 January rally and if we go down what I'm
+00:08:38.719 going to say is that that's the that's
+00:08:40.640 the time to start accumulating right
+00:08:42.080 that's the accumulation window doesn't
+00:08:44.080 mean you can't go lower in Q4 and then I
+00:08:46.640 sort of snidly remarked but knowing
+00:08:48.320 myself I'm going to continue to beat
+00:08:50.399 that drum that it just well might
+00:08:52.560 because unfortunately
+00:08:54.399 I can't help myself, right? I I feel
+00:08:56.720 like it's like I'm I'm fixated on on
+00:09:00.880 these things and I I can't help but but
+00:09:04.720 let you guys know, right? And and to say
+00:09:07.120 like you can go buy Bitcoin uh and hope
+00:09:10.320 that it doesn't drop in Q4, but that
+00:09:13.120 doesn't mean I will just conveniently
+00:09:15.279 ignore
+00:09:16.880 what I've seen happen every single
+00:09:19.120 midterm year. Okay? I can't I can't just
+00:09:21.600 pretend like it hasn't happened because
+00:09:23.120 it would make me feel better and and for
+00:09:25.519 people to like me. I I will continue to
+00:09:27.920 at least communicate it. And if it
+00:09:29.839 doesn't play out, life will go on,
+00:09:32.399 right? Life will go on and and you know,
+00:09:34.720 I'll cross that bridge when I get to it.
+00:09:37.360 And I would probably pick up more
+00:09:40.080 Bitcoin at the time regardless of of
+00:09:42.560 whether it actually plays out or not.
+00:09:44.720 So, let's go through and and try to
+00:09:46.720 figure out, you know, has this kind of
+00:09:48.080 stuff happened before? I think the the
+00:09:50.080 first place to start would be 2018
+00:09:52.000 because in 2018 the market structure has
+00:09:54.399 been remarkably similar. And what's
+00:09:57.519 really different about this move
+00:10:00.480 compared to 2018 is that in 2018 we
+00:10:05.440 never really had a major rally above the
+00:10:08.800 200 day moving average. It has happened
+00:10:10.560 in prior bare markets. But in 2018, by
+00:10:14.560 the time we passed through the 200 day
+00:10:16.480 moving average, the bare market was
+00:10:19.040 over, right? Like that was that was it.
+00:10:22.160 And and so the question is is is this
+00:10:25.920 here, right? Is that the same as this?
+00:10:30.320 And then now this move right here is
+00:10:32.880 akin to the move we had in the preh
+00:10:35.040 havinging year.
+00:10:37.360 I I think it's worth some consideration,
+00:10:39.600 right? Like I can't sit here with a
+00:10:40.959 straight face and say that you can at
+00:10:42.399 least consider it. Um which again sort
+00:10:45.200 of affirms why the DCA approach is is
+00:10:47.360 the best approach. That way if it is it
+00:10:50.560 you're at least not just sitting on the
+00:10:52.640 sidelines for the entirety of the next
+00:10:54.160 bull market. Um but with that said with
+00:10:58.160 that said I I want to talk a little bit
+00:11:00.560 about before we get to that I want to
+00:11:02.399 talk a little bit about uh the the 2018
+00:11:05.279 move. Okay. So in 2018, if you ignore
+00:11:09.200 the moving averages, right? If we just
+00:11:10.959 ignore the moving averages and say let's
+00:11:12.640 not worry so much about them and let's
+00:11:15.440 just look at the chart and where the
+00:11:18.640 lows occurred and where the lower highs
+00:11:20.640 occurred. So in 2018, you'll see that we
+00:11:24.000 kept finding support around 6,000 around
+00:11:27.519 6,000 just like this time it was been
+00:11:29.600 it's been around 60,000
+00:11:31.760 very similar. Okay. Now, what what
+00:11:35.120 happened in 2018 is we had a lot of
+00:11:38.320 rallies, but we had three key rallies
+00:11:42.079 that I want that I want us to focus on
+00:11:43.839 here. The first bounce bounced back up
+00:11:46.480 to 116,000. But the reason why that
+00:11:49.200 bounce was so large, then we didn't get
+00:11:50.800 a bounce like this like that this time
+00:11:53.360 is that 11 sorry 11,600. We didn't get
+00:11:57.519 that because we didn't have a euphoric
+00:11:58.959 top, right? We didn't rally all the way
+00:12:00.240 up to 200K to then allow for, you know,
+00:12:03.040 11.6K
+00:12:04.640 or, you know, $116,000
+00:12:07.920 Bitcoin be a dead cat bounce. Okay, it
+00:12:10.320 was more of an apathetic top. But what
+00:12:12.320 you can look at is these three lower
+00:12:16.959 highs. You had one
+00:12:20.480 in the 90s, and if we zoom in, you can
+00:12:23.839 see what I'm talking about, right? So,
+00:12:24.880 we had one there
+00:12:26.959 at basically 10K. Okay.
+00:12:31.760 You had one at
+00:12:34.320 8,500
+00:12:36.480 and then you had one at 7,400.
+00:12:40.320 So what you'll notice is that throughout
+00:12:42.160 the bare market
+00:12:44.639 after this first bounce, right, but just
+00:12:46.800 looking at the nature of the next three,
+00:12:49.040 you had
+00:12:50.800 a top that occurred in the upper 9,000s,
+00:12:53.680 a top that occurred in the mid 8000s,
+00:12:56.240 and a top that occurred in the
+00:12:57.519 mid7,000s.
+00:12:59.680 And I remember that very vividly because
+00:13:04.240 what I was doing back then was I was
+00:13:06.639 buying Bitcoin. I was actually in 2018
+00:13:09.839 in the back half of 2018 that was when I
+00:13:11.680 was defending my uh my thesis my I was
+00:13:13.760 writing my dissertation and defending my
+00:13:15.360 dissertation. I defended my dissertation
+00:13:16.880 in September of 2018 and then I started
+00:13:19.440 my posttock you know shortly thereafter.
+00:13:22.079 Um, but I I despite all that, I still
+00:13:25.680 was watching the markets and what I did
+00:13:28.880 was I I bought Bitcoin and like an
+00:13:31.839 idiot, I bought a lot of altcoins and
+00:13:34.959 because I was I was so convinced, right?
+00:13:36.800 I mean, every single rally just drew me
+00:13:38.720 back in, right? And I I fortunately I
+00:13:40.800 was able to to avoid sort of the first
+00:13:42.320 half of the midterm year, but the second
+00:13:44.560 half these rallies were just they were
+00:13:46.240 so convincing to me and I was like,
+00:13:48.800 &quot;Yeah, like like 6K is probably the
+00:13:50.959 bottom.&quot; and and I hope it is and if
+00:13:52.880 it's not then so be it. And so I, you
+00:13:55.440 know, I bought Bitcoin. I bought a lot
+00:13:57.040 of altcoins and I remember thinking, you
+00:13:59.680 know, a year or two later, like while
+00:14:01.920 the Fed did bail bail me out with the
+00:14:03.680 altcoins that I bought, I remember
+00:14:04.959 thinking like I probably just been
+00:14:05.920 better off sticking with Bitcoin because
+00:14:07.680 if you if you look at Bitcoin dominance
+00:14:10.320 um from the levels, you know, when I was
+00:14:12.959 buying altcoins, Bitcoin dominance was
+00:14:15.440 at around, you know, around I mean it's
+00:14:17.440 basically around the same level that
+00:14:18.720 it's at now. It was around like 60%. And
+00:14:21.279 then a couple of years later, you know,
+00:14:23.839 Bitcoin dominance was way higher, right?
+00:14:26.560 I mean, it was way higher. And I
+00:14:28.240 remember thinking back then like, I
+00:14:29.680 probably should have just stuck with
+00:14:30.959 Bitcoin. Now, I did get lucky with some
+00:14:32.639 of the altcoins. They did do, you know,
+00:14:34.399 some of them did well, but some of them
+00:14:36.320 did well after dropping another 70 or
+00:14:38.959 80% and then they did well. Uh, and then
+00:14:41.199 the Fed bailed me out. So,
+00:14:44.320 I I you know, I I like to think we're a
+00:14:46.240 product product of our experiences. Now
+00:14:48.000 listen, I mean there's always a chance
+00:14:49.760 that this bare market is like 2018 but
+00:14:53.040 without instead of breaking down at the
+00:14:54.959 end, maybe you break up. Okay, that's
+00:14:57.360 always a possibility. But the thing to
+00:15:00.399 kind of consider here is or at least one
+00:15:02.959 of the things to consider is that you
+00:15:04.959 had these three rallies,
+00:15:07.519 upper 9,000s, mid 8,000s, mid7,000s. And
+00:15:12.000 then if you go look at at this bare
+00:15:13.760 market, you can see there's also three
+00:15:16.639 similar rallies, right? One that went
+00:15:18.320 all the way up to near 100k, right?
+00:15:20.320 Upper 90s. The next one that took us to
+00:15:22.959 like the lower to mid 80s, and then the
+00:15:25.360 one that we're currently in, which is in
+00:15:26.880 the mid70s. And so
+00:15:29.760 if I were not looking at the 200 day
+00:15:32.560 moving average, if I were not looking at
+00:15:34.160 the bare market resistance band, I would
+00:15:36.480 simply look at something like this and
+00:15:37.920 say, well, as much as I know everyone
+00:15:40.399 wants the low to be in, there's always a
+00:15:42.160 chance that it's not, right? There's
+00:15:43.760 there's always a chance that it's not
+00:15:45.440 because to say that it couldn't go lower
+00:15:48.399 would be to basically be living through
+00:15:49.920 2018 and saying the same thing. And and
+00:15:52.720 we know that it did go lower a few
+00:15:54.959 months later. And if it feels like we're
+00:15:56.959 too far out in the year for that to play
+00:15:59.440 out, one of the things to consider is
+00:16:02.000 that in 2018, the rally that took us up
+00:16:05.360 to the mid7000s,
+00:16:07.360 that didn't even top until early
+00:16:09.600 September, right? I mean, we're not even
+00:16:11.279 in September yet. And that did not top
+00:16:13.839 until early September.
+00:16:17.040 And then we came back down to 6,000. we
+00:16:20.320 went sideways and then we finally
+00:16:22.639 dropped to the market cycle bottom by
+00:16:24.399 the end of the year. So that's what I
+00:16:27.519 mean when I say there's there's mixed
+00:16:29.120 signals because on one hand I can look
+00:16:32.240 at the 200 day moving average and say
+00:16:34.079 well look I mean you know normally when
+00:16:36.480 we blast through the 200 day moving
+00:16:38.000 average like in 2019 and in 2023
+00:16:42.160 the bare market was behind us but it's
+00:16:45.600 also true that when we did that in those
+00:16:47.279 years those were preh having years that
+00:16:49.360 that happened not midterm years and so
+00:16:52.560 then the question becomes well have we
+00:16:54.639 ever rallied through the 200 day moving
+00:16:56.639 average and the bare market continued
+00:16:58.959 and actually I got into uh I was in a
+00:17:01.680 Twitter space a few months ago and there
+00:17:03.759 were these guys talking about well if
+00:17:05.119 Bitcoin goes above the 200 day moving
+00:17:06.480 average at that point it never goes
+00:17:08.480 below it again in bare markets and back
+00:17:10.799 then I pointed out I was like look
+00:17:13.119 there's always a chance that we go above
+00:17:15.599 the 200 day and we go right back below
+00:17:17.760 it and there is some precedent for it
+00:17:19.839 right it happened in 2014 and it also
+00:17:22.400 happened in 2019 and I know you're
+00:17:23.839 saying well why the hell are you
+00:17:24.799 bringing up 2019 2019. We covered that
+00:17:26.880 at the very beginning of the video. So,
+00:17:28.160 if you skipped ahead, go watch the
+00:17:29.919 reason why to compare to 2019. And then
+00:17:32.240 we're going to look at 2019 as well.
+00:17:33.760 Okay. So, in 2014, honestly, this is not
+00:17:38.000 going to be my favorite comparison
+00:17:39.280 because when the rally above the 200 day
+00:17:40.960 moving average occurred, it occurred a
+00:17:42.640 little earlier in the year and we did
+00:17:44.240 not extend above it as much as we're
+00:17:46.000 extending above it now. So, I'm not a
+00:17:47.840 huge fan of this comparison. back then
+00:17:50.480 we got above the 200 day in May and and
+00:17:53.039 we got back above it in July and then we
+00:17:55.679 were still above it a little bit above
+00:17:57.200 it in in mid August but frankly
+00:18:01.200 this doesn't really look like the
+00:18:02.400 current rally to me I mean it only
+00:18:04.080 barely got above the 200 day moving
+00:18:05.919 average now what's interesting is it is
+00:18:09.039 objectively true that in 2014 we were
+00:18:11.360 above the 200 day moving average in mid
+00:18:13.600 August and it's also true that then
+00:18:15.679 Bitcoin still dropped down to below by
+00:18:18.240 October okay So, we do know that, but it
+00:18:22.559 doesn't look like the same thing to me
+00:18:24.400 because in that case, Bitcoin had been
+00:18:26.480 trending down for a while, whereas we're
+00:18:28.960 still in the, you know, sort of the uh
+00:18:32.320 the up move. Like, we don't know how
+00:18:33.919 high this is going to go before it
+00:18:35.280 retraces some. We don't know. I mean,
+00:18:36.960 maybe we're there now. Maybe it happens
+00:18:38.559 tomorrow uh with the Jackson Hole speech
+00:18:41.200 by, you know, by Kevin Walsh. Maybe it
+00:18:43.679 happens in a week. I I don't know. None
+00:18:45.360 of us know. we're just kind of sitting
+00:18:46.559 here wondering how high this is going to
+00:18:48.080 go before, you know, before it it takes
+00:18:50.400 a breather. Um, so I I wouldn't put a
+00:18:53.039 lot of faith here in the 2014 comparison
+00:18:55.919 because it doesn't really seem like the
+00:18:58.559 best comparison to me. Um, because it
+00:19:01.760 happened much earlier in the midterm
+00:19:03.360 year, the the the rally to the 200 day
+00:19:06.080 to above it and it's already we're
+00:19:08.559 already almost in September. So, it
+00:19:10.799 doesn't feel like the the most
+00:19:12.640 reasonable comparison. And so the only
+00:19:14.799 other example that you have where you
+00:19:17.440 got above the 200 day moving average in
+00:19:19.679 such a short period of time happens to
+00:19:22.320 be October of 2019.
+00:19:26.080 And there there's a couple of
+00:19:27.919 interesting things surrounding it. And I
+00:19:29.679 I just want to show you this move. Okay?
+00:19:32.799 I want to show you this move because we
+00:19:34.080 haven't had a move like this in this
+00:19:35.919 bare market yet. We haven't. um in that
+00:19:39.120 move
+00:19:40.640 and I'll show you why we're looking at
+00:19:42.240 that move from a news standpoint as well
+00:19:45.440 rather than just a price standpoint. So
+00:19:48.160 in that move, if we just look at the
+00:19:50.480 first green candle here, Bitcoin rallied
+00:19:54.960 40%
+00:19:56.480 in 2 days
+00:20:00.160 and
+00:20:01.679 it still somehow managed to go to a new
+00:20:06.720 low 31 days later. And then it set the
+00:20:10.640 floor
+00:20:12.160 54 days later before the rally that led
+00:20:14.799 us out of that bare market. And then of
+00:20:17.039 course the pandemic hit and it reset
+00:20:18.880 everything. But let's suppose the
+00:20:21.039 pandemic didn't happen. Perhaps that
+00:20:23.679 would have been it and we would have
+00:20:24.640 been well on our way to new highs
+00:20:26.559 already. Like we can't know. But it took
+00:20:28.640 about 54 days from the high and you'll
+00:20:31.760 see that Bitcoin rallied well above the
+00:20:34.240 200 day moving average. Okay.
+00:20:37.600 In fact, it rallied about 18% above the
+00:20:41.440 200 day
+00:20:43.840 and then it retraced back to
+00:20:46.400 You see that? Now, what's similar
+00:20:50.559 between October of 2019? I know that the
+00:20:53.760 the comments are going to be absolutely
+00:20:56.000 brutal. You know, they're going to drag
+00:20:57.840 my name through the mud on Twitter for
+00:20:59.440 even talking about this, but why should
+00:21:01.679 today be any different? What's
+00:21:03.280 interesting about October of 2019 and
+00:21:06.400 August of 2026? Well, what's interesting
+00:21:09.919 is that this is this was an apathetic
+00:21:12.960 top. Okay, it was an apathetic top. No
+00:21:16.159 rotation to altcoins. QT had just ended
+00:21:19.039 and it's it was the first rally above
+00:21:21.760 the 200 day moving average. Now, if
+00:21:23.760 you're having a hard time sort of buying
+00:21:25.440 into this idea, the thing to consider is
+00:21:28.640 if the uptrend can take longer than the
+00:21:30.799 2019 uptrend, why can't the downtrend
+00:21:33.679 take a little bit longer than the 2019
+00:21:35.600 downtrend? And so if you think about it
+00:21:39.280 through that lens, this is the first
+00:21:42.240 rally above the 200 day moving average
+00:21:44.480 after falling below it after an
+00:21:47.039 apathetic top. And again, Bitcoin
+00:21:49.679 rallied about 17 to 18% above the 200
+00:21:52.799 day moving average. Let's go see where
+00:21:54.559 we are now. And then we're going to get
+00:21:55.760 into your favorite part of this video,
+00:21:57.760 which will be the news that accompanied
+00:21:59.200 both rallies.
+00:22:01.600 Currently about 10% above it. Now,
+00:22:04.720 obviously, one of the big pieces, one of
+00:22:06.880 the big news stories that happened was
+00:22:09.440 Treasury Secretary Bessant and and their
+00:22:13.440 willingness to try to control the long
+00:22:15.679 end of the yield curve. Okay, so that's
+00:22:18.320 obviously one thing, but another thing
+00:22:23.120 that happened
+00:22:26.080 is that
+00:22:27.919 look at this article on CNBC.
+00:22:31.120 Bitcoin surges 12% in two days as Trump
+00:22:35.120 crypto execs lead last ditch effort for
+00:22:37.520 the Clarity Act. So, President Trump
+00:22:39.760 just came out and they were talking up
+00:22:41.440 crypto, right? Obviously, because the
+00:22:43.840 midterms are coming up, right? I mean,
+00:22:45.440 let's not be let's let's be real. Uh,
+00:22:47.919 but that was the news story that's
+00:22:50.799 accompanying a lot of this is that
+00:22:52.480 there's this pro- crypto, you know, sort
+00:22:55.280 of stance that's taking place and that
+00:22:57.919 is what's being attributed to a lot of
+00:22:59.520 this rally. Now, also you could
+00:23:01.120 attribute other things as well. You
+00:23:02.559 could attribute the the recent drop by
+00:23:04.240 the dollar. You could attribute, you
+00:23:06.320 know, what what um they're trying to do
+00:23:08.240 with the long end of the yield curve. I
+00:23:09.520 mean, even now the long end doesn't
+00:23:12.080 really seem to be responding that much
+00:23:13.520 to it. I mean, the 10-year yield still
+00:23:15.039 at 4.7%. The 30-year yield didn't even
+00:23:18.480 drop that much. I mean, maybe it will,
+00:23:20.400 but it hasn't done that yet. And so,
+00:23:22.799 then the question becomes, well, what
+00:23:25.039 what could we say? Is there a similar
+00:23:27.840 article in October of 2019? Well, it's a
+00:23:30.400 great question and I'm glad you asked it
+00:23:32.000 because in October of 2019, I remember
+00:23:34.880 it distinctly, the 40% rally from the
+00:23:38.480 low that occurred over just a few days
+00:23:40.799 occurred on this headline. Bitcoin, and
+00:23:43.679 this is a CNBC article, same, you know,
+00:23:45.520 same website. Bitcoin had a wild weekend
+00:23:47.679 briefly topping 10,000 um after the
+00:23:51.120 Chinese president uh said that they
+00:23:54.720 should seize the opportunity offered by
+00:23:56.640 blockchain.
+00:23:58.480 China's central bank, the people's bank
+00:24:00.000 of China had been working on its own
+00:24:01.520 digital currency. So basically in 2019
+00:24:04.720 you had China talking up Bitcoin and
+00:24:07.200 then Bitcoin rallied like 40%. And look
+00:24:09.440 at the date, right? Look at the date.
+00:24:10.799 This was October 28th, 2019. And if you
+00:24:13.840 look here, October 28th, that's shortly
+00:24:16.960 after we had this massive rally, right?
+00:24:19.760 And so that was the the main news story
+00:24:22.080 that was attributed to it. And when
+00:24:24.000 Bitcoin had that rally, it it basically
+00:24:26.880 r you see where it broke down from right
+00:24:29.200 here. Bitcoin rallied and it kind of
+00:24:31.520 swept above that high. So then the
+00:24:33.840 question is is like if we're going to
+00:24:35.760 repeat that, that's something to be
+00:24:37.840 mindful of, especially given that it's
+00:24:39.760 the midterm year because you can see
+00:24:41.679 that we just sort of broke down here and
+00:24:43.520 now we've just sort of swept above that
+00:24:45.279 high. Okay, so that is the consideration
+00:24:49.440 to make in terms of the 2019 move. Now,
+00:24:53.679 if you were to take that 2019 move and
+00:24:57.919 say, how long from that high did it take
+00:25:01.520 for the low to occur, excluding the
+00:25:04.320 pandemic, right? We're not here to
+00:25:05.919 speculate on pandemic stuff. It took 53
+00:25:09.360 days. Now, I can't tell you when this
+00:25:11.440 local top's going to occur. I can't. But
+00:25:14.000 let's just suppose it's today. Probably
+00:25:16.480 not, right? I mean, I have no idea. I
+00:25:18.480 can assure you I'm the last person to
+00:25:19.919 ask. Um, but 53 days from August 21st
+00:25:25.760 would coincidentally be
+00:25:30.080 midocctober.
+00:25:32.320 So, it's just u
+00:25:37.039 it's just to try to keep people seeing
+00:25:39.120 both sides of the story here. Okay. Uh,
+00:25:42.159 and you know, maybe you would say it's
+00:25:43.360 like it's a form of coping, but I mean,
+00:25:44.960 I'm not Look, guys, I don't honestly
+00:25:46.960 care so much. I mean, I I've I've bought
+00:25:49.600 a little bit of Bitcoin. Not enough,
+00:25:51.679 right? I mean, arguably not enough for
+00:25:53.039 what I would want for the next bull
+00:25:54.159 market. I'm not going to like lie to
+00:25:55.440 you. Uh I'd like to buy some more before
+00:25:57.520 the next bull market, but you know, this
+00:25:59.760 is this is the sort of the the thing to
+00:26:02.240 to consider is that like what if what if
+00:26:05.039 this is a a sort of a a similar type of
+00:26:07.360 of move here where you're I mean, spread
+00:26:10.240 out, I guess, over a longer period of
+00:26:11.840 time, right? But what if it's a sort of
+00:26:13.919 a similar type of move and you just
+00:26:16.159 simply get one final sell-off into Q4,
+00:26:19.039 the midterm year, bare market, four-year
+00:26:21.440 cycle completes, and the low that ended
+00:26:24.799 up occurring in um you know, in
+00:26:28.480 November, December of 2019 just ends up
+00:26:31.679 being maybe the final low over here.
+00:26:33.520 Again, is it a stretch? Yeah. But if you
+00:26:37.679 watch the whole video, I think you could
+00:26:39.120 at least see how I made that comparison.
+00:26:42.080 Now again,
+00:26:44.159 if you're just looking at the midterm
+00:26:46.000 years, breaking above the 200 day moving
+00:26:48.480 average in the way that we're breaking
+00:26:49.600 above it now historically is a really
+00:26:51.760 bullish thing. So, I'm not here to tell
+00:26:54.720 you that
+00:26:57.039 it it can't be a bullish thing. What I'm
+00:27:00.799 here to say is that
+00:27:03.200 despite
+00:27:05.440 the type of move that we've seen,
+00:27:09.440 if you were to ignore
+00:27:12.480 the moving averages and just look at the
+00:27:15.440 type of move we had in 2019 and the
+00:27:19.039 lower high structure in 2018 where we
+00:27:21.440 went into the 9,000s and then the 8,000s
+00:27:23.600 and the 7,000s and then this time it's
+00:27:26.240 been the 90,000s, the 80,000s and now
+00:27:28.559 the 70,000s, right? To to see it like
+00:27:31.600 that sort of changes the perspective a
+00:27:34.080 bit. I mean, you can look at the chart
+00:27:35.679 and be like, &quot;All right, well, maybe the
+00:27:36.880 low's in.&quot; But there is at least some
+00:27:38.799 evidence to consider, hey, it's not like
+00:27:43.919 this is so clear-cut, right? It's not
+00:27:45.840 like it's such a clear-cut thing. Again,
+00:27:47.440 this is all an academic exercise. It's
+00:27:48.960 much simpler. Just buy Bitcoin every
+00:27:50.400 week and and go live your life rather
+00:27:52.559 than concern yourself with this too
+00:27:54.559 much. But I keep making the videos. You
+00:27:56.720 guys keep tuning in. So, I will I will
+00:27:58.640 be here, right? I I'll still be here to
+00:28:00.240 provide this opinion uh whether people
+00:28:02.000 like it or not. But that's something to
+00:28:04.640 see. And I mean sometime look you have
+00:28:06.480 to go up to go up but sometimes you got
+00:28:08.320 to go up to go down as silly as that
+00:28:10.159 sounds. And then the the other question
+00:28:12.080 is is well did this happen last cycle at
+00:28:14.000 all? Right? I mean was there a time
+00:28:16.240 ignoring the moving averages because
+00:28:17.840 again if you include the moving averages
+00:28:20.480 the answer is no. Right? The answer is
+00:28:22.320 no. When when we were breaking out like
+00:28:23.760 this the low was in ignoring the moving
+00:28:27.279 averages. Was there ever a time where
+00:28:29.360 Bitcoin rallied this amount in such a
+00:28:32.480 short period of time and the low was not
+00:28:34.880 in? And again, this rally from this
+00:28:38.640 green candle here, we just rallied 20%
+00:28:42.880 over 4 days. Did that happen in 2022
+00:28:46.080 before the low was in? Let's go take a
+00:28:48.799 look.
+00:28:50.880 You can see right here
+00:28:53.919 in early September, we had a sizable
+00:28:56.480 rally. How big was it from the low to
+00:28:59.600 the high?
+00:29:01.440 23% over 6 days. So,
+00:29:06.320 it has happened. I bet most of you don't
+00:29:09.760 even remember that rally from 2022.
+00:29:13.840 Honestly, I don't really remember that
+00:29:15.919 rally from 2022. And I was making videos
+00:29:18.399 every day, but I still can't tell you
+00:29:20.960 exactly what I was feeling during that
+00:29:23.279 rally. I remember saying that I think we
+00:29:25.840 were going to go lower in Q4 and I
+00:29:27.919 remember people making videos mocking me
+00:29:30.720 for it. Uh and we had this huge rally
+00:29:34.000 and and then it came right back down.
+00:29:36.399 And what's interesting is if you take
+00:29:39.279 the start of that rally to the actual
+00:29:42.480 low that was 76 day or was it 75
+00:29:47.919 75 days, right? So that'd be a bit
+00:29:50.240 further out. But to the first
+00:29:52.159 capitulation low, it was just 2 months,
+00:29:56.480 63 days, right? About about 63 days from
+00:29:59.840 the start of that rally to essentially
+00:30:02.320 the low of the bare market. We just
+00:30:03.679 swept the low a couple of weeks later.
+00:30:05.440 63 days. Now 63 days from the start of
+00:30:08.799 this rally
+00:30:13.600 puts you in mid-occtober, right?
+00:30:16.720 Midocctober.
+00:30:18.720 Now, if you were to take a bar pattern
+00:30:24.799 onto this chart
+00:30:27.440 and just kind of like overlay it like
+00:30:29.120 that and say, &quot;All right, well, we saw
+00:30:31.679 this big pop by Bitcoin.&quot; Let's just try
+00:30:35.600 to match it up exactly. See this big
+00:30:37.039 pop? and you you sort of bring it to the
+00:30:39.279 current cycle
+00:30:48.559 here. You can see that the type of rally
+00:30:50.960 that it was, right? Like it was just
+00:30:52.240 this massive rally up and then it came
+00:30:56.080 right back down. What I what I think
+00:30:58.000 happens when you get those types of
+00:30:59.360 rallies is you got you have a lot of
+00:31:02.159 people that are all you have a lot of
+00:31:04.559 people that are that are looking at it
+00:31:06.559 saying all right
+00:31:08.880 things seem bearish probably going to
+00:31:10.880 get a low in Q4 right everyone was right
+00:31:14.640 if you anyone in anyone in 2018 who
+00:31:17.120 thought we were going to get a low in Q4
+00:31:18.640 they were right anyone in 2020 2022 who
+00:31:21.840 thought we were going to get low in Q4
+00:31:24.399 they were right I don't talk about
+00:31:26.960 shorting the market. I don't ever short
+00:31:28.880 the market.
+00:31:30.640 I just don't. I mean, think about it.
+00:31:32.080 How many people on the wealthiest people
+00:31:34.640 in the world, they're they're not people
+00:31:35.919 that they're not short sellers. They're
+00:31:37.360 people that are are bullish on their
+00:31:39.919 businesses, right? They're not out there
+00:31:41.279 shorting businesses. Those are the
+00:31:42.640 people that are getting the wealthiest.
+00:31:44.960 I think it's insane to short this stuff.
+00:31:47.760 And this is why I don't talk about it.
+00:31:49.760 But imagine you have a lot of people
+00:31:51.600 thinking that sometimes in order to go
+00:31:55.120 down, you have to go up because the
+00:31:57.840 market will go up. It'll liquidate all
+00:32:00.159 the shorts, get people to FOMO in and
+00:32:03.600 then it goes down. So the counterpoint
+00:32:06.640 is that in order to go up, you also have
+00:32:08.240 to go up. It's just hard to know, you
+00:32:10.159 know, how does it reconcile after going
+00:32:12.080 up? you go up to go down or you just
+00:32:13.760 starting to go up and then you leave
+00:32:15.039 people kind of waiting forever that are
+00:32:17.519 thinking it's it has to go to a new low.
+00:32:19.519 But it's just to show you that even in
+00:32:21.360 2022,
+00:32:22.960 you know, just a month or two before the
+00:32:25.039 final drop, we had a similar type of
+00:32:28.000 rally where we rallied over 20% in just
+00:32:31.600 a few days and and then we gave it all
+00:32:34.000 back very quickly.
+00:32:36.720 So,
+00:32:39.760 the thing is, you know, as much as I'd
+00:32:41.840 like to just sit here uh for the next
+00:32:44.640 several months and and try to find every
+00:32:46.320 reason and whatnot to to be concerned,
+00:32:48.720 you guys see the reasons, right? I mean,
+00:32:50.320 you see the reasons and if by the end of
+00:32:53.519 the year it it nothing like that
+00:32:55.440 happens, life goes on and I will I will
+00:32:58.640 flip bullish and I won't care, right? I
+00:33:02.320 mean, I've already got a little bit of
+00:33:04.080 Bitcoin from when we went below it in
+00:33:06.640 July, when we went below.3 risk in July,
+00:33:09.200 in early July. And, you know, I I
+00:33:12.320 probably would just simply be forced to
+00:33:13.679 add more if we don't get that that drop
+00:33:18.000 in Q4 because I I don't really feel like
+00:33:20.960 I I have what I would want for the next
+00:33:22.880 bull market. I have some that kind of
+00:33:25.440 helps control the emotions in the rally,
+00:33:28.480 but I can I it's like it's it reminds me
+00:33:31.279 of, you know, these other rallies where
+00:33:33.360 in the moment it just feels like there's
+00:33:35.840 no way you could ever go lower, you
+00:33:37.600 know, like in 2018, you know, it just it
+00:33:40.559 feels like there's just no way you can
+00:33:43.120 go lower. And then somehow you fast
+00:33:46.240 forward to Q4 of every midterm year and
+00:33:48.640 somehow it always ended up happening.
+00:33:50.399 Who knows how it happened, but it always
+00:33:52.320 ended up happening. Um, and and in in a
+00:33:55.919 lot of these cases, before you got the
+00:33:57.760 final drop,
+00:34:00.080 you had to go up first. You had to go
+00:34:02.480 up. You had to liquidate people and then
+00:34:05.840 you went down. So that that would be the
+00:34:09.280 concern I think to sort of express about
+00:34:13.199 definitively saying that the low has to
+00:34:15.040 be in. And you know there's obviously
+00:34:17.599 the onchain indicators and there's like
+00:34:19.119 the MVRVZ score and you know the
+00:34:21.359 terminal or the the balance price and
+00:34:23.199 the realized price. There's all these
+00:34:24.800 things that haven't fully reset.
+00:34:27.040 Obviously you can maybe try to make the
+00:34:28.719 case that they don't have to reset
+00:34:30.800 because we didn't have a euphoria phase.
+00:34:33.599 The counterpoint is that in 2019 2020
+00:34:36.800 they still fully reset. Yes it was due
+00:34:39.199 to the pandemic but that's the only
+00:34:40.960 example we have right. the only example
+00:34:43.040 we have. And who's to say they wouldn't
+00:34:45.199 have reset without the pandemic? Who's
+00:34:46.879 to say something else wouldn't have
+00:34:49.119 happened that would have caused a a a
+00:34:52.000 similar outcome. So that is, you know,
+00:34:55.359 the the dubious speculation I have for
+00:34:57.359 you today. I, you know, I hope that
+00:34:59.680 these videos this year have been useful.
+00:35:01.359 I know right now it it might feel like,
+00:35:04.400 you know, I know there's certainly a lot
+00:35:06.000 of hate directed directed my way, and
+00:35:07.839 I'm I'm kind of used to that honestly at
+00:35:09.520 this point. Uh but just know that we
+00:35:13.280 have seen these rallies in the past and
+00:35:16.480 there are times where it wasn't over
+00:35:19.599 yet.
+00:35:21.440 When looking at moving averages, it was
+00:35:24.480 okay. like when looking at uh things
+00:35:26.640 like the 200 day moving average, it was
+00:35:30.320 um
+00:35:33.520 but in 2019, which we've made the case
+00:35:35.920 for a comparison, you know, you can see
+00:35:38.880 that we we had this big spike up only to
+00:35:41.520 come right back down. So, I think what I
+00:35:43.760 would be looking for in order to like
+00:35:45.760 try to pivot one way or the other is at
+00:35:48.560 some point, you know, Bitcoin will
+00:35:50.400 retrace something, right? And you can
+00:35:53.119 see that when it retraced in 2019, it
+00:35:56.240 was unable to hold the 200 day as
+00:35:58.160 support. It tried to hold it for a
+00:35:59.760 couple of weeks, but it was unable to in
+00:36:02.880 2023.
+00:36:04.480 In 2023, we did hold the 200 day as
+00:36:07.280 support. You see that we can we clearly
+00:36:09.920 held it as support. Um, so that's that's
+00:36:14.240 arguably what I would be sort of looking
+00:36:16.000 at here is whenever you do get the
+00:36:18.079 retrace, are we able to stay above the
+00:36:20.720 200 day moving average over the next
+00:36:22.400 couple of weeks? In one week, anything
+00:36:24.800 can happen, right? I mean, we saw that
+00:36:26.560 in 2019. We saw it in 2022. Bitcoin
+00:36:28.960 rallying up 20% basically in a single in
+00:36:31.760 three or four days. We've seen that
+00:36:33.040 before. What's important is what happens
+00:36:35.920 over the next say two weeks. And if
+00:36:38.880 Bitcoin is still holding above the 200
+00:36:41.119 day moving average in say a couple more
+00:36:43.839 weeks, then I would argue at that point
+00:36:45.920 the odds really start to go up that that
+00:36:48.960 the low would be in. But at this point,
+00:36:50.880 it's just too early to know. Like it's
+00:36:52.800 too early to know for sure given the
+00:36:54.880 context of what we've seen previously.
+00:36:57.520 But those are my thoughts. If you guys
+00:36:58.960 like the content, make sure you
+00:37:00.240 subscribe, give the video a thumbs up.
+00:37:01.760 Again, check out the sale on into the
+00:37:03.280 cryptoverse premium. And if you want to
+00:37:05.200 go to the conference, uh again, check it
+00:37:07.200 out. Ticket prices are going to go up on
+00:37:08.880 September 1st and the conference will be
+00:37:10.480 November 20th through the 22nd. Thank
+00:37:12.480 you guys for tuning in. Subscribe. I'll
+00:37:14.079 see you guys next time.
