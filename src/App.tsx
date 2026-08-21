@@ -3730,7 +3730,7 @@ export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const refreshInFlight = useRef(false);
   const base = __DASHBOARD_API_URL__;
-  const token = () => window.localStorage.getItem("crypto-robot-dashboard-token") || "";
+  const token = () => window.localStorage.getItem("crypto-robot-dashboard-token") || __DASHBOARD_TOKEN__;
   const remote = async <T,>(path: string): Promise<T> => {
     const response = await fetch(`${base}${path}`, { cache: "no-store", headers: { Authorization: `Bearer ${token()}` } });
     const result = await response.json().catch(() => ({}));
