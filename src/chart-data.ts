@@ -35,6 +35,10 @@ export function carryForward(points: IndicatorPoint[], times: number[]): Indicat
   return result;
 }
 
+export function isHorizontalGesture(deltaX: number, deltaY: number) {
+  return Math.abs(deltaX) * Math.sqrt(3) >= Math.abs(deltaY);
+}
+
 export function bollinger(rows: KlineRow[], period = 20, deviations = 2) {
   if (!Number.isInteger(period) || period < 1 || !Number.isFinite(deviations)) return { middle: [], upper: [], lower: [] };
   const points = closes(rows); const middle: IndicatorPoint[] = []; const upper: IndicatorPoint[] = []; const lower: IndicatorPoint[] = [];

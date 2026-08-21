@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AreaSeries, CandlestickSeries, ColorType, createChart, HistogramSeries, LineSeries, TickMarkType } from "lightweight-charts";
-import { bollinger, carryForward, ema, sma, type IndicatorPoint } from "./chart-data";
+import { bollinger, carryForward, ema, isHorizontalGesture, sma, type IndicatorPoint } from "./chart-data";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
 type Funding = { lastFundingRate?: string; nextFundingTime?: number; markPrice?: string; indexPrice?: string };
@@ -115,6 +115,22 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
     return () => scale.unsubscribeVisibleLogicalRangeChange(save);
   }, [candles, onRangeChange]);
 
+  useEffect(() => {
+    const element = host.current;
+    if (!element) return;
+    const pan = (event: WheelEvent) => {
+      if (!isHorizontalGesture(event.deltaX, event.deltaY)) return;
+      const range = chart.current?.timeScale().getVisibleLogicalRange();
+      if (!range) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const offset = event.deltaX * (range.to - range.from) / Math.max(element.clientWidth, 1);
+      chart.current.timeScale().setVisibleLogicalRange({ from: range.from + offset, to: range.to + offset });
+    };
+    element.addEventListener("wheel", pan, { capture: true, passive: false });
+    return () => element.removeEventListener("wheel", pan, true);
+  }, []);
+
   return <div className="market-chart" ref={host} />;
 }
 
@@ -196,7 +212,7 @@ export function MarketTerminal() {
     else if (name === "strategies") next.push({ kind: "output", text: dashboard?.strategies.length ? dashboard.strategies.map((item) => `${item.status.padEnd(10)} ${item.symbol.padEnd(12)} ${item.name}`).join("\n") : "no active strategies" });
     else if (name === "orders") next.push({ kind: "output", text: dashboard?.recentOrders.length ? dashboard.recentOrders.map((item) => `${item.state.padEnd(18)} ${item.symbol} ${item.client_order_id}`).join("\n") : "no recent orders" });
     else if (name === "risk") next.push({ kind: "output", text: dashboard ? `symbols: ${dashboard.risk.allowedSymbols.join(", ")}\nmax order: ${dashboard.risk.maxOrderUsdt} USDT\nunknown orders: ${dashboard.orders.unknown}` : "connecting" });
-    else if (name === "interval" && intervals.some((item) => item.value === arg)) setIntervalValue(arg);
+    else if (name === "interval" && intervals.some((item) => item.value === arg)) selectInterval(arg);
     else next.push({ kind: "error", text: `unknown command: ${name}` });
     setLines(next.slice(-100)); setCommand("");
   };
