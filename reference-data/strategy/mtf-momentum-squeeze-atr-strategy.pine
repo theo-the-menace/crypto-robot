@@ -1,5 +1,5 @@
 //@version=5
-strategy("OpenClaw MTF ATR Scalp Strategy", overlay = true, pyramiding = 0, initial_capital = 10000, process_orders_on_close = true, calc_on_order_fills = true, calc_on_every_tick = false, max_labels_count = 500)
+strategy("MTF Momentum Squeeze ATR Strategy", overlay = true, pyramiding = 0, initial_capital = 10000, process_orders_on_close = true, calc_on_order_fills = true, calc_on_every_tick = false, max_labels_count = 500)
 anchorTf = input.timeframe("30", "Anchor timeframe")
 tradeSide = input.string("Both", "Trade side", options = ["Both", "Long only", "Short only"])
 emaLen = input.int(200, "EMA length", minval = 1)
