@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
+import { aggregateMarketKlines } from './index.mjs';
 
 function post(port, path, payload) {
   return new Promise((resolve, reject) => {
@@ -13,6 +14,11 @@ function post(port, path, payload) {
     request.end(JSON.stringify(payload));
   });
 }
+
+test('aggregates cached one-minute rows before returning a daily chart', () => {
+  const rows = [[0, 10, 12, 9, 11, 2, 59_999, 20], [60_000, 11, 13, 10, 12, 3, 119_999, 36], [86_400_000, 12, 14, 11, 13, 4, 86_459_999, 52]];
+  assert.deepEqual(aggregateMarketKlines(rows, '1d'), [[0, 10, 13, 9, 12, 5, 59_999, 56], [86_400_000, 12, 14, 11, 13, 4, 86_459_999, 52]]);
+});
 
 test('an expiring server-side draft can only submit once', async () => {
   const originalFetch = globalThis.fetch;
