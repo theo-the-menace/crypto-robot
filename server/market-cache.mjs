@@ -1,4 +1,5 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 export function mergeKlines(current, incoming) {
@@ -22,7 +23,7 @@ export async function readMarketCache(directory, symbol) {
 export async function writeMarketCache(directory, symbol, rows) {
   await mkdir(directory, { recursive: true });
   const file = marketCacheFile(directory, symbol);
-  const temporary = `${file}.${process.pid}.tmp`;
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(temporary, JSON.stringify(rows), 'utf8');
   await rename(temporary, file);
 }

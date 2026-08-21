@@ -245,7 +245,10 @@ async function backfillCoinMHistory(symbol = 'BTCUSD_PERP') {
     }
     if (pagesSinceWrite) await writeMarketCache(marketCacheDirectory, symbol, state.rows);
   } catch (error) { marketBackfill.error = error instanceof Error ? error.message : 'Market history backfill failed.'; }
-  finally { marketBackfill.running = false; }
+  finally {
+    marketBackfill.running = false;
+    if (!marketBackfill.complete && marketBackfill.error) setTimeout(() => { void backfillCoinMHistory(symbol); }, 5_000);
+  }
 }
 
 async function orderBookContext(range) {
