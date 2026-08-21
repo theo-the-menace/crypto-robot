@@ -19,6 +19,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+try:
+    import websocket
+except ImportError:
+    websocket = None
+
 
 HOST = os.getenv("BINANCE_EXECUTION_HOST", "127.0.0.1")
 PORT = int(os.getenv("BINANCE_EXECUTION_PORT", "8888"))
@@ -43,6 +48,10 @@ PRODUCTS = {
     "usdm": {
         "live": "https://fapi.binance.com", "testnet": "https://testnet.binancefuture.com",
         "time": "/fapi/v1/time", "order": "/fapi/v1/order", "test": "/fapi/v1/order/test", "account": "/fapi/v3/account",
+    },
+    "coinm": {
+        "live": "https://dapi.binance.com", "testnet": "https://testnet.binancefuture.com",
+        "time": "/dapi/v1/time", "order": "/dapi/v1/order", "test": None, "account": "/dapi/v1/account",
     },
     "margin": {
         "live": "https://api.binance.com", "testnet": "https://testnet.binance.vision",
@@ -239,18 +248,43 @@ class Handler(BaseHTTPRequestHandler):
         if length > 100_000: raise BinanceError("Request body is too large.", 413)
         return json.loads(self.rfile.read(length) or b"{}")
 
+    def stream_market(self, symbol: str, interval: str) -> None:
+        if websocket is None: return self.json(503, {"error": "Market stream dependency is unavailable."})
+        host = "dstream.binance.com" if ENVIRONMENT == "live" else "dstream.binancefuture.com"
+        url = f"wss://{host}/ws/{symbol.lower()}@kline_{interval}"
+        self.send_response(200); self.send_header("Content-Type", "application/x-ndjson"); self.send_header("Cache-Control", "no-store"); self.send_header("Access-Control-Allow-Origin", "*"); self.end_headers()
+        while True:
+            connection = None
+            try:
+                connection = websocket.create_connection(url, timeout=30)
+                while True:
+                    event = json.loads(connection.recv())
+                    candle = event.get("k")
+                    if not candle: continue
+                    row = {"time": candle["t"], "open": candle["o"], "high": candle["h"], "low": candle["l"], "close": candle["c"], "volume": candle["v"], "quoteVolume": candle["q"]}
+                    self.wfile.write(json.dumps(row, separators=(",", ":")).encode() + b"\n"); self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError): return
+            except Exception: logging.exception("market stream disconnected; reconnecting"); time.sleep(1)
+            finally:
+                if connection: connection.close()
+
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/":
             raw = DASHBOARD_HTML.encode()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(raw))); self.end_headers(); return self.wfile.write(raw)
         if parsed.path == "/health": return self.json(200, {"ok": True, "environment": ENVIRONMENT, "mode": MODE})
-        if parsed.path in ("/v1/dashboard", "/v1/market/klines") or parsed.path.startswith("/v1/orders/"):
+        if parsed.path in ("/v1/dashboard", "/v1/market/klines", "/v1/market/stream") or parsed.path.startswith("/v1/orders/"):
             if not (self.dashboard_authorized() or self.authorized()): return self.json(401, {"error": "Unauthorized"})
         elif not self.authorized(): return self.json(401, {"error": "Unauthorized"})
         query = urllib.parse.parse_qs(parsed.query)
         try:
             if parsed.path == "/v1/dashboard": return self.json(200, ENGINE.dashboard())
+            if parsed.path == "/v1/market/stream":
+                symbol = query.get("symbol", ["BTCUSD_PERP"])[0].upper()
+                interval = query.get("interval", ["5m"])[0]
+                if symbol != "BTCUSD_PERP" or interval not in ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"): raise BinanceError("Market stream is not allowed.", 400)
+                return self.stream_market(symbol, interval)
             if parsed.path == "/v1/market/klines":
                 symbol = query.get("symbol", ["BTCUSD_PERP"])[0].upper()
                 interval = query.get("interval", ["5m"])[0]
@@ -259,8 +293,8 @@ class Handler(BaseHTTPRequestHandler):
                     raise BinanceError("Only BTCUSD_PERP and BTCUSDT are available.", 400)
                 if interval not in ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"):
                     raise BinanceError("Interval is not allowed.", 400)
-                product = "spot" if symbol == "BTCUSDT" else "usdm"
-                path = "/api/v3/klines" if product == "spot" else "/fapi/v1/klines"
+                product = "spot" if symbol == "BTCUSDT" else "coinm"
+                path = "/api/v3/klines" if product == "spot" else "/dapi/v1/klines"
                 params = {"symbol": symbol, "interval": interval, "limit": limit}
                 if "endTime" in query: params["endTime"] = int(query["endTime"][0])
                 return self.json(200, {"symbol": symbol, "interval": interval, "klines": ENGINE.client.public(product, path, params)})

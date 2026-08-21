@@ -3742,15 +3742,17 @@ function LegacyApp() {
 
 type TerminalLine = { kind: "input" | "output" | "error"; text: string };
 type DashboardSnapshot = { service: { environment: string; mode: string; healthy: boolean }; risk: { allowedSymbols: string[]; maxOrderUsdt: number; recvWindowMs: number }; orders: { byState: Record<string, number>; unknown: number }; strategies: Array<{ id: string; name: string; status: string; symbol: string; updated_at: number }>; recentOrders: Array<{ client_order_id: string; product: string; symbol: string; state: string; updated_at: number }> };
+const dashboardCandle = (row: Array<string | number>): CoinMCandle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
+const candleCacheKey = (interval: string) => `crypto-robot-btcusd-perp-${interval}`;
 
 export function App() {
   const [dashboard, setDashboard] = useState<DashboardSnapshot | null>(null);
-  const [candles, setCandles] = useState<CoinMCandle[]>([]);
   const [interval, setIntervalValue] = useState("5m");
+  const [candles, setCandles] = useState<CoinMCandle[]>(() => { try { return JSON.parse(window.localStorage.getItem(candleCacheKey("5m")) || "[]"); } catch { return []; } });
   const [command, setCommand] = useState("");
   const [lines, setLines] = useState<TerminalLine[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const refreshInFlight = useRef(false);
+  const candlesRef = useRef(candles);
   const base = __DASHBOARD_API_URL__;
   const token = () => __DASHBOARD_TOKEN__ || window.localStorage.getItem("crypto-robot-dashboard-token") || "";
   const remote = async <T,>(path: string): Promise<T> => {
@@ -3760,28 +3762,55 @@ export function App() {
     return result as T;
   };
   const refresh = useCallback(async () => {
-    if (refreshInFlight.current) return;
-    refreshInFlight.current = true;
     try {
-      const [state, market] = await Promise.all([
-        remote<DashboardSnapshot>("/v1/dashboard"),
-        remote<{ klines: Array<Array<string | number>> }>(`/v1/market/klines?symbol=BTCUSD_PERP&interval=${interval}&limit=1000`),
-      ]);
-      setDashboard(state);
-      const incoming = market.klines.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) }));
-      setCandles((current) => [...new Map([...current, ...incoming].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time));
+      setDashboard(await remote<DashboardSnapshot>("/v1/dashboard"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "remote server unavailable";
       setLines((current) => current.at(-1)?.text === message ? current : [...current.slice(-80), { kind: "error", text: message }]);
-    } finally { refreshInFlight.current = false; }
+    }
   }, [base, interval]);
-  useEffect(() => { void refresh(); const timer = window.setInterval(refresh, 1000); return () => window.clearInterval(timer); }, [refresh]);
-  useEffect(() => { setCandles([]); }, [interval]);
+  useEffect(() => { void refresh(); const timer = window.setInterval(refresh, 5000); return () => window.clearInterval(timer); }, [refresh]);
+  useEffect(() => {
+    try { setCandles(JSON.parse(window.localStorage.getItem(candleCacheKey(interval)) || "[]")); } catch { setCandles([]); }
+    void remote<{ klines: Array<Array<string | number>> }>(`/v1/market/klines?symbol=BTCUSD_PERP&interval=${interval}&limit=1000`).then((market) => setCandles((current) => [...new Map([...current, ...market.klines.map(dashboardCandle)].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time)));
+  }, [interval]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      while (!controller.signal.aborted) {
+        try {
+          const response = await fetch(`${base}/v1/market/stream?symbol=BTCUSD_PERP&interval=${interval}`, { cache: "no-store", headers: { Authorization: `Bearer ${token()}` }, signal: controller.signal });
+          if (!response.ok || !response.body) throw new Error(`market stream failed (${response.status})`);
+          const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+          let buffer = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += value;
+            const rows = buffer.split("\n"); buffer = rows.pop() || "";
+            for (const row of rows) {
+              if (!row) continue;
+              const value = JSON.parse(row);
+              const next: CoinMCandle = { time: Number(value.time), open: Number(value.open), high: Number(value.high), low: Number(value.low), close: Number(value.close), volume: Number(value.volume), quoteVolume: Number(value.quoteVolume) };
+              setCandles((current) => current.at(-1)?.time === next.time ? [...current.slice(0, -1), next] : [...current, next]);
+            }
+          }
+        } catch (error) { if (!controller.signal.aborted) setLines((current) => [...current.slice(-80), { kind: "error", text: error instanceof Error ? error.message : "market stream disconnected" }]); }
+        if (!controller.signal.aborted) await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      }
+    })();
+    return () => controller.abort();
+  }, [base, interval]);
+  useEffect(() => { candlesRef.current = candles; }, [candles]);
+  useEffect(() => {
+    const timer = window.setInterval(() => window.localStorage.setItem(candleCacheKey(interval), JSON.stringify(candlesRef.current.slice(-5000))), 500);
+    return () => window.clearInterval(timer);
+  }, [interval]);
   const loadOlder = useCallback(() => {
     const oldest = candles[0];
     if (!oldest) return;
     void remote<{ klines: Array<Array<string | number>> }>(`/v1/market/klines?symbol=BTCUSD_PERP&interval=${interval}&limit=1000&endTime=${oldest.time - 1}`).then((market) => {
-      const older = market.klines.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) }));
+      const older = market.klines.map(dashboardCandle);
       setCandles((current) => [...new Map([...older, ...current].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time));
     });
   }, [candles, interval]);
