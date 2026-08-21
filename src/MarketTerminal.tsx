@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CandlestickSeries, ColorType, createChart, HistogramSeries } from "lightweight-charts";
+import { CandlestickSeries, ColorType, createChart, HistogramSeries, TickMarkType } from "lightweight-charts";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
 type Line = { kind: "input" | "output" | "error"; text: string };
@@ -17,6 +17,13 @@ const formatChinaTime = (time: number) => {
   const parts = Object.fromEntries(chinaTime.formatToParts(new Date(time * 1000)).map((part) => [part.type, part.value]));
   return `${parts.year}-${Number(parts.month)}-${Number(parts.day)} ${parts.hour}:${parts.minute}`;
 };
+const formatChinaTick = (time: number, type: TickMarkType) => {
+  const parts = Object.fromEntries(chinaTime.formatToParts(new Date(time * 1000)).map((part) => [part.type, part.value]));
+  if (type === TickMarkType.Year) return parts.year;
+  if (type === TickMarkType.Month) return `${parts.year}-${Number(parts.month)}`;
+  if (type === TickMarkType.DayOfMonth) return `${Number(parts.month)}-${Number(parts.day)}`;
+  return `${parts.hour}:${parts.minute}`;
+};
 
 function Chart({ candles, loadOlder }: { candles: Candle[]; loadOlder: () => Promise<void> }) {
   const host = useRef<HTMLDivElement>(null);
@@ -28,7 +35,7 @@ function Chart({ candles, loadOlder }: { candles: Candle[]; loadOlder: () => Pro
 
   useLayoutEffect(() => {
     if (!host.current) return;
-    chart.current = createChart(host.current, { autoSize: true, localization: { locale: "zh-CN", timeFormatter: (time: unknown) => formatChinaTime(Number(time)) }, layout: { background: { type: ColorType.Solid, color: "#10151c" }, textColor: "#8290a0" }, grid: { vertLines: { color: "#27313d" }, horzLines: { color: "#27313d" } }, rightPriceScale: { borderColor: "#33404d" }, timeScale: { borderColor: "#33404d", timeVisible: true, secondsVisible: false, rightOffset: 5, tickMarkFormatter: (time: unknown) => formatChinaTime(Number(time)) }, crosshair: { mode: 0 } });
+    chart.current = createChart(host.current, { autoSize: true, localization: { locale: "zh-CN", timeFormatter: (time: unknown) => formatChinaTime(Number(time)) }, layout: { background: { type: ColorType.Solid, color: "#10151c" }, textColor: "#8290a0" }, grid: { vertLines: { color: "#27313d" }, horzLines: { color: "#27313d" } }, rightPriceScale: { borderColor: "#33404d" }, timeScale: { borderColor: "#33404d", timeVisible: true, secondsVisible: false, rightOffset: 5, tickMarkFormatter: (time: unknown, type: TickMarkType) => formatChinaTick(Number(time), type) }, crosshair: { mode: 0 } });
     series.current = chart.current.addSeries(CandlestickSeries, { upColor: "#39c58a", downColor: "#ef6672", borderVisible: false, wickUpColor: "#39c58a", wickDownColor: "#ef6672" });
     volume.current = chart.current.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "" });
     volume.current.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
