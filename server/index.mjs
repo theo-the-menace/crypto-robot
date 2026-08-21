@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
-import { BinanceApiError, createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient } from '../src/binance.mjs';
+import { BinanceApiError, createBinanceCoinMClient, createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient } from '../src/binance.mjs';
 import { auditBinancePermissions } from '../src/permissions.mjs';
 import { fallbackIntent, inferProduct, multiProductTradePrompt, normalizeOrderIntent, tradePrompt, validateOrder } from '../src/trading.mjs';
 import { EmergencyPolicy } from '../src/emergency-policy.mjs';
@@ -49,6 +49,7 @@ function createModelGateway({ baseUrl, apiKey, provider = 'openai', model, reaso
 }
 const binance = createBinanceSpotClient({ apiKey: process.env.BINANCE_API_KEY, secretKey: process.env.BINANCE_SECRET_KEY, environment });
 const futures = createBinanceUsdMClient({ apiKey: process.env.BINANCE_API_KEY, secretKey: process.env.BINANCE_SECRET_KEY, environment });
+const coinm = createBinanceCoinMClient({ apiKey: process.env.BINANCE_API_KEY, secretKey: process.env.BINANCE_SECRET_KEY, environment });
 const margin = createBinanceMarginClient({ apiKey: process.env.BINANCE_API_KEY, secretKey: process.env.BINANCE_SECRET_KEY, environment });
 const gateway = gatewayBaseUrl && gatewayApiKey
   ? createModelGateway({ baseUrl: gatewayBaseUrl, apiKey: gatewayApiKey, provider: gatewayProvider, model: defaultModel, reasoningEffort: defaultReasoning })
@@ -80,6 +81,15 @@ async function accountSnapshot() {
   return { canTrade: account.canTrade, balances: account.balances || [] };
 }
 
+async function coinMSnapshot({ symbol = 'BTCUSD_PERP', startTime, endTime, limit = 100 } = {}) {
+  if (!configured) throw new BinanceApiError('Configure Binance credentials before reading COIN-M.', { status: 503 });
+  const range = { ...(startTime ? { startTime } : {}), ...(endTime ? { endTime } : {}) };
+  const [account, positions, trades, income, openOrders] = await Promise.all([
+    coinm.account(), coinm.positionRisk(symbol), coinm.userTrades(symbol, limit), coinm.income({ ...range, limit: Math.min(1000, limit) }), coinm.openOrders(symbol),
+  ]);
+  return { syncedAt: Date.now(), symbol, account, positions, trades, income, openOrders };
+}
+
 let assetCache = null;
 let assetCacheAt = 0;
 async function assetSnapshot() {
@@ -109,16 +119,16 @@ async function assetSnapshot() {
   return result;
 }
 
-async function coinMMarket(symbol, interval, endTime, limit = 240) {
+async function coinMMarket(symbol, interval, endTime, limit = 240, startTime) {
   const base = environment === 'testnet' ? 'https://testnet.binancefuture.com' : 'https://dapi.binance.com';
   const get = async (path, params) => {
-    const response = await fetch(`${base}${path}?${new URLSearchParams(params)}`, { signal: AbortSignal.timeout(10_000) });
+    const response = await fetch(`${base}${path}?${new URLSearchParams(params)}`, { signal: AbortSignal.timeout(startTime ? 30_000 : 10_000) });
     const result = await response.json();
     if (!response.ok) throw new BinanceApiError(result.msg || `Binance Coin-M request failed (${response.status}).`, { status: response.status, code: result.code });
     return result;
   };
-  const klineParams = { symbol, interval, limit: String(limit), ...(endTime ? { endTime: String(endTime) } : {}) };
-  if (endTime) return { symbol, interval, klines: await get('/dapi/v1/klines', klineParams), depth: { bids: [], asks: [] }, premium: { markPrice: '0', indexPrice: '0' }, partial: true };
+  const klineParams = { symbol, interval, limit: String(limit), ...(startTime ? { startTime: String(startTime) } : {}), ...(endTime ? { endTime: String(endTime) } : {}) };
+  if (endTime || startTime) return { symbol, interval, klines: await get('/dapi/v1/klines', klineParams), depth: { bids: [], asks: [] }, premium: { markPrice: '0', indexPrice: '0' }, partial: true };
   const [klines, depth, premium] = await Promise.all([
     get('/dapi/v1/klines', klineParams),
     get('/dapi/v1/depth', { symbol, limit: '1000' }),
@@ -194,20 +204,7 @@ export function aggregateMarketKlines(rows, interval) {
     previous[3] = Math.min(Number(previous[3]), Number(row[3]));
     previous[4] = row[4]; previous[5] = Number(previous[5]) + Number(row[5]); previous[7] = Number(previous[7]) + Number(row[7]);
   }
-  if (!grouped.length || !['4h', '1d', '1w', '1M'].includes(interval)) return grouped;
-  const filled = [grouped[0]];
-  const step = (time) => duration === 'week' ? time + 7 * 86_400_000 : duration === 'month' ? Date.UTC(new Date(time).getUTCFullYear(), new Date(time).getUTCMonth() + 1, 1) : time + duration;
-  for (const current of grouped.slice(1)) {
-    let time = step(Number(filled.at(-1)[0]));
-    while (time < Number(current[0])) {
-      const close = Number(filled.at(-1)[4]);
-      const closeTime = duration === 'month' ? step(time) - 1 : time + duration - 1;
-      filled.push([time, close, close, close, close, 0, closeTime, 0]);
-      time = step(time);
-    }
-    filled.push(current);
-  }
-  return filled;
+  return grouped;
 }
 
 async function cachedCoinMKlines(symbol, endTime, limit = 1_000, allRows = false) {
@@ -262,6 +259,37 @@ async function backfillCoinMHistory(symbol = 'BTCUSD_PERP') {
     marketBackfill.running = false;
     if (!marketBackfill.complete && marketBackfill.error) setTimeout(() => { void backfillCoinMHistory(symbol); }, 5_000);
   }
+}
+
+async function repairCoinMGaps(symbol = 'BTCUSD_PERP') {
+  const state = marketCache.get(symbol) || { rows: null, updatedAt: 0 };
+  marketCache.set(symbol, state);
+  if (!state.rows) state.rows = await readMarketCache(marketCacheDirectory, symbol);
+  const gaps = [];
+  for (let index = 1; index < state.rows.length; index++) {
+    const from = Number(state.rows[index - 1][0]) + 60_000;
+    const to = Number(state.rows[index][0]) - 60_000;
+    if (to >= from) gaps.push([from, to]);
+  }
+  for (const [from, to] of gaps) {
+    let cursor = from;
+    while (cursor <= to) {
+      let page = [];
+      for (let attempt = 0; attempt < 3 && !page.length; attempt++) {
+        try { page = (await coinMMarket(symbol, '1m', to, 1_500, cursor)).klines || []; }
+        catch (error) { console.warn('COIN-M gap repair retry', error instanceof Error ? error.message : error); }
+      }
+      if (!page.length) break;
+      state.rows = mergeKlines(state.rows, page);
+      const next = Number(page.at(-1)?.[0]) + 60_000;
+      if (!Number.isFinite(next) || next <= cursor) break;
+      cursor = next;
+      if (page.length < 1_500) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+  await writeMarketCache(marketCacheDirectory, symbol, state.rows);
+  state.updatedAt = Date.now();
 }
 
 async function orderBookContext(range) {
@@ -418,6 +446,16 @@ export function createCryptoServer() {
       if (request.method === 'GET' && request.url === '/api/futures/account') {
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before reading Futures.' });
         return sendJson(response, 200, await futures.account());
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/coinm/snapshot')) {
+        const query = new URL(request.url, 'http://localhost').searchParams;
+        const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
+        const limit = Math.min(1000, Math.max(1, Number(query.get('limit') || 100)));
+        const startTime = query.get('startTime') ? Number(query.get('startTime')) : undefined;
+        const endTime = query.get('endTime') ? Number(query.get('endTime')) : undefined;
+        if (!symbol || (symbol !== 'BTCUSD_PERP' && !symbolAllowed(symbol))) return sendJson(response, 400, { error: 'Symbol is not allowed.' });
+        if ([startTime, endTime].some((value) => value !== undefined && (!Number.isFinite(value) || value <= 0))) return sendJson(response, 400, { error: 'Time range is not valid.' });
+        return sendJson(response, 200, await coinMSnapshot({ symbol, startTime, endTime, limit }));
       }
       if (request.method === 'GET' && request.url === '/api/margin/account') {
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before reading Margin.' });
@@ -628,4 +666,4 @@ export function createCryptoServer() {
   });
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) createCryptoServer().listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void backfillCoinMHistory(); });
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) createCryptoServer().listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void (async () => { await backfillCoinMHistory(); await repairCoinMGaps(); })(); });

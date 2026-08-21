@@ -6,6 +6,7 @@ type Candle = { time: number; open: number; high: number; low: number; close: nu
 type Funding = { lastFundingRate?: string; nextFundingTime?: number; markPrice?: string; indexPrice?: string };
 type Line = { kind: "input" | "output" | "error"; text: string };
 type Dashboard = { service: { environment: string; mode: string; healthy: boolean }; strategies: Array<{ name: string; status: string; symbol: string }>; recentOrders: Array<{ state: string; symbol: string; client_order_id: string }>; risk: { allowedSymbols: string[]; maxOrderUsdt: number }; orders: { unknown: number } };
+type CoinMSnapshot = { syncedAt: number; positions: Array<{ symbol: string; positionAmt: string; entryPrice: string; markPrice: string; leverage: string; unrealizedProfit: string }>; trades: Array<{ orderId: number | string; side: string; price: string; qty: string; quoteQty?: string; commission: string; commissionAsset: string; realizedPnl?: string; time: number }>; income: Array<{ incomeType: string; income: string; asset: string; symbol?: string; time: number }>; openOrders: Array<{ orderId: number | string; side: string; type: string; price: string; origQty: string; status: string }> };
 type IndicatorName = "ma7" | "ma25" | "ma60" | "ma99" | "ema200" | "ema21" | "bb";
 type TimeRange = { from: number; to: number };
 type TerminalUi = { interval: string; enabled: Record<IndicatorName, boolean>; ranges: Record<string, TimeRange> };
@@ -15,7 +16,7 @@ const MARKET_BASE = "/api";
 const TOKEN = __DASHBOARD_TOKEN__;
 const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" }, { value: "5m", label: "5m" }, { value: "15m", label: "15m" }, { value: "1h", label: "1h" }, { value: "4h", label: "4h" }, { value: "1d", label: "1d" }, { value: "1w", label: "1W" }, { value: "1M", label: "1M" }];
 const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000, "1M": 2_678_400_000 };
-const cacheKey = (interval: string) => `crypto-robot-btcusd-perp-v6-${interval}`;
+const cacheKey = (interval: string) => `crypto-robot-btcusd-perp-v7-${interval}`;
 const uiKey = "crypto-robot-terminal-ui-v4";
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
@@ -143,6 +144,7 @@ export function MarketTerminal() {
   const [weekly, setWeekly] = useState<Candle[]>([]);
   const [enabled, setEnabled] = useState<Record<IndicatorName, boolean>>(initialUi.enabled);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [coinm, setCoinm] = useState<CoinMSnapshot | null>(null);
   const [command, setCommand] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const candles = candleSets[interval] || [];
@@ -189,13 +191,17 @@ export function MarketTerminal() {
     const loadReference = async (value: "1d" | "1w", setValue: (rows: Candle[]) => void) => { try { const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&interval=${value}&limit=5000`, { cache: "no-store" }); if (response.ok) setValue((await response.json()).klines.map(parseRow)); } catch {} };
     void loadReference("1d", setDaily); void loadReference("1w", setWeekly);
   }, []);
+  useEffect(() => {
+    const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/coinm/snapshot?symbol=BTCUSD_PERP&limit=100`, { cache: "no-store" }); if (response.ok) setCoinm(await response.json()); } catch {} };
+    void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding?symbol=BTCUSD_PERP`, { cache: "no-store" }); if (response.ok) setFunding((await response.json()).premium || null); } catch {} };
     void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => { const timer = setInterval(() => localStorage.setItem(cacheKey(interval), JSON.stringify((candleSets[interval] || []).slice(-5_000))), 500); return () => clearInterval(timer); }, [interval, candleSets]);
+  useEffect(() => { const timer = setInterval(() => { try { localStorage.setItem(cacheKey(interval), JSON.stringify((candleSets[interval] || []).slice(-1_000))); } catch {} }, 1_000); return () => clearInterval(timer); }, [interval, candleSets]);
   useEffect(() => { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); }, [interval, enabled]);
   useEffect(() => {
     if (!TOKEN) return;
@@ -210,6 +216,9 @@ export function MarketTerminal() {
     else if (name === "status") next.push({ kind: "output", text: dashboard ? `${dashboard.service.environment} · ${dashboard.service.mode} · ${dashboard.service.healthy ? "healthy" : "offline"}` : "connecting" });
     else if (name === "strategies") next.push({ kind: "output", text: dashboard?.strategies.length ? dashboard.strategies.map((item) => `${item.status.padEnd(10)} ${item.symbol.padEnd(12)} ${item.name}`).join("\n") : "no active strategies" });
     else if (name === "orders") next.push({ kind: "output", text: dashboard?.recentOrders.length ? dashboard.recentOrders.map((item) => `${item.state.padEnd(18)} ${item.symbol} ${item.client_order_id}`).join("\n") : "no recent orders" });
+    else if (name === "coinm" || name === "positions") next.push({ kind: "output", text: coinm?.positions.filter((item) => Number(item.positionAmt) !== 0).map((item) => `${item.symbol} ${item.positionAmt} @ ${item.entryPrice} mark ${item.markPrice} ${item.leverage}x PnL ${item.unrealizedProfit}`).join("\n") || "no open COIN-M positions" });
+    else if (name === "fees") next.push({ kind: "output", text: coinm?.income.filter((item) => ["COMMISSION", "FUNDING_FEE", "REALIZED_PNL"].includes(item.incomeType)).map((item) => `${new Date(item.time).toLocaleString()} ${item.incomeType.padEnd(12)} ${item.income} ${item.asset} ${item.symbol || ""}`).join("\n") || "no COIN-M income records" });
+    else if (name === "trades") next.push({ kind: "output", text: coinm?.trades.map((item) => `${new Date(item.time).toLocaleString()} ${item.side} ${item.qty} @ ${item.price} fee ${item.commission} ${item.commissionAsset} order ${item.orderId}`).join("\n") || "no COIN-M trades" });
     else if (name === "risk") next.push({ kind: "output", text: dashboard ? `symbols: ${dashboard.risk.allowedSymbols.join(", ")}\nmax order: ${dashboard.risk.maxOrderUsdt} USDT\nunknown orders: ${dashboard.orders.unknown}` : "connecting" });
     else if (name === "interval" && intervals.some((item) => item.value === arg)) selectInterval(arg);
     else next.push({ kind: "error", text: `unknown command: ${name}` });
