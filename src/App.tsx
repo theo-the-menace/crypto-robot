@@ -3757,7 +3757,8 @@ export function App() {
     const value = command.trim();
     if (!value) return;
     const next = [...lines, { kind: "input" as const, text: `$ ${value}` }];
-    const [name, ...args] = value.toLowerCase().split(/\s+/);
+    const [rawName, ...args] = value.split(/\s+/);
+    const name = rawName.toLowerCase();
     try {
       if (name === "help") next.push({ kind: "output", text: "status · strategies · orders · risk · refresh · connect · token <dashboard-token> · interval 1m|5m|15m|1h|4h|1d · clear" });
       else if (name === "clear") next.splice(0, next.length);
