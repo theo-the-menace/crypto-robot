@@ -1,0 +1,1760 @@
+We just had one of the most legendary
+days in the crypto markets in a long,
+long time. Bitcoin has probably the
+biggest green candle I think I've ever
+seen since before 1010. Everything in
+crypto is up and up for a handful of
+different reasons. It's a double-digit
+week for so many crypto assets. The big
+question I think I want to ask in this
+episode is, is the bull market back? Was
+that it? Was that the starting pistol
+for the next bull market today? This
+day, yesterday at the time of recording,
+Wednesday, August 19th, do you remember
+when uh Black Rockck filed for the
+Bitcoin ETF and [snorts] Bitcoin popped
+like 12% and it was just like a moment
+that everyone was like, "This is it."
+>> Yeah, that seems like such a long time
+ago.
+>> This that is it feels a little
+reminiscent of that of just like this is
+it. It's a this is it moment. I think
+not completely, but it feels a little
+bit like that.
+>> Well, I think that is the question to
+ask is like, did that move just break
+the backs of all the bears that were
+still out there and then had such
+momentum? But first, in order to answer
+that question, I think we have to ask
+the question and answer the question
+like why did this even happen on
+Wednesday? It just seemed like out of
+the blue, but we did have some
+>> out of the blue field.
+>> Out of left field, but QE Treasury QE
+may be back this time. Okay, we'll
+define what that is and what Bessant
+said, what the Treasury is doing. That
+was a key catalyst these markets. Also,
+the White House, Trump gave a speech
+basically pumping crypto and also
+>> all day pumping crypto.
+>> Yeah. And also, the SEC released a uh
+regulation of crypto assets. Here's
+actually how Matt Hogan put it, which I
+think was great. In the last 24 hours,
+he's talking about earlier this week,
+the SEC released regulation crypto
+assets. This is a 402page document that
+we'll get into. The Treasury launched
+yield curve control. The White House
+prepared for a meeting with top crypto
+executives to discuss tokenization and
+the Clarity Act. It's hard not to be
+extremely bullish, both Bitcoin and
+crypto right now. And indeed, the market
+was bullish. We got Bitcoin up double
+digits. I think ETH was up like was it
+up like 20% on the week or something
+crazy. Dude, the president said hyperlid
+on air on live TV. Uh, you know, Bitcoin
+goes up because of QE. All this stuff
+happened. You know, Venice crosses a
+hundred million in ARR, and the winner
+on the week is ETH. Actually, ETH is up
+like the most. Uh, so we're going to
+talk about all that and more. But first,
+we're going to talk about Ironclaw from
+our friends and sponsors over at Near.
+Ironclaw 1.2 just dropped. Uh, we
+probably all remember OpenClaw, like
+personal agents to do your bidding.
+Except OpenClaw was super insecure,
+leaking passwords, deleting documents,
+revealing a API keys. So, it's a mess.
+Ironclaw is Near's fix for rogue AI
+that's misaligned with his users.
+Protects your secrets in a vault that
+the model never sees. All in pursuit of
+creating userowned AI, userowned agents
+that are safe to use with crypto. So,
+1.2 2 just dropped that lets your
+ironclaw plug into all your day-to-day
+apps like Slack and Telegram just to
+give it the context that it needs to be
+a really useful assistant. It is also
+MCP ready, so you can now connect your
+Ironclaw to any MCP tool, which is
+perfect, Ryan, cuz out of the bankless
+universe, we have the Bankless MCP. Do
+you know how much you know how many
+podcasts we've done, Ryan?
+>> Um, we got to be I know we're over a
+thousand. Are we over like 1,100? Over
+2,000 podcasts.
+>> Wait, we're over 2,000 podcasts. You've
+been busy. [laughter]
+>> We've been doing this for 6 years.
+>> Oh my god. So, that's a lot of
+transcripts, right? That's a lot.
+>> Lots of transcripts direct from the
+source data that like AI labs don't
+have. And AI labs famously just haven't
+trained well on crypto data. I don't
+know if you go into if you notice going
+into your like your Claude or your
+Venice or your OpenAI whatever you use
+and you ask crypto questions usually
+it's it's pretty constrained with how
+good it can answer. It can answer the
+basics but you ask anything anything
+beyond the basics and you get pretty
+poor answers.
+>> Yeah,
+>> this is what the bankless MCP is for.
+Uh, and so you can using your Bankless
+Premium account, you can hook in the
+Bankless MCP to your near ironclaw agent
+and you just have the most
+cryptocapable, crypto ready AI LLM ever.
+Uh, and so this is available for
+bankless premium subscribers uh, and if
+you want that uh, you can go into your
+account uh, and you can just tell your
+agent to install it and then all of a
+sudden your cryptoreated prompts will be
+much better.
+>> Dude, that's very cool. I I want that.
+But I can't wait to ask myself some
+questions using the Bankless MCP.
+[clears throat]
+>> Dude, I I put out I put out this tweet
+about like announcing the Bankless MCP
+and then you know what I got?
+>> Somebody generated like a fanfiction of
+you and me debating about E. [laughter]
+>> Who won the debate?
+>> I don't know. It was a Socratic debate.
+Okay. Or or in you or answer crypto
+questions if you want or just make
+bankless fanfiction. Both work.
+>> You know what? We might repeat that
+debate in today's episode, okay? cuz I
+want to get your thoughts on ETH. But
+before we do, uh, you got prices up.
+Let's just celebrate what happened last
+week. We have bounced
+>> gargantuan candle.
+>> Oh my god. We have bounced hardily off
+of the 200E moving average for Bitcoin,
+which was something like 63 64K if I'm
+recalling correctly, the 200WE moving
+average. What are we at the time of
+recording right now?
+>> Yeah, last week we were recording,
+Bitcoin was right at the 200WE moving
+average, $64,000. We were at 72,300.
+We paused right around 7,000 and we have
+just had continuation as of this
+morning. So we had a huge bullish day
+yesterday and we are continuing that
+bullish day today. Uh and so firmly
+away. We are we are how much is that? We
+are up
+>> that's double digits right we are
+>> we are up 14% in a day and a half. Yeah.
+Uh really really really great. Really
+really great.
+>> Incredible.
+>> Some just absolute winners on the week.
+Etherfi. Etherfi announced uh kind of
+like an evolution you know. Etherfi the
+neo bank. I'm calling it a NEO
+brokerage. They're adding in assets and
+margin into their account and also they
+improved their tokconomics. And so Ether
+pumped 38%. Uh pumpf fun is up 28%
+because usage and revenue
+>> on the week%.
+It's been up 50% on the month. So huge
+continuation from Pump Fund just because
+revenues are growing and therefore pump
+buybacks are growing. Hyperlid is up
+25%. We're we're going to get into this
+cuz Donald Trump said hype hyperlquid on
+national TV or just the white house the
+white house event. So hyperlquid is up.
+Venice VVV is up 20% on the backs of
+open router getting acquired and also
+Venice crossing 100 million ARR. And so
+I think people are reacting to yesterday
+the Treasury announcing they're doing QE
+which we're going to talk about and then
+also Donald Trump just having a day of
+pumping crypto. I was like, "Wow, this
+is one single bullish day." No, no.
+There have been bullish catalysts for
+the last like eight days. Etherfly had
+its own bullish catalyst. Venice had its
+own bullish catalyst. And all of this
+kind of happened. And I think one of the
+reasons why it was so violent yesterday
+was the combo of the QE announcement and
+then the White House just blew out
+people's shorts, which is why the one of
+the biggest winners on the week is ETH.
+ETH is the biggest winner on the week
+cuz so many people got wrecked. shorting
+[laughter] ETH.
+>> All the haters got wrecked. What is it?
+>> They got So I saw an account like lost
+$30 million cuz they had like a a huge
+ETH short open day. That's why that's
+why ETH just pumped so violently. So
+Bitcoin is up 13% on the week.
+>> Ether is up 23% on the week. $2,330.
+>> Incredible. Jamie Coot said this. ETH's
+move yesterday, just to put this in
+historical context, was the eighth uh
+largest single day move since 2018.
+ETH's eighth largest single day move
+since 2018. And history says the
+short-term follow-through is close to a
+coin flip, but the odds skew
+meaningfully higher over the next 3 to 6
+months. So, when you see that up
+explosion, usually that um that precedes
+like even more explosion,
+>> even further up. even further up.
+>> Mhm. Okay. I mean, you can you can zoom
+out zoom out and you can see this green
+candle is it's it's quite notable.
+>> It is. It is quite notable. But that
+blue line there is the 200E moving
+average. So, we're not there yet.
+[laughter]
+>> Despite despite having an incredible
+day, ETH is still about 7% below its
+200E moving average, which if you're
+bullish and you're looking to the upside
+on ETH, you're like, "Oh, there's so
+much more room just to have mean
+reversion here."
+>> But that's that strength is something we
+haven't seen in a while. Strength on the
+ratio, too. strength disproportionate to
+Bitcoin on this move up. There's some
+strength in the charts. I think even
+traders are starting to acknowledge
+this. I know this is a question bankless
+fans wanted me to ask, but I was going
+to ask it anyway. Okay. Does this move
+cause you to be tempted to go back and
+refill your ETH bag, sir, and retract
+some of the words that you've said about
+ETH? Is this it? Did this break the the
+bearish sentiment in David Hoffman?
+uh retracts my words. No, I put a lot of
+thought into those words. Um
+I don't know if short a short squeeze is
+like the confirmation that like I want
+uh
+it no [laughter]
+>> is the answer. But like I don't mean to
+say like no it's therefore bearish. Like
+I think I I think uh you could
+absolutely justify being bullish ETH
+here. listeners, you guys hear that
+hesitation in his voice. He's he's he's
+not quite certain that his position is
+correct as he's saying.
+>> He's not trying to be like too like
+concrete on either direction, which was
+also the conclusion of my article. It's
+like h it's just like somewhat priced
+in. Like it's not going to have it's not
+going to go too far up, it's not going
+to go too far down, and I'm going to
+look for opportunities elsewhere. And so
+I'm not trying to say like I give an
+affirmative absolutely I'm I'm buying
+back my bags or absolutely not. I'm
+totally bearish. It's the same position.
+It's like h it's I'm looking for
+excitement elsewhere. All right,
+Ethaxis, we still have some more work to
+do. But but a a way to start into that
+position of you flipping on your your
+ETH position and refilling your bags is
+maybe to start with some BMR, which is
+Tom Lee's DAT for Ethereum. And I know
+you spoke to Tom Lee earlier this week
+on Tuesday, I believe. I actually
+haven't talked to you about that
+episode. Uh Tom Lee purchased another uh
+what 10,000 ETH on the week. So every
+single week he continues to purchase.
+Now has 4.8 8% of all ETH. Okay. So, how
+about bullish BMNR if you're not bullish
+ETH?
+>> Look. Okay. So, right after that podcast
+episode, I think Tom Lee and the Bit
+Mine team, everyone thinks Bitmine is
+Tom Lee. It partly is, but I think the
+Bitmine team also is kind of like a
+sleeper about Bitmine.
+>> Oh, that team is cracked.
+>> Cracked team. Cracked team. And And Tom
+Le is a great just uh like figurehead.
+Like my hot take is that I think Tom Lee
+is a better Michael Sailor than Michael
+Sailor is. And like these are apples to
+oranges, but these are both leaders of
+the number one and number two DATs. And
+Sailor is a classic steak eating Bitcoin
+maxi laser maxi who's a little bit too
+aggressive. Tom Lee is a measured,
+moderate, balanced, reasonable
+leader of Bit. And I think Bitmine I
+think between Bitine and MSTR I think
+Bitmine wins big. I think Bitmine
+outperforms MSTR.
+>> So you'd rather own BMR than MSTR?
+That means you're bullish ETH rel.
+You're bullish ETH relative to Bitcoin.
+Yeah. I Well, I think it's not quite the
+same. I think Michael Sailor disrespects
+his equity like none other. [laughter]
+And I think I think Tom Lee respects the
+[\h__\h] out of his equity.
+>> And I think I think that is going to be
+uh I think that is going to be the story
+between these two assets moving forward.
+Uh and so like really I came out of that
+episode with Tom Leos being like I think
+bit BMNR is quite bullish because to
+your point like I do see upside like a
+possible upside with Ether the asset in
+the future. I know we've said before Tom
+Lee is probably the most important
+person in the Ethereum ecosystem as of
+right now. Certainly the most important
+new entrant over the last 18 months. Uh
+I can't wait to listen to that episode.
+I think it's coming out on Monday. I
+just have one question about that
+episode. Did you ask him the question of
+where is he getting all this money to go
+buy ETH every single week? And did you
+get a good answer? What did he say?
+>> I got a partial answer.
+>> Yeah. Partial answer.
+>> Where's he getting the money?
+>> No, you got to listen to the episode,
+[laughter] bro.
+H always money in the banana stand,
+right? Uh [laughter]
+okay. Okay. There was also a big day for
+uh ETFs as I understand it. What's What
+are we looking at?
+>> Yeah, this is a hunter horsely from a
+bit wise. $300 million of volume today
+across just the Bitwise ETFs, which are
+our favorite uh ETFs here on the
+podcast. Is that
+>> Yeah, I like the Bitwise ETFs.
+>> Okay.
+>> Yeah.
+>> Yeah. Yeah.
+>> Crypto native.
+>> But I mean, who are you going to pick?
+Black Rockck. [laughter]
+>> Okay. I I'll pick for this week. I'll
+pick Bitwise ETFs. They're the best.
+Anyway,
+>> these are these are our favorite ETFs.
+Uh top five by volume, uh bit Bitcoin
+ETF, Salana ETF, Hyperliquid ETF,
+Ethereum ETF, and XRP ETF. So, uh these
+are just volume. There was also just
+broad inflows into the ETFs as well. I
+know I just talked [\h__\h] about the Black
+Rockck ETF, but here's Alex Thorne
+talking about IBIT. And IBIT had his
+biggest retail buy of IBIT in the last 2
+years.
+>> Wait, wait, wait. That candle. That's
+the biggest scandal. Yeah, that's the
+biggest scandal in the last two years.
+Incredible.
+>> That's right. So, so we got we got some
+bullishness out of the ETFs as well.
+>> Well, uh, somebody had to say it.
+Somebody did say it. If you're in AI,
+pivot to crypto, the capital rotation of
+the year, that's what you got to do. Uh,
+crypto outperformed basically everything
+on the week, including, of course,
+>> AI in a big way. And this seemed to come
+out of nowhere. I think we need to talk
+about why after the break, David. Was it
+the Bessant Treasury QE thing? Was it
+the White House remark? We're going to
+discuss that and then talk about whether
+this bullish sentiment has changed
+things, whether it can be sustained. So,
+all that and more, but before we do, we
+want to thank the sponsors that made
+this episode possible. I've been trading
+crypto assets for almost a decade, and
+I've used so many wallets, exchanges,
+aggregators, frontends, and I'm kind of
+always looking for the same thing, one
+[music] interface with deep liquidity.
+across a bunch of chains and assets and
+the ability to act in private and I
+still control my own funds and I've
+never really found it and I'm always
+switching wallets, juggling gas fees or
+getting eaten by slippage. Near.com
+feels [music] fundamentally different to
+me. My account is easy to use and I can
+take all the actions I want from any
+chain while my activity remains
+confidential. [music] It runs on Near,
+which has moved over $23 billion
+crosschain using postquantum signing and
+has over 5 years of uptime. Near.com is
+the best way to be on chain and be in
+control. Get 20% of your trading fees
+back through the bank list link. It's in
+the show notes. Not investment advice.
+Self-custody one, but it still has a
+usability problem. A seed phrase on
+paper is still a single point of
+failure. Phones get lost, devices break,
+backups [music] disappear. Bit key is a
+self-custodial hardware wallet built for
+that reality. It uses a two of three
+multisig with keys split across your
+phone, the Bit Key hardware device, and
+Block. No single key can move your
+Bitcoin and [music] block can never move
+it alone. There's no seed phrase to lose
+or expose. And if you lose your phone,
+your Bit key, or both, built-in recovery
+gives you a path back. The hardware
+screen also lets you verify the
+destination before approving a
+transaction. And that's [music] the
+point. More control without one mistake
+putting everything at risk. So download
+BitKey today and use promo code bankless
+to get 10% off of your Bit Key. This
+episode has been sponsored by BitKey.
+Markets don't move one asset at a time.
+One day it's Bitcoin, the next Nvidia,
+then gold, and then the S&P. But most
+traders are still managing their
+portfolio across different platforms,
+different accounts, and different pools
+of capital. Bit just changed that. Their
+new stocks 2.0 product lets you trade
+tokenized equities directly with USDT,
+all inside the same app you already use
+for crypto. This is not just another
+tokenized stock product. Stocks 2.0 is
+designed around deeper liquidity, faster
+execution, and the lowest fees in the
+market at just 0.04% 04% and 1:1
+economic exposure to the underlying
+[music] stock. Dividends, stock splits,
+and other corporate actions are
+reflected automatically, helping your
+position stay aligned with the asset you
+actually want exposure to. One platform,
+one account, multiple markets, crypto,
+equities, commodities, and more. All
+accessible with USDT. Bit trade smarter.
+Start trading today through the link in
+the show notes. This is not investment
+advice. Trump giving a speech at the
+White House. Here's one of the things he
+said. I understand that Mike is also
+working to bring hyperlquid into the
+United States in a fully compliant and
+legal fashion. He's working very hard on
+that.
+>> He said the words. He said hyper liquid.
+Did you? He said them in all caps. Did
+you hear that? [laughter]
+I think that's what the the the hype
+believers want people to believe. Do you
+see Mike Celig's absolute [\h__\h] eating
+grin? cuz he knows the hyperlquid
+[laughter] people are going to be over
+the moon about this. He is so happy with
+himself.
+>> Yeah, that is somebody who is u who's
+very excited that that he said the thing
+that crypto Twitter wanted him to say. I
+suppose in this moment
+>> like the hyperl people are going to love
+this one.
+>> This is not the only thing he said. This
+is um you know from Bloomberg Business
+Daily. Trump speaks alongside crypto
+leaders at the White House. It was part
+of a longer speech. This is um about I
+don't know 30 minute 45 minute speech.
+Not just not
+>> goes to almost an hour. Yeah. 45
+minutes. Yeah.
+>> Not just not just Donald Trump. Other
+you know leaders in his um
+administration also spoke in including I
+think uh Mike Zelig and surrounded by
+actually you know what so let's hear
+some clips from that just a a highlight
+reel.
+>> I want to thank the chairman of the
+commodity futures trading commission
+Mike Salic for his tremendous
+leadership. Come here.
+>> Thank you Mike. And thanks as well to a
+very special man, a man that everybody
+respected for a long time, Chairman Paul
+Atkins, who's also doing an outstanding
+job and everything else he touches. He's
+doing a lot of things for the for the
+country. So I want to thank you very
+much and many other top industry leaders
+including Coinbase, Brian Armstrong,
+CEO. He's one of the greats.
+CEO of Robin Hood, Vlad Tenev, thank
+you. and CEO of Kraken Arjun Sethi and
+thank you very much wherever you are
+Brad Garlinghouse CEO of Ripple Brad
+thank you very much Brad Sergey Nazerov
+co-founder and chain link Labs thank you
+very much good Sergey and Tyler and
+Cameron Winklvos have tremendous people
+tremendous investors brilliant people
+Chris Dixon is here
+>> I mean okay that was just like a who's
+who of people in crypto
+standing around Donald Trump for this
+for this speech.
+>> Yeah. Yeah. I just love that Cameron and
+Tyler Winklebos just you just get
+everyone just lumps them together.
+[laughter]
+>> He also said this um day one we fired
+Joe Joe Biden's rogue Gary Gendler. We
+like Paul better. He said that there's
+like a lot of Trump classic uh quotes
+coming out in in this speech, but this
+was this was really for the crypto
+people. You know, part of part of this
+struck me as like um maybe Trump
+realizing that the clarity bill may not
+pass and that he had I guess promises
+that he had made and campaigned about
+for the crypto industry. And this was a
+speech like on how to keep his promises
+through, you know, proposed rulings and
+through the executive branch if clarity
+act is is not going through. That's
+partially how I interpreted this.
+>> This also came at the same time as
+announcements from the SEC, which we're
+going to get into later in the show,
+which is basically the SEC doing their
+part of Clarity. And then we also kind
+of just got another verbal announcement
+from the CFTC saying, "Hey, we're going
+to do a similar thing." So, to your
+point, like, yeah, it's like, okay,
+Clarity is not looking great. So, what
+do we need to do to like follow through
+on promises? Let's do a little pump in
+the bags of the crypto industry. Let's
+pat everyone on the back, thank
+everyone, and then also we're just going
+to round about our way back into we're
+going to back our way into clarity.
+Yeah, very much. This is how Chair Sal
+put it. The United States has a choice.
+We can either write the rules that
+define the next generation of financial
+markets or we can let other countries
+write them for us under the president of
+the United States leadership. We've made
+our choice. America will lead. executive
+branch taking action to continue cryp uh
+the US as the crypto capital of the
+world. This is a Trump campaign promise.
+>> Can you play the clip with uh Donald
+Trump talking about him signing the
+Genius Act?
+>> Yeah, this is this is Donald Trump
+talking about himself signing the Genius
+Act.
+>> One year ago this summer, I signed
+landmark legislation known as the Genius
+Act. I named it after myself. I didn't
+want anyone to I didn't want to use my
+name, so I just called it the Genius
+Act.
+>> [gasps]
+[sighs]
+>> That's so unnecessary. [laughter]
+>> So unnecessary.
+At least no meme coins were mentioned. I
+mean, I guess that era is over.
+>> Um, man, I would like Trump so much
+better in this position as kind of like
+political leader of crypto. If he didn't
+do all the grifting [\h__\h]
+>> if he didn't if he didn't pocket like
+how much did he pocket?
+>> Billions, tens of billions of dollars.
+It's like a moving target at this point,
+right? But because like this was not
+just a speech. I mean, this is the
+executive branch moving on things. The
+SEC and CFTC standing right beside him
+moving on some things. So, there's some
+substance to this that we'll get into
+later in the episode. But that happened
+Wednesday, right? The same day that
+Treasury came out with some major
+announcements. There's almost a
+question. Did the uh the White House
+speech move crypto markets or did did
+the Treasury QE news move crypto markets
+more?
+>> That's kind of what I was saying. Even
+other than those two things which
+definitely moved crypto markets, we also
+just had fundamental growth in some of
+our like big crypto assets like I talked
+about them before like Venice a bunch of
+revenue. FOMO is making a bunch of
+revenue. I know that's not a crypto
+asset. uh EtherFI revamping his
+tokconomics. And so like the the lead up
+to these very big announcements was
+underscored by revenue, buybacks and
+revenue in some of like the fundamentals
+of our crypto industry. And then we just
+got get hit with this wallup of news
+from the Treasury. Treasury announcing
+the increased size of nominal long-end
+liquidity support buybacks, which is
+just just words for like, hey, we're
+going to buy bonds. We're buying bonds.
+Yeah,
+>> we're buying we're buying long longdated
+bonds starting September 9th. And so
+this isn't QE in the traditional sense
+because QE must come from the Federal
+Reserve region of the United States.
+This is coming from the Treasury region
+of the United States. It's the same
+thing though. We're we're creating
+dollars to buy back longdated bonds to
+increase the value of bonds and lower
+yields. I'm sorry. Isn't that QE? It it
+is kind of like QE. It's not QE in the
+Fed sense. So, some people are calling
+this QE light. Um, other people are
+calling this Treasury QE. And it's not a
+lot right now. It's a trickling, but it
+is a doubling. So, what they're actually
+doing is they're doubling the, and this
+was announced on Wednesday, the maximum
+size of purchases of a longerdated debt,
+longerdated bonds from 2 billion to 4
+billion. So, a2 billion increase. But
+it's more the direction of travel that
+is the thing that investors have
+observed. And this brings into the
+question of well is the debasement trade
+back on and the market thinks yes. I
+mean you can you could see gold prices,
+you could see the Bitcoin price, you can
+see the ETH price. These are debatement
+debasement hedge assets that really
+pumped on this news. Um I was trying to
+understand exactly what Treasury was
+doing here. And it's not so much that
+they're printing new money. Here's the
+nuance. They are buying long bonds. So
+these are, you know, 30-year bonds, that
+sort of thing with T bills with short
+duration bonds. So they're swapping out
+the duration. Okay. So in a sense,
+that's not printing new dollars.
+>> It's not pure QE. It's it's soft Q. It's
+a little bit softer, but it's
+directionally QE nonetheless. It's
+directly QE and it's directionally also
+money printing even though no new net
+new units got printed because you're
+moving that like a a a T bill
+>> is money like okay a 30-year you know
+bond is not a 30-year bond has
+volatility a a T bill does not have
+volatility so you're knocking duration
+out and it's also the Treasury saying
+hey we're going to work in conjunction
+with the Fed to set a top on yields on
+long-term yields
+So, we'll we'll pull up the longterm
+long-term yield chart in a second, but
+it's like it was floating upwards, you
+know, 5.3%. We've remarked on this last
+two rollups, like 20-year highs, and
+they're saying it's not going to go
+higher because if it starts going
+higher, we're going to buy the long
+duration with short duration. And if you
+recall, Yelen was doing this as Treasury
+Secretary. Now, Besson is kind of like
+doubling down on it, uh, tripling down
+on it. But the initial effect was uh
+yields started to fall from the 5.3%
+range on down. I think it was like 5.1%.
+Uh and also the dollar falls too. Okay.
+The reason the dollar falls is because
+there's more dollars in circulation on
+the short end.
+>> So this is at a time of course when uh
+we have you know debt, US debt. This was
+a uh another tweet I saw you threw into
+the agenda. U$40 trillion this week,
+David. We just passed nominal debt
+exceeding $40 trillion that the US has
+right now. Okay. So, this is moving some
+of those debt payments from a 30-year
+problem to like a a you know 3month type
+problem by moving it to the short end.
+And um there were some updates you threw
+into the agenda this morning is that um
+price chart that we're seeing, right,
+where we see yields on 30-year
+government bonds heading towards excess
+of 5.3%. The Treasury stepping in and
+saying we're going to buy the long end
+of uh of bonds. Immediately yields
+dropped to like 5.1%. And then they
+started popping back up. That was early
+Thursday morning popping up to 5.24%.
+So, I liken this to like the Treasury
+trying to keep a beach ball underwater
+here. They're like, "Okay, we're just
+going to push it down, but the beach
+ball wants to keep popping back up,
+popping back up." And so, they made
+another announcement this morning. What?
+That they were doing even more of
+>> They're doing it again. They're just
+doing it more. They're just going to
+They have an infinite money printer.
+These are the words that I'm familiar
+with, but Besson said buybacks could
+soon be bigger than the four billion
+that we announced. Whether or not he's
+going to follow through on that, I don't
+know. It kind of it's this is what he's
+telling the market is like, yo, we we
+can buy back as much bonds as we want.
+So you you better the market better fall
+in line anyways.
+>> So he said that this morning, right?
+Like that
+>> Yeah.
+>> you buybacks could continue. And you're
+sort of seeing the top that the Treasury
+is willing to sustain. Like once it
+starts getting that 5.3% zone, that's
+the beach ball surfacing. They want to
+push that.
+>> This is a taco moment. Like Bessant is
+just tacoing on Trump's behalf. Like
+Trump tacoed at 5% with uh the
+liberation day tariffs. He tacoed at 5%
+with the Iran war. We got we got there
+organically anyways. And so now Fed is
+just once again like or excuse me, the
+Treasury is once again doing this. You
+asked me the question at the start of
+the section like what why did we pop so
+aggressively? It's like is this the
+Treasury? Was this like the White House
+pumping the crypto assets? This is for
+Bitcoin and ETH like Bitcoin and ETH
+pumped the most because of this which
+obviously sets the floor for the whole
+rest of the industry because those two
+things are like 70% of the entire market
+cap of crypto. But like it was all of
+these things all at once. This is the
+big one because the White House doing a
+big press thing and shaking Brian
+Armstrong's hand and Vlad's hand and all
+that kind of stuff. That's a nice shot
+in the arm and especially for Hyperlquid
+and like the other per coins like shot
+in the arm for that
+>> and tokenization and all of that.
+>> Yeah, this is structural.
+>> This is store value asset, you know,
+debasement stuff. This is this is
+putting the tailwinds in our industry's
+sales and so it's nice to get the shot
+in the arm stuff but this is like the
+big one but it really just all happened
+at once.
+>> Yeah, kind of incredible. It almost
+seemed coordinated that it all happened
+the same day but uh I don't think it was
+and then the reason you see this as as
+the debasement trade as well as other
+debasement asset gold and silver added
+$1.3 trillion
+after the treasury's announcement that
+happened on Wednesday morning. Right. So
+the debasement trade has been pretty
+dormant. Uh the AI trade has kind of
+taken all of the attention, all of the
+glory, superseded it. AI stocks flat on
+this news. Basically flat.
+>> AI stocks down. No
+down 2%. Intel was down 6%. Like chips,
+chips and AI stocks were down
+>> cuz AI stocks are going to trade based
+on AI token demand. That's how they're
+going to trade. The forecasted demand,
+all of this. And this is some issues in
+the credit markets. Uh and this seems to
+indicate that the Treasury is going to
+step in and like fix things uh when
+yields get high enough and that is that
+is a debasement type trade. So the
+market is really stiffing this out at
+this point in time. Uh Ral Paul calls
+this the Besset put. Okay. So this is
+like the Treasury put similar to the
+Fed.
+>> This is what they're going to be doing.
+>> The 5% put just can't touch 5%. 5% is
+lava.
+>> Yeah. I think uh a great summary here.
+The do signals keep firing. Marginal
+macro policy is moving towards the
+Treasury. So now the Treasury is more
+important than the Fed to watch what
+they do. The government will ensure the
+AI buildout goes off without a hitch.
+This is the US government doing that.
+And since the new marginal buildout is
+being funded debt, we've seen that with
+the Nvidia, Black Rockck, etc. deals uh
+that happened last week. The long end
+must be kept in check through that. So
+this is Felix from Ford Guidance saying
+because of all this I'm liking to
+basement trades again like gold and
+bitcoin. Uh he thinks bitcoin will do
+well in this type of environment. So
+this is an environment shift. It's a fed
+treasury macro type shift that happened
+and that all happened on Wednesday too.
+I think the question for us is these
+enormous moves in crypto did that break
+the bare markets back David. Right. So
+again, you had stocks flatish, maybe
+downish a little bit, and we have
+Bitcoin and ETH moving double digits on
+the week. Shorts getting absolutely
+liquidated in the process,
+>> getting wrecked.
+>> You know, a lot of people have said that
+the bare market will end with a, you
+know, massive capitulation, a lot of
+volatility, right? Or a lot of volume, I
+should say. Okay. Well, this was a lot
+of volume, but it was to the upside.
+>> Is this kind of a a market ender? I
+think there's a case for Yes. What like
+what would you say is the case for yes?
+>> I think there's a very big case for yes.
+Mainly just because again it goes to the
+fundamentals of this industry. We are a
+debasement industry. Bitcoin and ETH are
+fundamentally scarce assets. They are
+non-s sovereign stores of value. When we
+are doing money printing, I don't care
+if it's not technically QE. We're
+creating more money. And so scarce
+assets do well. This is and maybe you
+could you could be bearish and be like,
+oh, but like look at gold. Gold's doing
+just fine and gold will take all the
+oxygen out of crypto sales because
+people are just tired about crypto. Gold
+is doing fine. You're totally right
+about that. On top of that, we have what
+we're going to talk about next with the
+SEC providing basically the SEC sides of
+clarity and the CFTC's doing the CFTC's
+job and doing the CFTC side of clarity.
+So, [\h__\h] clarity. We're getting it
+anyways. And so, it's just there's
+momentum here. And I don't know, dude.
+Like I I should have looked at the
+numbers before doing this podcast, but
+it's it's actually notable how bad
+shorts just got blown out in the last
+two days. And so people aren't going to
+be touching shorts for a while.
+>> Yeah.
+>> Maybe maybe that's bearish because now
+people are going to like lever long and
+maybe they get blown out. But I this is
+a it's a very reasonable claim to make
+that there is enough energy and momentum
+here that that defines the bottom.
+>> Are you ready for the opposite case? The
+case for maybe no, we didn't break the
+back of the the bare market here.
+>> Do you do you believe it
+>> or is it is it real? Is it a real
+argument?
+>> I think it's real. Yeah, I think it's a
+real argument and I think the argument
+is this. So okay, what Treasury is doing
+is yeah, maybe hinting towards
+debasement. Um, they're also using all
+of credit facilities and kind of like uh
+protecting the long end to protect
+credit markets so that credit markets
+can can continue funding AI tokens. And
+so the entire US market at some level
+like almost the entire world market is
+now like dependent on AI token demand
+itself. We keep you pushing inflating
+that bubble and now that bubble is
+starting to increasingly be um filled
+with and the reason I call it a bubble
+by the way it may not be a bubble it all
+depends on what you think AI demand goes
+in the future but now we're doing it on
+credit not just profits and retained
+earnings of uh these companies and so if
+you get one demand blip right oh my god
+AI tokens we have more supply than we
+have demand just like we saw when we had
+a period of time in 2021 where we didn't
+have enough blocks space and you know
+ETH gas prices were going to $200 and
+then that suddenly changed and we had
+like too much block space. No one was
+buying it. Okay, same thing could happen
+with AI token demand. If that happens
+that could cause a massive cascade
+riskoff sell that will just pull crypto
+down with it and that in that context
+you could see new lows for crypto. Out
+of that the good news is more debasement
+is probably the answer, right? Treasury
+and Fed stepping in, print money, get us
+out of this, more debasement. But before
+that happens, you could see a pretty
+massive blip down because this is a lot
+of credit being injected into the AI
+speculation. I asked Mike Nato about
+what he thought about this cuz it was
+funny. We just finished recording a
+podcast. gave basically this exact case
+and then crypto prices went crazy and he
+said he's fading this uh bull run in
+crypto right now because NASDAQ weakness
+and the 30-year moving back up is pretty
+telling is is he's saying the base case
+is that crypto makes a idiosyncratic
+move up uh based on short positioning on
+Bitcoin that the shorts getting blown
+out based on
+>> well that happened the Trump just
+happened
+>> yeah but he said that might be what's
+needed before then we go down. So, he's
+watching for signs of durability.
+[laughter] Okay. Uh, this was kicked
+off, he says, by a massive short
+squeeze, and you got to see if that
+squeeze is durable. ETF flows, spot
+volumes until until it's durable. He's
+staying a bit skeptical. So, that's the
+that's the bare take. I give it kind of
+equal weight. Honestly, I'm like 5050 on
+whether this
+>> is a sign of we've broken the back and
+debasement is back on or we still have
+more to go. Yeah, I I do think about
+like there people are making fun of all
+the people who said like, "Oh, I'm going
+to wait for the capitulation wick in
+October and then like 10,000 people are
+saying that and like so therefore we're
+not getting it."
+>> But now now people aren't saying it
+anymore.
+>> Now that now that's non-conensus.
+>> Yeah.
+>> Not at all. I I think maybe I'll invite
+Ben Cohen back on and and see what he
+thinks.
+>> I think you could always take the
+position of just always be
+>> bit long dollar cost average in. You
+don't have to you don't have to worry
+about these wigs.
+>> I'm always exposed.
+>> Always exposed. Always exposing
+yourself, aren't you? [laughter]
+>> Also on the week, David, uh Iran
+shifting from kinetic to economic. What
+What is this about?
+>> Yeah, this is a a a truth social that
+got tweeted out by the White House.
+Basically, uh Donald Trump is is
+communicating that we are shifting our
+strategy with Iran. We're not really
+doing kinetic stuff. we are just going
+to continue the economic chokeold on
+them which is pretty pretty it was
+working is working
+>> and not is that what this implies
+kinetic is kind of
+>> I think kinetic is firmly not working
+yeah or at least it's it's not working
+as much as it once did uh the the
+takeaway here is that this is going to
+be months like three plus months for the
+chokeold to really actually have like a
+capitulation moment for Iran. Uh the
+Iran economic situation is dire, but the
+whole point of the Islamic regime is
+like they can they're cockroaches. They
+can just hold on for for they can just
+hold that's what they
+>> been economically sanctioned in the
+past. Is this like a deescalation in
+your mind of just like you know cuz
+deescalation for a and trading for an
+economic escalation?
+>> Okay. Trump has these words. It's going
+to be the most crushing economic
+operation ever taken against any
+country. But the fact that he's moving
+from kinetic to just purely economic
+seems to be a deescalation. But it also
+seems to indicate this whole thing is
+going to continue to grind on.
+>> This whole thing is going to continue to
+grind on. Yeah. I I bet you we go
+through the midterms.
+>> Wow. Uh when we come back, let's talk
+about the SEC's new 402page document. Is
+this SEC version of the Clarity Act?
+David read it and he can give us the
+details on that. and a few other things
+in crypto, including FOMO, BAP, and
+Hyperlquid Compound, Rebirth, and Hayden
+Adams first blog post since 2019 that I
+thought was really good. We'll talk
+about all that more, but before we do,
+we want to thank the sponsors that made
+this possible. Bankless Nation, we've
+built something for you. Introducing the
+Bankless MCP. Chat GBT and Claude are
+great at a lot of things, but ask them
+anything beyond the basics of crypto
+about protocol mechanics, tokconomics,
+or just what happened last week in
+crypto, and the gaps will start to show.
+The problem is context. Bank list, on
+the other hand, has spent almost a
+decade building one of the deepest
+archives of crypto data anywhere. More
+than 2,000 podcast transcripts, 10,000
+articles, and countless conversations
+with the people actually building this
+industry. And now we've structured all
+of that data into the bankless MCP. So
+you can go and connect it to your claude
+or chatbt and suddenly your AI can
+answer your crypto queries with the
+entire bank list archive behind it. And
+every new Bank list article or episode
+gets added automatically so the context
+keeps staying up to date. The Bankless
+MCP is exclusively available to Banklist
+premium subscribers. So you can go to
+banklist.com upgrade to premium and
+connect the MCP in just a few minutes
+and all of a sudden your crypto [music]
+queries to your AI LLM, whatever you use
+will get a thousand times better. So go
+check it out. There is a link in the
+show notes and once you become a
+banklist premium member, you can hop
+into the Banklist Discord and let me
+know how you like it. Cheers. Some
+exciting news. We are launching a new
+podcast to help people figure out the
+crypto cycle, how to navigate it. The
+best cryptocycle investor I know. His
+name is Michael Nato. He runs the DeFi
+Report. This is the guy that sent me a
+sell alert before the 1010 price drop
+happened. His cycle analysis has been
+absolutely on point. I've been following
+him for years and this year we started
+recording [music] weekly podcast
+episodes. Each one we get into his
+portfolio, what he's holding, the market
+structure, entry targets, fair market
+value of Bitcoin and Ether, and where we
+are in the cycle. There's new episodes
+that are released every Wednesday.
+They're 30 minutes. [music] They're
+short. They're punchy. I think this
+crypto cycle is harder to navigate than
+most. So, let's do it together. Go
+subscribe to this podcast. Search the
+DeFi Report wherever you get your
+podcast, YouTube, Apple, Spotify, or
+find a link in the show notes. There's a
+new episode waiting for you. Now, the
+SEC has a new proposed rule titled
+regulation crypto assets. This is what
+we were talking about earlier in the
+show, which is basically this is the SEC
+just doing their half of clarity,
+whatever they can do to clarity. I'm
+going to say some things. I'm going to
+tell you what's going on in here, and
+you're going to feel like, oh, we've
+talked about this for all of my our time
+in crypto. This has always been what has
+been discussed about what we want out of
+the crypto industry, and we're just
+we're just getting it from the SEC as
+rulemaking, not laws, but rulemaking,
+which is the second best thing as to a
+law. And so the first one is how
+startups in crypto can raise money with
+with a token that doesn't make the token
+a security. Uh and so there is
+exemptions, three different exemptions
+that have been produced in this
+rulemaking that allows for this to
+happen. One is a startup exemption
+allowing token issuers to raise up to $5
+million in a one-time event that allows
+the team to launch and release a network
+token. No financial statements are
+required. No accredited investor limits.
+No resale restrictions on the token.
+General solicitation is allowed. The
+issuer can be an entity, an individual,
+or a loose group of people each signing
+on, but there's a $5 million raise cap
+on the raise amount. And so this would
+kind of like token sales, airdrops, like
+that general kind of like token issuance
+behavior can be applied here. That's the
+first exemption. The second exemption is
+a fundraising exemption. If you're if
+you speak TRA, this is just reggga a for
+tokens. Uh so issuers can raise a
+constrained amount of money every 12
+months. You have to do a filing with the
+SEC. You have to tell them that you're
+doing this. And there's two different
+tiers. So tier one with unodudited
+financials issuers can raise $20 million
+every 12 months. And then tier tier two
+if you submit audited financials that
+unlocks the ability to raise $75 million
+every 12 months. So reggae for tokens.
+And then the third the third exemption
+is an investment contract safe harbor.
+This is kind of the big one. Rule 400. A
+crypto asset is deemed no longer subject
+to be an investment contract and
+therefore not a security if the issuer
+has completed or permanently ceased all
+essential managerial efforts it promised
+and isn't making any new promises.
+Again, it has to file a form with the
+SEC saying that it is doing this with a
+certification and supporting analysis.
+But nonetheless, you get to say, "Hey,
+we are no longer managing this token.
+This is a decentralized network and you
+and it's not a security." And so this is
+these new pathways for tokens to be
+issued, funds to be raised, but those
+security were just never be invoked. Why
+are you saying this is all we've ever
+wanted? Like this is kind of what like
+what I guess what this is doing if I
+understand it is it's saying that all of
+the kind of the ICOs for decentralized
+networks, the Ethereum ICO for instance,
+which was under the crosshairs of the
+Gendler administration, that is all okay
+in this new regime, in this new
+paradigm. And also that last one you
+talked about the rule 400, the
+investment contract safe harbor that is
+explicitly
+painting a path providing clarity to the
+uh the crypto industry of how something
+that is an investment contract,
+something that is a security becomes a
+commodity, becomes a decentralized
+network if it no longer has essential
+managerial efforts. So, it's essentially
+providing a pathway for networks like
+Ethereum or say Salana or other crypto
+networks that launched in that way to
+become decentralized and no longer
+securities. That's kind of all we've
+ever wanted from the SEC, right? Just
+like stop coming after tokens and give
+us some clarity. Like this is the SEC's
+portion of the Clarity Act, is it not?
+Through rulemaking.
+>> Yeah. Yeah. And you remember when the uh
+XRP versus the SEC versus Gary Gendler
+case, Ripple won that case. And really
+what that was about was not about XRP
+being a security, but it was determined
+that some the investment contracts.
+These are the investment contracts that
+creates the token. So a is even more
+defended that tokens are not securities.
+And now in addition to that the
+investment contracts these are about the
+ways that you can create an investment
+contract that is also itself not a
+security. So these are legal investment
+contracts to create a token and both of
+these things are not securities. That's
+that's what's very very exciting. It's
+very generalizable. It's very scalable.
+You know what this does away with Ryan?
+air drops, points programs, yield
+farming, any other stupid, convoluted
+way to issue and distribute tokens to
+the general public interest that is just
+inefficient, gameable, poor, like all
+that mess that we went through time and
+time and time again because we needed to
+find like creative ways to get around
+securities laws.
+>> Yeah. Now we have the paths to doing
+that that's direct and efficient that is
+confirmed to be not securities
+>> and the requirements are light and
+there's somewhat of kind of a a sandbox
+right so as you get bigger as it's more
+fund funding at stake like from 20
+million to 75 million you have to do
+various things but you don't have to
+file you know 10k filings and the whole
+>> burdens of compliance
+>> that comes with that um okay I guess a
+couple reactions first of all that's
+Great. And that means that all of these
+things that were in this ambiguous area
+in the past, we did particularly our
+blockchain decentralized networks like
+we don't have to worry about that being
+under the crosshairs anymore. And I
+don't even think David a future
+administration can really reverse this.
+If the SEC in this administration 2026
+comes out with this rule making, right?
+Let's say you have AOC's administration
+or something like this and it's Gary
+Gensler v2 and they try to reverse this.
+The court's got to laugh them out of the
+court, right? Cuz just like guys guys
+hold on
+>> there there is some precedent that your
+institution has to uphold and if you say
+something is okay in 2026 there has to
+be continuity. You can't reverse
+everything in 2029.
+>> You have to have a legal rationale for
+reversing it not just a vibe rational.
+>> Exactly. So even if we don't have a bill
+out there the clarity I just think this
+is really hard given the precedent
+that's being set by an institution
+>> uh that has to has continuity from one
+administration to the other.
+um to like reverse this. Maybe some
+things can be reversed around the edges.
+So that's one thought. I guess my other
+thought is like how much do we really
+need this anymore because like like I
+mean for existing assets we do but like
+how many more cryp decentralized crypto
+networks are we actually going to
+launch? Like we have Bitcoin, we have
+Ethereum, we have kind of the long tale
+of blockchain. Are there more that we
+have to launch?
+>> Are we done? It is a little bit ironic
+that the appetite for issuing a
+decentralized network to the general
+public and doing a token distribution
+program
+is is a thing of the past. Now that we
+have the clarity and the regulation that
+we need to do it like no investor wants
+to invest in any of the stuff that this
+like regulation actually protects at
+least in this current form of crypto. No
+one wants new L1's. No one wants
+middleares. Like that's that's the
+appetite is gone,
+>> right? The question is how many more
+decentralized networks without managers
+do we actually like want or need?
+>> Yeah, people are really into managerial
+effort these days. [laughter]
+>> Like I want them for some things. I
+don't want them for Bitcoin. I don't
+want them for Ether. But like I do want
+them for like a lot of other things in
+crypto and I wish everything else.
+>> Yeah. actually that we need more
+managerial [laughter] efforts in crypto.
+>> But anyway, it's great we have a path
+and this is uh I think the CFTC's
+portion of the the Clarity Act.
+>> Let me round out this one part uh that I
+think is worthwhile. Uh in addition to
+the startup exemptions that I talked
+about, in order to have those startup
+exemptions be applied to you, you need
+to take part in standardized
+disclosures. Again, if you speak TRD,
+this is basically S1 filings for tokens,
+but it's much easier. Uh these there
+there are a couple rules for how you do
+this. It must be in plain language and
+stage appropriate. So what this means is
+plain language. You can't obuscate
+details with overly technical
+terminology. And stage appropriate means
+that forward-looking plans must be
+clearly delineated from what actually
+exists. Again, this is like a
+reminiscent of the 2017 ICO era where
+like you would read a white paper and
+there were some stupid [\h__\h] white
+papers [laughter] back then with
+incredibly complicated math that
+promised the world and retail investors
+would look at this and be like, "Wow,
+geniuses wrote this white paper. I
+understand nothing. The team is
+amazing." When in fact, the team is
+intentionally writing ridiculous,
+ridiculously complicated white papers
+that don't actually make sense and the
+team is actually scammers. And so
+there's so you write you write these
+disclosures and then there's 10 specific
+subjects uh of the disclosure
+requirements. You have to disclose what
+you promise and how far you've gotten,
+what you're selling, and what you'll do
+with the money, who's behind it, and
+what they hold. So management conflicts
+of interest, related party transactions,
+like market making stuff like insider
+holdings, like all of that, like the
+Blockwork Works token transparency
+report type stuff, all of that must be
+disclosed. and then how the code works
+and who controls it. And so in addition
+to all this, we're getting kind of the
+disclosures that the industry has also
+wanted for a very long time.
+>> That's great. And it fulfills what
+Hester P's vision has been for the SEC
+of don't be a merit-based regulator.
+Okay. Just like
+>> emphasize disclosures, but it's up to
+investors what they invest in. They
+you're not trying to protect investors
+from making bad decisions. People can
+always still make bad decisions. So I
+think this is um a good path for the SEC
+to take. Dave, there was a big win for
+stable coins. actually kind of went
+under the radar with all of this other
+good news this week, but you picked up
+on it. What happened?
+>> Yeah. So, this is the FASB. What is the
+FASB? Financial accounting services
+board. Sanders board. Sanders board. Uh
+they are uh creating a comment period.
+This is like the first step. This this
+is going probably going to happen that
+will allow stable coins to be considered
+cash equivalent on corporate balance
+sheets. Uh and so right now stable coins
+are not considered corporate uh cash
+equivalents. The issue that they're
+fixing is like be before this they're
+trying to fix this. Uh right now some
+companies will report stable coins as
+like yes this counts as cash. Some will
+say no and a also the auditors don't
+agree with the interpretation. So FASB
+is just standardizing everything. And so
+according to this rule the answer can be
+yes stable coins are cash or cash
+equivalent if the following things are
+true. You can cash out whenever you
+want, which means you need a direct
+relationship with Circle basically or
+Paxos. Uh you can you must cash out with
+the issuer itself, not a middleman. So
+you can't use Coinbase. You have to go
+straight to Circle. And also the issuer
+itself backs every coin with real cash
+or short-term T bills, which is just
+genius compliant, which means not
+Tether. So this is I think is uniquely
+bullish for Circle.
+>> Oh, for genius compliant stable coins.
+for genius compliant stable coins
+probably Paxos too, but like I think
+circle is the big winner here.
+>> I think maybe the not the middleman is
+probably going to be argued out in the
+in the comment period just because
+it constrains things. Um but uh yeah,
+this is going through comment period.
+This is probably going to happen.
+>> You asked if this is a big deal like
+publicly. Austin Campbell says, "Yeah,
+it's a big deal." David, you're correct.
+Like Faz Granted, Austin Campbell is the
+stable coin risk guy, so he would think
+it's a big deal. kind of like um I agree
+with this. I mean FASB is GAAP standards
+for accounting, right? That that is all
+corporate balance sheets. That's
+everything in the US. That's the largest
+capital market standards body setting
+thing in existence.
+>> And they're saying this is now stable
+coins are cash and cash equivalents. So
+I do think it's a big deal for adoption
+and uh probably went under the radar. Um
+some other things we should cover in in
+crypto. Venice just crossed a 100red
+million in annualized revenue. David,
+uh, that's a pretty big deal.
+>> Very big deal. Very big deal. Over 4
+million users and Venice also had 7 days
+of consecutive all-time highs of VVV
+burn. So, there's a lot of energy in the
+Venice ecosystem right now. At the same
+the same time, Stripe acquired Open
+Router this week, which is very
+comparable comparable to Venice itself.
+It's very different at the same time,
+but also very similar in that is both
+model aggregators. Uh, and then also
+rampbot router. Open router is not
+router. That's a different company. But
+it's also very similar. It's just like
+there's a bunch of models out there.
+There router like open router way too
+similar of name. Uh, aggregate all the
+models. Uh, so the other two model
+aggregators out there just got bought
+this week. Open router for 7 billion.
+Open router has 8 million users got
+bought for 7 billion. Venice has 4
+million users. Currently at a $1
+something billion FTDM
+>> token. kind of like aggregators like
+right they're almost like a one in you
+know for um purchasing AI tokens they
+just like route it to various models 1
+in yeah this is I I was trying to learn
+about the details about how to actually
+compare the thing I would take the 1-in
+comparison actually apply it closer to
+Venice in the sense that it is
+userforward like users go to 1 in and
+users go to Venice open router is a
+little bit more like Google AdSense in
+that it is a marketplace and an auction
+mechanism for models Okay.
+>> And so it's slightly different. Uh
+>> it's fascinating because Open Router
+doesn't use stable coins right now. So
+if you want to you purchase something,
+it just does the oldfashioned way where
+it'll take like you know
+>> I don't know $1,000 or whatever
+aggregate all these transactions and
+kind of settle it later. So you sort of
+wonder if um if Stripe is going to
+integrate them into the stable coin
+ecosystem, micro payments, tempo, all
+that. A lot of possibility there. Um I
+think the theme really has been energy
+on the week. some energy also in FOMO
+crossing 150 AR. We talked about FOMO
+last week. I learned David that you're
+actually uh I don't know if you're a
+daily active at this point for FOMO, but
+you enjoy the app, do you not?
+>> I enjoy the app. I mean, in terms of
+like a just a casual
+gambling trading app to throw pocket
+change into. It's a great app. It's a
+great app. I don't know if the 100
+million annualized revenue I think
+that's like a high water mark because
+because trading volumes are so uh
+volatile um but there was at least a day
+where they had 100 million 150 million
+annualized revenue but the growth around
+FOMO has been just pretty pretty crazy
+uh and so again we had you know the Feds
+the Fed is pumping our bags excuse me
+the Treasury is pumping our bags white
+house is pumping our bags which is great
+in crypto startups in crypto are making
+money are making bank and so there's
+just like fundamental strength in the
+industry.
+>> Yeah. Is is really I guess social crypto
+was memecoins all along, wasn't it? I
+mean, you kind of think Farcaster tried
+at this for 5 years, you know, and
+before
+>> throwing and then they pivoted to
+becoming a wallet because they realized
+that people just wanted a wallet to
+trade me
+flavored meme coins.
+>> Yeah. And now FOMO is having the success
+there. Maybe that was the the product
+market fit all along. They revealed
+preference. [clears throat]
+Um, also base app integrating
+hyperlquid. This has got to be the Kobe
+effect of not prioritizing the base
+blockchain.
+>> Kobe effect. This is the work of Kobe.
+[laughter]
+>> Do you think that's a sign of things to
+come? The base app is just going to be
+much more agnostic with respect to, you
+know,
+>> yeah, it's just like user centric. It's
+like we're going to get you the thing
+that you want. We don't care what chain
+it's on. We're not going to prioritize
+base over anything else. And so we'll
+just bring Hyperlid in here.
+>> Yeah. Yeah, I do kind of wonder how far
+that will go. Like will Hyperlid try to
+be the backend for Coinbase or will
+Coinbase try and build out their own
+native per products? Um, you know, if if
+it's Kobe's way, it's like the former
+>> Why you think Kobe's way is just
+userentric like DGEN uh trader focus?
+>> No, Kobe's way is he's very bullish on
+Hyperlquid. He owns a ton of hype.
+>> Oh, okay. So, it's hype specific.
+Interesting. That is interesting. I
+wonder if that comes out in the
+disclosures. Anyway, moving on.
+>> [laughter]
+>> uh compound. Are they having a little
+bit of a rebirth? [clears throat] I
+don't know if I see that yet, but I see
+something. They have announced new
+leadership in
+>> Mhm.
+>> I mean, the one of the first DeFi
+protocols that really took off. It was
+like kind of like second to Maker Dow
+back in the day and it had
+>> a lull where a took over. Robert Lesner
+and leadership kind of like faded just
+almost felt like kind of like not
+abandoned it, but it just didn't have
+any leadership. Well, it was supposed to
+be very constrained and so it was like
+anti- adding new assets to be
+conservative, but then they also just
+got straight out competed by AB. But
+they were they've been printing money
+for a very long time. I don't know how
+much TVL is left in compound, but like
+they they they still they held on to TVL
+for a very long time just because of how
+safe it was.
+>> So, what's happening now?
+uh new leadership as you said, $52
+million approved from the DAO for a
+development program uh aimed at
+institutional credit and real world
+assets. Uh and so like yeah, let's see
+if we can kind of like kick restart this
+thing.
+>> I think that'd be nice.
+>> PBD.
+>> I think that'd be nice.
+>> But there is some energy coming back to
+OG Defi Protocols. In fact, I would
+almost feel like saying that OG D5
+protocols are back. And here's the thing
+that really crystallized that for me is
+did you read this Hayden Adams post?
+This is his first blog post, founder of
+Uniswap since 2019.
+>> I have not read it. It's on my to-do
+list, but I know you read it, so maybe
+you can explain it.
+>> It's worth the read, man. I read it this
+morning, and he's basically saying AMMs
+could actually eat the world. Okay. And
+he compares them to uh index funds. The
+frame he puts on it is, you know, index
+funds in 1976,
+you know, uh, John Bogle, the index fund
+guy, people are saying it's unamerican,
+couldn't ever compete against more
+actively managed funds. And now passive
+uh, index funds are the way most
+Americans hold their capital. Okay,
+passive funds rule. He's equating that
+to passive LPing. Basically, passive
+AMMs are going to eat the trading market
+the way passive index funds ate
+traditional finance. And he gives a lot
+of reasons why, you know, first um we
+came for the longtail in AMMs, you know,
+had the long tale of tokens and better
+trading experience to do that. Uh the
+second thing AMMs went and conquered was
+sort of um uh paired assets, you know,
+like USDC and USDT, those types of
+pairs. The next thing they're going to
+um start doing is give you options for
+correlated pairs. So he sees a world
+where it's actually something like
+Nvidia and SPY that are the correlated
+pairs and they become much more liquid
+than say just Nvidia and USDC or US
+dollars or something like that. So he he
+provides a whole I guess theoretical
+basis for how AMMs can start really
+competing against traditional market
+makers against siloed tradi and just
+really like start to dominate the
+market. It's a compelling article and it
+just feels like Hayden, Uniswap is back
+and the DeFi energy is starting to come
+back and they're like no like DeFi is
+actually better and here's how and this
+is after a decade of doing this. Uh so I
+don't know second wind energy rational
+points made. I'm excited to see what
+AMMs and and UNIS swap and Hayden do in
+the future. I think the the word that
+comes to mind is creativity. Yeah. And I
+think that that's something that this
+industry has really been missing and I
+think something that we all saw in DeFi
+and we don't we haven't had that as much
+lately. And so if if Hayden, you're
+telling me that we can get really
+creative with our asset structure uh in
+the back end, then I can get bullish
+again.
+>> Well, can you get bullish again? Is is
+that the the end of today's this week's
+episode? Are you bullish again
+officially, David? Well, I mean, since
+we started uh recording an hour ago,
+Ryan, ETH is up eight more%. It's at
+23,000
+$2,350.
+Bitcoin is almost at 73,000. Uh I'm
+going to go watch the CFTC uh innovation
+talk that Mike Zelig is giving right now
+with Vlad from Lighter talking at right
+now. There is a lot to be bullish about.
+How can I just say that?
+>> You could definitely say that. That's a
+good way to end. I guess we'll check in
+next week to see if this is sustained.
+>> All right, we'll see you in Oh, I will
+you will not be checking in with me next
+week because I will be
+>> That's right.
+>> at Bernie man.
+>> Bye. I'm gone for two weeks. Hib's taken
+over. So, I will see you in three weeks,
+Ryan.
+>> All right, time to get bullish then.
+David's gone. Time to get bullish. You
+better buy your ETH before you leave.
+>> Did you know, Ryan, that ETH hit
+all-time high while I was at Burning Man
+one year ago?
+>> I think you should give that when ETH
+hit alltime high was a year ago. You
+need to consider that.
+>> I thought it was so much longer.
+>> You need to get your buys on before you
+leave. That's what that means to me.
+[laughter]
+>> All right, I'll see you in 3 weeks.
+Bankless Nation, you guys know the deal.
+Crypto is risky, but not risky enough.
+The institutions are here, so we are
+leaving and going even further west.
+This is the frontier. It's not for
+everyone, but we're glad you are with us
+on the bankers [music] journey. Thanks a
+lot.
