@@ -36,6 +36,7 @@ function Chart({ candles, loadOlder, resetViewport }: { candles: Candle[]; loadO
   const volume = useRef<any>(null);
   const previous = useRef<Candle[]>([]);
   const loading = useRef(false);
+  const resetApplied = useRef(false);
 
   useLayoutEffect(() => {
     if (!host.current) return;
@@ -57,7 +58,10 @@ function Chart({ candles, loadOlder, resetViewport }: { candles: Candle[]; loadO
     else {
       const range = chart.current.timeScale().getVisibleLogicalRange();
       series.current.setData(bars); volume.current.setData(volumes);
-      if (!old.length || resetViewport) chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 5 });
+      if (!old.length || (resetViewport && !resetApplied.current)) {
+        chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 5 });
+        resetApplied.current = resetViewport;
+      }
       else if (prepend && range) chart.current.timeScale().setVisibleLogicalRange({ from: range.from + prepend, to: range.to + prepend });
     }
     previous.current = candles;
