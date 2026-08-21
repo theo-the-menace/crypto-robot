@@ -22,8 +22,22 @@ test('aggregates cached one-minute rows before returning a daily chart', () => {
 
 test('uses calendar boundaries for weekly and monthly chart aggregation', () => {
   const rows = [[Date.UTC(2026, 0, 4), 10, 12, 9, 11, 2, 0, 20], [Date.UTC(2026, 0, 5), 11, 13, 10, 12, 3, 0, 36], [Date.UTC(2026, 1, 1), 12, 14, 11, 13, 4, 0, 52]];
-  assert.deepEqual(aggregateMarketKlines(rows, '1w').map((row) => row[0]), [Date.UTC(2025, 11, 29), Date.UTC(2026, 0, 5), Date.UTC(2026, 0, 26)]);
+  assert.deepEqual(aggregateMarketKlines(rows, '1w').map((row) => row[0]), [Date.UTC(2025, 11, 29), Date.UTC(2026, 0, 5), Date.UTC(2026, 0, 12), Date.UTC(2026, 0, 19), Date.UTC(2026, 0, 26)]);
   assert.deepEqual(aggregateMarketKlines(rows, '1M').map((row) => row[0]), [Date.UTC(2026, 0, 1), Date.UTC(2026, 1, 1)]);
+});
+
+test('fills missing weekly candles with the previous close', () => {
+  const rows = [
+    [Date.UTC(2023, 0, 2), '10', '12', '9', '11', '5', 0, '50'],
+    [Date.UTC(2023, 0, 23), '12', '14', '11', '13', '7', 0, '90'],
+  ];
+  const candles = aggregateMarketKlines(rows, '1w');
+  assert.deepEqual(candles.map((row) => [row[0], row[1], row[4], row[5]]), [
+    [Date.UTC(2023, 0, 2), '10', '11', '5'],
+    [Date.UTC(2023, 0, 9), 11, 11, 0],
+    [Date.UTC(2023, 0, 16), 11, 11, 0],
+    [Date.UTC(2023, 0, 23), '12', '13', '7'],
+  ]);
 });
 
 test('an expiring server-side draft can only submit once', async () => {

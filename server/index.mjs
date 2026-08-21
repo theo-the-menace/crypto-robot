@@ -194,7 +194,20 @@ export function aggregateMarketKlines(rows, interval) {
     previous[3] = Math.min(Number(previous[3]), Number(row[3]));
     previous[4] = row[4]; previous[5] = Number(previous[5]) + Number(row[5]); previous[7] = Number(previous[7]) + Number(row[7]);
   }
-  return grouped;
+  if (!grouped.length || !['4h', '1d', '1w', '1M'].includes(interval)) return grouped;
+  const filled = [grouped[0]];
+  const step = (time) => duration === 'week' ? time + 7 * 86_400_000 : duration === 'month' ? Date.UTC(new Date(time).getUTCFullYear(), new Date(time).getUTCMonth() + 1, 1) : time + duration;
+  for (const current of grouped.slice(1)) {
+    let time = step(Number(filled.at(-1)[0]));
+    while (time < Number(current[0])) {
+      const close = Number(filled.at(-1)[4]);
+      const closeTime = duration === 'month' ? step(time) - 1 : time + duration - 1;
+      filled.push([time, close, close, close, close, 0, closeTime, 0]);
+      time = step(time);
+    }
+    filled.push(current);
+  }
+  return filled;
 }
 
 async function cachedCoinMKlines(symbol, endTime, limit = 1_000, allRows = false) {
