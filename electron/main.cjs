@@ -81,7 +81,7 @@ function createWindow() {
 }
 
 function createWidget() {
-  widgetWindow = new BrowserWindow({ width: 380, height: 245, resizable: false, show: false, alwaysOnTop: true, title: 'CryptoAgent K 线', webPreferences: { contextIsolation: true, nodeIntegration: false, preload: join(__dirname, 'preload.cjs') } });
+  widgetWindow = new BrowserWindow({ width: 380, height: 245, resizable: false, show: false, alwaysOnTop: true, title: 'CryptoAgent Chart', webPreferences: { contextIsolation: true, nodeIntegration: false, preload: join(__dirname, 'preload.cjs') } });
   widgetWindow.webContents.setVisualZoomLevelLimits(1, 1);
   widgetWindow.webContents.on('will-navigate', (event) => event.preventDefault());
   widgetWindow.loadURL('http://127.0.0.1:5450/?widget=1');
@@ -102,7 +102,7 @@ app.whenReady().then(async () => {
   trayIcon.setTemplateImage(true);
   tray = new Tray(trayIcon);
   tray.setToolTip('CryptoAgent');
-  tray.setContextMenu(Menu.buildFromTemplate([{ label: '显示 CryptoAgent', click: () => mainWindow?.show() }, { label: '显示 K 线', click: toggleWidget }, { type: 'separator' }, { label: '退出', click: () => { quitting = true; app.quit(); } }]));
+  tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Show CryptoAgent', click: () => mainWindow?.show() }, { label: 'Show Chart', click: toggleWidget }, { type: 'separator' }, { label: 'Quit', click: () => { quitting = true; app.quit(); } }]));
   tray.on('click', toggleWidget);
   ipcMain.on('news-notification', (_event, payload) => {
     if (!payload?.title || !Notification.isSupported()) return;

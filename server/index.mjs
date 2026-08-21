@@ -29,7 +29,7 @@ const marketCacheDirectory = process.env.MARKET_CACHE_DIR || resolve(process.cwd
 const marketCache = new Map();
 const marketBackfill = { running: false, complete: false, rows: 0, oldestTime: null, error: null };
 let fundingCache = { value: null, updatedAt: 0 };
-const marketIntervals = { '1m': 60_000, '5m': 300_000, '15m': 900_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000 };
+const marketIntervals = { '1m': 60_000, '5m': 300_000, '15m': 900_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000, '1w': 'week', '1M': 'month' };
 
 function parseModelJson(value) {
   const text = String(value || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
@@ -184,7 +184,10 @@ export function aggregateMarketKlines(rows, interval) {
   if (!duration || interval === '1m') return rows;
   const grouped = [];
   for (const row of rows) {
-    const time = Math.floor(Number(row[0]) / duration) * duration;
+    const date = new Date(Number(row[0]));
+    const time = duration === 'week'
+      ? Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - (date.getUTCDay() + 6) % 7)
+      : duration === 'month' ? Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) : Math.floor(Number(row[0]) / duration) * duration;
     const previous = grouped.at(-1);
     if (!previous || Number(previous[0]) !== time) { grouped.push([time, ...row.slice(1)]); continue; }
     previous[2] = Math.max(Number(previous[2]), Number(row[2]));
@@ -487,7 +490,7 @@ export function createCryptoServer() {
         if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
         if (!marketIntervals[interval]) return sendJson(response, 400, { error: 'Interval is not allowed.' });
         if (endTime && (!/^\d+$/.test(endTime) || Number(endTime) <= 0)) return sendJson(response, 400, { error: 'endTime is not valid.' });
-        const rows = await cachedCoinMKlines(symbol, endTime ? Number(endTime) : undefined, limit, ['4h', '1d'].includes(interval));
+        const rows = await cachedCoinMKlines(symbol, endTime ? Number(endTime) : undefined, limit, ['4h', '1d', '1w', '1M'].includes(interval));
         return sendJson(response, 200, { symbol, interval, klines: aggregateMarketKlines(rows, interval).slice(-limit) });
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/market/funding?')) {

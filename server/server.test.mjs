@@ -20,6 +20,12 @@ test('aggregates cached one-minute rows before returning a daily chart', () => {
   assert.deepEqual(aggregateMarketKlines(rows, '1d'), [[0, 10, 13, 9, 12, 5, 59_999, 56], [86_400_000, 12, 14, 11, 13, 4, 86_459_999, 52]]);
 });
 
+test('uses calendar boundaries for weekly and monthly chart aggregation', () => {
+  const rows = [[Date.UTC(2026, 0, 4), 10, 12, 9, 11, 2, 0, 20], [Date.UTC(2026, 0, 5), 11, 13, 10, 12, 3, 0, 36], [Date.UTC(2026, 1, 1), 12, 14, 11, 13, 4, 0, 52]];
+  assert.deepEqual(aggregateMarketKlines(rows, '1w').map((row) => row[0]), [Date.UTC(2025, 11, 29), Date.UTC(2026, 0, 5), Date.UTC(2026, 0, 26)]);
+  assert.deepEqual(aggregateMarketKlines(rows, '1M').map((row) => row[0]), [Date.UTC(2026, 0, 1), Date.UTC(2026, 1, 1)]);
+});
+
 test('an expiring server-side draft can only submit once', async () => {
   const originalFetch = globalThis.fetch;
   const originalEnv = { key: process.env.BINANCE_API_KEY, secret: process.env.BINANCE_SECRET_KEY, mode: process.env.BINANCE_ENV };
