@@ -40,12 +40,6 @@ const formatChinaTick = (time: number, type: TickMarkType) => {
   if (type === TickMarkType.DayOfMonth) return `${Number(parts.month)}-${Number(parts.day)}`;
   return `${parts.hour}:${parts.minute}`;
 };
-const logicalRange = (candles: Candle[], range?: TimeRange) => {
-  if (!range) return null;
-  const from = candles.findIndex((item) => item.time >= range.from); const reverse = [...candles].reverse().findIndex((item) => item.time <= range.to);
-  return reverse < 0 ? null : { from, to: candles.length - reverse };
-};
-
 function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRange, onRangeChange, period }: { candles: Candle[]; loadOlder: () => Promise<void>; resetViewport: boolean; line: boolean; indicators: Record<string, IndicatorPoint[]>; initialRange?: TimeRange; onRangeChange: (range: TimeRange) => void; period: string }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<any>(null);
@@ -82,8 +76,9 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
       const range = chart.current.timeScale().getVisibleLogicalRange();
       series.current.setData(bars); volume.current.setData(volumes);
       if (!old.length || (resetViewport && !resetApplied.current)) {
-        const savedRange = logicalRange(candles, restoredRange.current);
-        chart.current.timeScale().setVisibleLogicalRange(savedRange && savedRange.from >= 0 && savedRange.to > savedRange.from ? savedRange : { from: Math.max(0, bars.length - 160), to: bars.length + 5 });
+        const savedRange = restoredRange.current;
+        if (savedRange) chart.current.timeScale().setVisibleRange({ from: savedRange.from / 1000, to: savedRange.to / 1000 });
+        else chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 5 });
         resetApplied.current = resetViewport;
       }
       else if (prepend && range) chart.current.timeScale().setVisibleLogicalRange({ from: range.from + prepend, to: range.to + prepend });
@@ -110,7 +105,11 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
   useEffect(() => {
     const scale = chart.current?.timeScale();
     if (!scale) return;
-    const save = (range: { from: number; to: number } | null) => { const from = candles[Math.max(0, Math.ceil(range?.from || 0))]?.time; const to = candles[Math.min(candles.length - 1, Math.floor(range?.to || 0))]?.time; if (from && to && to > from) onRangeChange({ from, to }); };
+    const save = () => {
+      const range = scale.getVisibleRange();
+      const from = Number(range?.from) * 1000; const to = Number(range?.to) * 1000;
+      if (Number.isFinite(from) && Number.isFinite(to) && to > from) onRangeChange({ from, to });
+    };
     scale.subscribeVisibleLogicalRangeChange(save);
     return () => scale.unsubscribeVisibleLogicalRangeChange(save);
   }, [candles, onRangeChange]);
