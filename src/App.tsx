@@ -3728,15 +3728,18 @@ export function App() {
   const [command, setCommand] = useState("");
   const [lines, setLines] = useState<TerminalLine[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const refreshInFlight = useRef(false);
   const base = __DASHBOARD_API_URL__;
   const token = () => window.localStorage.getItem("crypto-robot-dashboard-token") || "";
   const remote = async <T,>(path: string): Promise<T> => {
-    const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${base}${path}`, { cache: "no-store", headers: { Authorization: `Bearer ${token()}` } });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || `request failed (${response.status})`);
     return result as T;
   };
   const refresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
     try {
       const [state, market] = await Promise.all([
         remote<DashboardSnapshot>("/v1/dashboard"),
@@ -3747,9 +3750,9 @@ export function App() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "remote server unavailable";
       setLines((current) => current.at(-1)?.text === message ? current : [...current.slice(-80), { kind: "error", text: message }]);
-    }
+    } finally { refreshInFlight.current = false; }
   }, [base, interval]);
-  useEffect(() => { void refresh(); const timer = window.setInterval(refresh, 5000); return () => window.clearInterval(timer); }, [refresh]);
+  useEffect(() => { void refresh(); const timer = window.setInterval(refresh, 1000); return () => window.clearInterval(timer); }, [refresh]);
   const execute = async () => {
     const value = command.trim();
     if (!value) return;

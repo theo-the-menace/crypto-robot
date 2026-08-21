@@ -222,7 +222,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def json(self, status: int, body: Any) -> None:
         raw = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
-        self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Access-Control-Allow-Origin", "*"); self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type"); self.send_header("Content-Length", str(len(raw))); self.end_headers(); self.wfile.write(raw)
+        self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Cache-Control", "no-store"); self.send_header("Access-Control-Allow-Origin", "*"); self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type"); self.send_header("Content-Length", str(len(raw))); self.end_headers(); self.wfile.write(raw)
 
     def do_OPTIONS(self) -> None:
         self.send_response(204); self.send_header("Access-Control-Allow-Origin", "*"); self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type"); self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS"); self.end_headers()
