@@ -8,7 +8,8 @@ type Dashboard = { service: { environment: string; mode: string; healthy: boolea
 const BASE = __DASHBOARD_API_URL__;
 const TOKEN = __DASHBOARD_TOKEN__;
 const intervals = ["1m", "5m", "15m", "1h", "4h", "1d"];
-const cacheKey = (interval: string) => `crypto-robot-btcusd-perp-${interval}`;
+const intervalMs: Record<string, number> = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
+const cacheKey = (interval: string) => `crypto-robot-btcusd-perp-v2-${interval}`;
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
 const cached = (interval: string): Candle[] => { try { return JSON.parse(localStorage.getItem(cacheKey(interval)) || "[]"); } catch { return []; } };
@@ -95,8 +96,8 @@ export function MarketTerminal() {
     const oldest = candlesRef.current[0];
     if (!oldest) return;
     const rows = await history(oldest.time - 1);
-    setCandles((current) => merge(rows, current));
-  }, [history]);
+    if (rows.at(-1)?.time === oldest.time - intervalMs[interval]) setCandles((current) => merge(rows, current));
+  }, [history, interval]);
 
   useEffect(() => {
     localStorage.setItem("crypto-robot-interval", interval);
@@ -106,11 +107,13 @@ export function MarketTerminal() {
       try {
         let rows = await history();
         if (!active) return;
-        setCandles((current) => merge(current, rows));
+        setCandles(rows); candlesRef.current = rows;
         for (let page = 0; page < 2 && rows.length; page++) {
-          rows = await history(rows[0].time - 1);
+          const oldest = candlesRef.current[0];
+          rows = await history(oldest.time - 1);
           if (!active) return;
-          setCandles((current) => merge(rows, current));
+          if (rows.at(-1)?.time !== oldest.time - intervalMs[interval]) break;
+          setCandles((current) => { const next = merge(rows, current); candlesRef.current = next; return next; });
         }
       } catch (error) { setLines((current) => [...current, { kind: "error", text: error instanceof Error ? error.message : "history unavailable" }]); }
     })();
