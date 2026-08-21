@@ -1,11 +1,13 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
 import { BinanceApiError, createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient } from '../src/binance.mjs';
 import { auditBinancePermissions } from '../src/permissions.mjs';
 import { fallbackIntent, inferProduct, multiProductTradePrompt, normalizeOrderIntent, tradePrompt, validateOrder } from '../src/trading.mjs';
 import { EmergencyPolicy } from '../src/emergency-policy.mjs';
 import { analysisMessages, isTradeCommand, validImageDataUrl } from './market-context.mjs';
 import { requestedOrderBookRange } from './order-book-context.mjs';
+import { mergeKlines, readMarketCache, writeMarketCache } from './market-cache.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -23,6 +25,8 @@ const modelOptions = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'];
 const reasoningOptions = ['low', 'medium', 'high', 'xhigh', 'max'];
 const defaultModel = modelOptions.includes(process.env.GATEWAY_MODEL) ? process.env.GATEWAY_MODEL : 'gpt-5.6-luna';
 const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING_EFFORT) ? process.env.GATEWAY_REASONING_EFFORT : 'medium';
+const marketCacheDirectory = process.env.MARKET_CACHE_DIR || resolve(process.cwd(), '.cache', 'market');
+const marketCache = new Map();
 
 function parseModelJson(value) {
   const text = String(value || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
@@ -170,6 +174,24 @@ async function serverCoinMMarket(symbol, interval, endTime) {
     console.warn('market relay snapshot unavailable; using direct Binance fallback', error instanceof Error ? error.message : error);
     return coinMMarket(symbol, interval);
   }
+}
+
+async function cachedCoinMKlines(symbol, endTime, limit = 1_000) {
+  const state = marketCache.get(symbol) || { rows: null, updatedAt: 0 };
+  marketCache.set(symbol, state);
+  if (!state.rows) state.rows = await readMarketCache(marketCacheDirectory, symbol);
+  const interval = 60_000;
+  const available = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
+  const complete = available.length >= limit || (endTime && available.length && Number(available[0][0]) <= endTime - (limit - 1) * interval);
+  const stale = Date.now() - state.updatedAt >= 10_000;
+  if (!complete || (!endTime && stale)) {
+    const page = (await serverCoinMMarket(symbol, '1m', endTime)).klines || [];
+    state.rows = mergeKlines(state.rows, page);
+    state.updatedAt = Date.now();
+    await writeMarketCache(marketCacheDirectory, symbol, state.rows);
+  }
+  const rows = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
+  return rows.slice(-limit);
 }
 
 async function orderBookContext(range) {
@@ -404,6 +426,15 @@ export function createCryptoServer() {
         if (!symbol || !symbolAllowed(symbol)) return sendJson(response, 400, { error: 'Symbol is not allowed.' });
         if (!['1m', '5m', '15m', '1h', '4h', '1d'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
         return sendJson(response, 200, { symbol, interval, klines: await binance.klines(symbol, interval, 120) });
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/klines?')) {
+        const query = new URL(request.url, 'http://localhost').searchParams;
+        const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
+        const endTime = query.get('endTime');
+        const limit = Math.min(1_000, Math.max(1, Number(query.get('limit') || 240)));
+        if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
+        if (endTime && (!/^\d+$/.test(endTime) || Number(endTime) <= 0)) return sendJson(response, 400, { error: 'endTime is not valid.' });
+        return sendJson(response, 200, { symbol, interval: '1m', klines: await cachedCoinMKlines(symbol, endTime ? Number(endTime) : undefined, limit) });
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/coinm-market?')) {
         const query = new URL(request.url, 'http://localhost').searchParams;

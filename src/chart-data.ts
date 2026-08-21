@@ -1,5 +1,27 @@
 export type KlineRow = Array<string | number>;
 
+export function aggregateKlines<T extends KlineRow>(rows: T[], intervalMs: number): T[] {
+  if (!rows.length || !Number.isFinite(intervalMs) || intervalMs <= 0) return rows;
+  const grouped: T[] = [];
+  for (const row of rows) {
+    const time = Number(row[0]);
+    const bucket = Math.floor(time / intervalMs) * intervalMs;
+    const previous = grouped.at(-1);
+    if (!previous || Number(previous[0]) !== bucket) {
+      const next = [...row] as T;
+      next[0] = bucket;
+      grouped.push(next);
+      continue;
+    }
+    previous[2] = Math.max(Number(previous[2]), Number(row[2]));
+    previous[3] = Math.min(Number(previous[3]), Number(row[3]));
+    previous[4] = row[4];
+    if (previous.length > 5) previous[5] = Number(previous[5]) + Number(row[5]);
+    if (previous.length > 7) previous[7] = Number(previous[7]) + Number(row[7]);
+  }
+  return grouped;
+}
+
 export function klineWindow<T>(rows: T[], offset: number, limit = 120) {
   const end = rows.length - Math.min(Math.max(0, rows.length - limit), Math.max(0, offset));
   return rows.slice(Math.max(0, end - limit), end);

@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendedPointCount, chartTickSpacing, fillSecondRows, fixedTimeTickIndices, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
+import { aggregateKlines, appendedPointCount, chartTickSpacing, fillSecondRows, fixedTimeTickIndices, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
+
+test('aggregates one-minute rows into display intervals', () => {
+  const rows = [[0, 10, 12, 9, 11, 2, 59_999, 20], [60_000, 11, 13, 10, 12, 3, 119_999, 36], [300_000, 12, 14, 11, 13, 4, 359_999, 52]];
+  assert.deepEqual(aggregateKlines(rows, 300_000), [[0, 10, 13, 9, 12, 5, 59_999, 56], [300_000, 12, 14, 11, 13, 4, 359_999, 52]]);
+});
 
 test('merges older pages and live candles without sorting or duplicates', () => {
   const current = [[3, 'old-3'], [4, 'old-4']];
