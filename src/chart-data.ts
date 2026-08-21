@@ -26,6 +26,15 @@ export function ema(rows: KlineRow[], period: number): IndicatorPoint[] {
   return result;
 }
 
+export function carryForward(points: IndicatorPoint[], times: number[]): IndicatorPoint[] {
+  const result: IndicatorPoint[] = []; let index = 0; let value: number | null = null;
+  for (const time of times) {
+    while (index < points.length && points[index].time <= time) value = points[index++].value;
+    if (value !== null) result.push({ time, value });
+  }
+  return result;
+}
+
 export function bollinger(rows: KlineRow[], period = 20, deviations = 2) {
   if (!Number.isInteger(period) || period < 1 || !Number.isFinite(deviations)) return { middle: [], upper: [], lower: [] };
   const points = closes(rows); const middle: IndicatorPoint[] = []; const upper: IndicatorPoint[] = []; const lower: IndicatorPoint[] = [];

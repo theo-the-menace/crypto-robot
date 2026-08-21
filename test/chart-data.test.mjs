@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateKlines, appendedPointCount, bollinger, chartTickSpacing, ema, fillSecondRows, fixedTimeTickIndices, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, sma, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
+import { aggregateKlines, appendedPointCount, bollinger, carryForward, chartTickSpacing, ema, fillSecondRows, fixedTimeTickIndices, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, sma, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
 
 test('aggregates one-minute rows into display intervals', () => {
   const rows = [[0, 10, 12, 9, 11, 2, 59_999, 20], [60_000, 11, 13, 10, 12, 3, 119_999, 36], [300_000, 12, 14, 11, 13, 4, 359_999, 52]];
@@ -14,6 +14,7 @@ test('calculates moving averages and Bollinger bands from close prices', () => {
   assert.deepEqual(bollinger(rows, 2, 1).middle, sma(rows, 2));
   assert.equal(Number(bollinger(rows, 2, 1).upper[0].value.toFixed(3)), 2);
   assert.equal(Number(bollinger(rows, 2, 1).lower[0].value.toFixed(3)), 1);
+  assert.deepEqual(carryForward([{ time: 2, value: 10 }, { time: 4, value: 20 }], [1, 2, 3, 4, 5]), [{ time: 2, value: 10 }, { time: 3, value: 10 }, { time: 4, value: 20 }, { time: 5, value: 20 }]);
 });
 
 test('merges older pages and live candles without sorting or duplicates', () => {
