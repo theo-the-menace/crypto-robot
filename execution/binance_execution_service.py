@@ -274,9 +274,9 @@ class Handler(BaseHTTPRequestHandler):
             raw = DASHBOARD_HTML.encode()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(raw))); self.end_headers(); return self.wfile.write(raw)
         if parsed.path == "/health": return self.json(200, {"ok": True, "environment": ENVIRONMENT, "mode": MODE})
-        if parsed.path in ("/v1/dashboard", "/v1/market/klines", "/v1/market/stream") or parsed.path.startswith("/v1/orders/"):
+        if parsed.path == "/v1/dashboard" or parsed.path.startswith("/v1/orders/"):
             if not (self.dashboard_authorized() or self.authorized()): return self.json(401, {"error": "Unauthorized"})
-        elif not self.authorized(): return self.json(401, {"error": "Unauthorized"})
+        elif not parsed.path.startswith("/v1/market/") and not self.authorized(): return self.json(401, {"error": "Unauthorized"})
         query = urllib.parse.parse_qs(parsed.query)
         try:
             if parsed.path == "/v1/dashboard": return self.json(200, ENGINE.dashboard())
