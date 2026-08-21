@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "lightweight-charts": "^5.2.1",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
@@ -29,7 +30,6 @@
     "@types/react-dom": "latest",
     "concurrently": "latest",
     "electron": "latest",
-    "electron-builder": "latest",
     "electron-builder": "^26.15.3",
     "typescript": "latest",
     "wait-on": "latest"
@@ -40,8 +40,24 @@
   "build": {
     "appId": "com.evolvingagents.cryptoagent",
     "productName": "CryptoAgent",
-    "files": ["dist/**/*", "electron/**/*", "server/**/*", "src/**/*.mjs", "package.json", "node_modules/**/*"],
-    "asarUnpack": ["server/**/*", "src/**/*.mjs"],
-    "mac": { "category": "public.app-category.finance", "target": ["dmg", "dir"] }
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "server/**/*",
+      "src/**/*.mjs",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "server/**/*",
+      "src/**/*.mjs"
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        "dmg",
+        "dir"
+      ]
+    }
   }
 }

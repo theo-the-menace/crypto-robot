@@ -214,6 +214,7 @@ button { cursor: pointer; }
 .coinm-chart { margin-top: 10px; }.coinm-intervals { display: flex; gap: 10px; overflow-x: auto; }.coinm-intervals button { border: 0; padding: 7px 2px; color: var(--muted); background: transparent; font-size: 11px; white-space: nowrap; }.coinm-intervals button.active { color: var(--ink); font-weight: 700; }
 .coinm-ma-legend { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0; font-size: 10px; line-height: 1; white-space: nowrap; }.coinm-ma-legend span:nth-child(1) { color: #f0b90b; }.coinm-ma-legend span:nth-child(2) { color: #ed4ad3; }.coinm-ma-legend span:nth-child(3) { color: #8e6bd1; }
 .coinm-chart-canvas { position: relative; height: 260px; }
+.lightweight-chart { height: 320px; width: 100%; margin: 8px 0 14px; }
 .coinm-chart > .chart-empty { height: 260px; }
 .coinm-chart svg, .coinm-time-share svg { display: block; width: 100%; height: 260px; cursor: grab; overflow: hidden; touch-action: none; }.coinm-chart svg:active, .coinm-time-share svg:active { cursor: grabbing; }.chart-grid line { stroke: var(--border); stroke-width: 1; }.time-date-guide { stroke: var(--border); stroke-width: 1; }.candle-up line, .candle-up rect { stroke: #2fc58a; fill: #2fc58a; }.candle-down line, .candle-down rect { stroke: #f64d68; fill: #f64d68; }.candle-up line, .candle-down line { stroke-width: 1.5; }.ma { fill: none; stroke-width: 1.5; pointer-events: none; }.ma7 { stroke: #f0b90b; }.ma25 { stroke: #ed4ad3; }.ma99 { stroke: #8e6bd1; }
 .coinm-chart svg * { pointer-events: none; }

@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { CandlestickSeries, ColorType, createChart, HistogramSeries } from "lightweight-charts";
 import {
   appendedPointCount,
   chartTickSpacing,
@@ -876,6 +877,29 @@ type CoinMCandle = {
   volume: number;
   quoteVolume: number;
 };
+
+function LightweightBtcChart({ candles }: { candles: CoinMCandle[] }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<any>(null);
+  const candleRef = useRef<any>(null);
+  const volumeRef = useRef<any>(null);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const chart = createChart(container, { autoSize: true, layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#7b838c" }, grid: { vertLines: { color: "#edf0f2" }, horzLines: { color: "#edf0f2" } }, rightPriceScale: { borderColor: "#dfe3e7" }, timeScale: { borderColor: "#dfe3e7", timeVisible: true }, crosshair: { mode: 0 } });
+    const candleSeries = chart.addSeries(CandlestickSeries, { upColor: "#2fc58a", downColor: "#f64d68", borderVisible: false, wickUpColor: "#2fc58a", wickDownColor: "#f64d68" });
+    const volumeSeries = chart.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "" });
+    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    chartRef.current = chart; candleRef.current = candleSeries; volumeRef.current = volumeSeries;
+    return () => { chart.remove(); chartRef.current = null; candleRef.current = null; volumeRef.current = null; };
+  }, []);
+  useEffect(() => {
+    const data = candles.filter((item) => Number.isFinite(item.time) && item.high >= item.low).map((item) => ({ time: Math.floor(item.time / 1000) as any, open: item.open, high: item.high, low: item.low, close: item.close }));
+    const volumes = candles.filter((item) => Number.isFinite(item.time)).map((item) => ({ time: Math.floor(item.time / 1000) as any, value: Math.max(0, item.volume), color: item.close >= item.open ? "#2fc58a66" : "#f64d6866" }));
+    candleRef.current?.setData(data); volumeRef.current?.setData(volumes); if (data.length) chartRef.current?.timeScale().fitContent();
+  }, [candles]);
+  return <div className="lightweight-chart" ref={containerRef} aria-label="BTC candlestick chart" />;
+}
 
 function useChartNavigation({
   times,
@@ -2426,6 +2450,7 @@ function CoinMWorkspace({
               ?.toLocaleString(undefined, { maximumFractionDigits: 1 }) || "-"}
           </span>
         </div>
+        <LightweightBtcChart candles={candles} />
         {candles.length ? (
           <div className="coinm-chart-canvas">
             <svg
