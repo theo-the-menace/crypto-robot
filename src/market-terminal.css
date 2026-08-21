@@ -7,6 +7,10 @@ button, input { font: inherit; }
 .chart-pane button { border: 0; padding: 5px 8px; color: #758398; background: #10151ccc; cursor: pointer; }
 .chart-pane button:hover, .chart-pane button.active { color: #edf3fa; background: #2a3643; }
 .market-chart { width: 100%; height: 100%; }
+.funding-strip { position: absolute; z-index: 4; left: 12px; right: 12px; bottom: 8px; display: flex; align-items: center; gap: 14px; min-height: 26px; padding: 4px 8px; color: #8290a0; background: #10151ce6; border-top: 1px solid #27313d; font-size: 11px; pointer-events: none; }
+.funding-strip strong { font-size: 12px; }
+.funding-strip .positive { color: #39c58a; }
+.funding-strip .negative { color: #ef6672; }
 .console { display: grid; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; background: #080b0f; }
 .output { min-height: 0; overflow: auto; padding: 12px 14px; }
 .output pre { margin: 0 0 6px; white-space: pre-wrap; font: 12px/1.5 inherit; }

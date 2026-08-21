@@ -3,6 +3,7 @@ import { CandlestickSeries, ColorType, createChart, HistogramSeries, TickMarkTyp
 import { aggregateKlines } from "./chart-data";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
+type Funding = { lastFundingRate?: string; nextFundingTime?: number; markPrice?: string; indexPrice?: string };
 type Line = { kind: "input" | "output" | "error"; text: string };
 type Dashboard = { service: { environment: string; mode: string; healthy: boolean }; strategies: Array<{ name: string; status: string; symbol: string }>; recentOrders: Array<{ state: string; symbol: string; client_order_id: string }>; risk: { allowedSymbols: string[]; maxOrderUsdt: number }; orders: { unknown: number } };
 
@@ -80,6 +81,7 @@ function Chart({ candles, loadOlder }: { candles: Candle[]; loadOlder: () => Pro
 export function MarketTerminal() {
   const [interval, setIntervalValue] = useState(() => localStorage.getItem("crypto-robot-interval") || "5m");
   const [baseCandles, setBaseCandles] = useState<Candle[]>(cached);
+  const [funding, setFunding] = useState<Funding | null>(null);
   const candles = aggregateKlines(baseCandles.map((item) => [item.time, item.open, item.high, item.low, item.close, item.volume, item.time + intervalMs["1m"] - 1, item.quoteVolume]), intervalMs[interval]).map(parseRow);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [command, setCommand] = useState("");
@@ -128,6 +130,11 @@ export function MarketTerminal() {
     return () => clearInterval(timer);
   }, [history]);
 
+  useEffect(() => {
+    const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding?symbol=BTCUSD_PERP`, { cache: "no-store" }); if (response.ok) setFunding((await response.json()).premium || null); } catch {} };
+    void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => { const timer = setInterval(() => localStorage.setItem(cacheKey, JSON.stringify(candlesRef.current.slice(-1_000))), 500); return () => clearInterval(timer); }, []);
   useEffect(() => {
     if (!TOKEN) return;
@@ -148,5 +155,7 @@ export function MarketTerminal() {
     setLines(next.slice(-100)); setCommand("");
   };
 
-  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((value) => <button className={value === interval ? "active" : ""} key={value} onClick={() => setIntervalValue(value)}>{value}</button>)}</nav><Chart candles={candles} loadOlder={loadOlder} /></section><section className="console" onClick={() => input.current?.focus()}><div className="output">{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} /></form></section></main>;
+  const fundingRate = Number(funding?.lastFundingRate);
+  const nextFunding = funding?.nextFundingTime ? new Date(funding.nextFundingTime).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((value) => <button className={value === interval ? "active" : ""} key={value} onClick={() => setIntervalValue(value)}>{value}</button>)}</nav><Chart key={interval} candles={candles} loadOlder={loadOlder} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()}><div className="output">{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} /></form></section></main>;
 }

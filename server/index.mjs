@@ -27,6 +27,7 @@ const defaultModel = modelOptions.includes(process.env.GATEWAY_MODEL) ? process.
 const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING_EFFORT) ? process.env.GATEWAY_REASONING_EFFORT : 'medium';
 const marketCacheDirectory = process.env.MARKET_CACHE_DIR || resolve(process.cwd(), '.cache', 'market');
 const marketCache = new Map();
+let fundingCache = { value: null, updatedAt: 0 };
 
 function parseModelJson(value) {
   const text = String(value || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
@@ -435,6 +436,15 @@ export function createCryptoServer() {
         if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
         if (endTime && (!/^\d+$/.test(endTime) || Number(endTime) <= 0)) return sendJson(response, 400, { error: 'endTime is not valid.' });
         return sendJson(response, 200, { symbol, interval: '1m', klines: await cachedCoinMKlines(symbol, endTime ? Number(endTime) : undefined, limit) });
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/funding?')) {
+        const symbol = new URL(request.url, 'http://localhost').searchParams.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
+        if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
+        if (!fundingCache.value || Date.now() - fundingCache.updatedAt >= 10_000) {
+          const market = await coinMMarket(symbol, '1m');
+          fundingCache = { value: market.premium || {}, updatedAt: Date.now() };
+        }
+        return sendJson(response, 200, { symbol, premium: fundingCache.value });
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/coinm-market?')) {
         const query = new URL(request.url, 'http://localhost').searchParams;
