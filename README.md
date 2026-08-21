@@ -24,7 +24,7 @@ Production Binance writes belong to the standalone execution service in `executi
 
 The local frontend uses the server dashboard API at `http://43.163.91.179:8888`. Set `VITE_DASHBOARD_API_URL` for another address and provide the dashboard token at runtime; never place Binance credentials in frontend code.
 
-Wallet-routing experiments are offline-only in `execution/scenario_simulator.py`. They model USDT wallet transfers and deliberately reject all-in 20x one-second momentum entries. Binance Testnet/Demo can validate signed requests and supported test orders, but it is not a safe substitute for production risk controls and does not turn wallet transfers into positions.
+Wallet-routing experiments are Testnet-only in `execution/scenario_simulator.py`. They model USDT wallet transfers, close simulated COIN-M positions before returning collateral, and generate a dry-run COIN-M market-order draft for the requested 20x one-second momentum scenario. The unrestricted scenario is explicitly rejected outside Testnet and never submits a live order.
 
 ```bash
 npm install

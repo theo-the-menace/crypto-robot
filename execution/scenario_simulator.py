@@ -43,19 +43,25 @@ def scenario_three(wallets: Wallets) -> Wallets:
 
 
 def scenario_four(wallets: Wallets) -> Wallets:
-    if wallets.open_coinm_btc:
-        raise ScenarioRejected("Close and reconcile COIN-M positions before withdrawing collateral.")
+    # Testnet simulation: close the position, settle collateral, then transfer it.
+    wallets.coinm_usdt += wallets.open_coinm_btc
+    wallets.open_coinm_btc = 0.0
     return transfer_usdt(wallets, "coinm", "spot")
 
 
-def scenario_five(*, account_usdt: float, leverage: int, price_jump: float, window_seconds: float, confirmed: bool = False) -> dict:
-    """Return a dry-run decision; never creates a Binance order."""
+def scenario_five(*, account_usdt: float, leverage: int, price_jump: float, window_seconds: float, confirmed: bool = False, environment: str = "testnet") -> dict:
+    """Return a Testnet-only order simulation; never creates a live Binance order."""
     if account_usdt <= 0:
         raise ScenarioRejected("Account balance must be positive.")
     if not confirmed:
         raise ScenarioRejected("Human confirmation is required for a strategy run.")
-    if leverage > 3:
-        raise ScenarioRejected("Automated strategy leverage is capped at 3x.")
-    if price_jump >= 1000 and window_seconds <= 1 and account_usdt > 0:
-        raise ScenarioRejected("All-in one-second momentum entry is disabled.")
-    return {"dryRun": True, "wouldUseUsdt": account_usdt * 0.2, "leverage": leverage, "priceJump": price_jump, "windowSeconds": window_seconds}
+    if environment != "testnet":
+        raise ScenarioRejected("This unrestricted scenario is Testnet-only.")
+    if not isinstance(leverage, int) or leverage < 1 or leverage > 125:
+        raise ScenarioRejected("Binance leverage must be an integer from 1x to 125x.")
+    return {
+        "dryRun": True, "environment": environment, "wouldUseUsdt": account_usdt,
+        "leverage": leverage, "notionalUsdt": account_usdt * leverage,
+        "priceJump": price_jump, "windowSeconds": window_seconds,
+        "signal": "BTC 1s momentum trigger", "order": "COIN-M MARKET BUY draft",
+    }
