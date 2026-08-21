@@ -24,7 +24,9 @@ class FakeClient:
 
 class ExecutionTest(unittest.TestCase):
     def setUp(self):
-        with service.database() as db: db.execute("DELETE FROM orders")
+        with service.database() as db:
+            db.execute("DELETE FROM orders")
+            db.execute("DELETE FROM market_candles")
         self.client = FakeClient(); self.engine = service.ExecutionEngine(self.client)
 
     def test_timeout_is_reconciled_and_duplicate_is_not_resubmitted(self):
@@ -49,6 +51,17 @@ class ExecutionTest(unittest.TestCase):
 
     def test_remote_writes_are_local_only(self):
         self.assertIn('Write endpoints are local-only.', service.Handler.do_POST.__code__.co_consts)
+
+    def test_market_history_is_upserted_and_read_in_time_order(self):
+        now = int(service.time.time() * 1000)
+        service.save_candles("BTCUSD_PERP", "1m", [
+            [now - 60_000, "2", "3", "1", "2.5", "10", now - 1, "25"],
+            [now - 120_000, "1", "2", "0.5", "1.5", "5", now - 60_001, "7.5"],
+            [now - 60_000, "2", "4", "1", "3", "12", now - 1, "36"],
+        ])
+        rows = service.cached_candles("BTCUSD_PERP", "1m", 10)
+        self.assertEqual([row[0] for row in rows], [now - 120_000, now - 60_000])
+        self.assertEqual(rows[-1][4], "3.0")
 
 
 if __name__ == "__main__": unittest.main()
