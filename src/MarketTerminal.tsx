@@ -17,10 +17,19 @@ const TOKEN = __DASHBOARD_TOKEN__;
 const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" }, { value: "5m", label: "5m" }, { value: "15m", label: "15m" }, { value: "1h", label: "1h" }, { value: "4h", label: "4h" }, { value: "1d", label: "1d" }, { value: "1w", label: "1W" }, { value: "1M", label: "1M" }];
 const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000, "1M": 2_678_400_000 };
 const cacheKey = (interval: string) => `crypto-robot-btcusd-perp-v7-${interval}`;
+const browserCacheLimit = 800;
 const uiKey = "crypto-robot-terminal-ui-v4";
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
 const cached = (interval: string): Candle[] => { try { return JSON.parse(localStorage.getItem(cacheKey(interval)) || "[]"); } catch { return []; } };
+const pruneBrowserCache = () => {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith("crypto-robot-btcusd-perp-v6-")) localStorage.removeItem(key);
+    if (key.startsWith("crypto-robot-btcusd-perp-v7-")) {
+      try { const rows = JSON.parse(localStorage.getItem(key) || "[]"); localStorage.setItem(key, JSON.stringify(rows.slice(-browserCacheLimit))); } catch { localStorage.removeItem(key); }
+    }
+  }
+};
 const defaultEnabled: Record<IndicatorName, boolean> = { ma7: true, ma25: true, ma60: false, ma99: false, ema200: true, ema21: true, bb: false };
 const savedUi = (): TerminalUi => {
   try {
@@ -151,6 +160,7 @@ export function MarketTerminal() {
   const candlesRef = useRef(candles);
   const rangesRef = useRef(initialUi.ranges);
   const input = useRef<HTMLInputElement>(null);
+  useEffect(() => { try { pruneBrowserCache(); } catch {} }, []);
   useEffect(() => { candlesRef.current = candles; }, [candles]);
 
   const history = useCallback(async (endTime?: number) => {
@@ -191,17 +201,15 @@ export function MarketTerminal() {
     const loadReference = async (value: "1d" | "1w", setValue: (rows: Candle[]) => void) => { try { const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&interval=${value}&limit=5000`, { cache: "no-store" }); if (response.ok) setValue((await response.json()).klines.map(parseRow)); } catch {} };
     void loadReference("1d", setDaily); void loadReference("1w", setWeekly);
   }, []);
-  useEffect(() => {
-    const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/coinm/snapshot?symbol=BTCUSD_PERP&limit=100`, { cache: "no-store" }); if (response.ok) setCoinm(await response.json()); } catch {} };
-    void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
-  }, []);
+  const refreshCoinm = useCallback(async () => { try { const response = await fetch(`${MARKET_BASE}/coinm/snapshot?symbol=BTCUSD_PERP&limit=100`, { cache: "no-store" }); if (response.ok) { setCoinm(await response.json()); return true; } } catch {} return false; }, []);
+  useEffect(() => { void refreshCoinm(); const timer = setInterval(() => { void refreshCoinm(); }, 2_000); return () => clearInterval(timer); }, [refreshCoinm]);
 
   useEffect(() => {
     const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding?symbol=BTCUSD_PERP`, { cache: "no-store" }); if (response.ok) setFunding((await response.json()).premium || null); } catch {} };
     void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => { const timer = setInterval(() => { try { localStorage.setItem(cacheKey(interval), JSON.stringify((candleSets[interval] || []).slice(-1_000))); } catch {} }, 1_000); return () => clearInterval(timer); }, [interval, candleSets]);
+  useEffect(() => { const timer = setInterval(() => { try { localStorage.setItem(cacheKey(interval), JSON.stringify((candleSets[interval] || []).slice(-browserCacheLimit))); } catch {} }, 1_000); return () => clearInterval(timer); }, [interval, candleSets]);
   useEffect(() => { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); }, [interval, enabled]);
   useEffect(() => {
     if (!TOKEN) return;
@@ -213,6 +221,8 @@ export function MarketTerminal() {
     const value = command.trim(); if (!value) return;
     const next: Line[] = [...lines, { kind: "input", text: `$ ${value}` }]; const [name, arg] = value.toLowerCase().split(/\s+/);
     if (name === "clear") next.splice(0);
+    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ncoinm-orders\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w|1M>\nclear" });
+    else if (name === "sync") { next.push({ kind: "output", text: "syncing COIN-M..." }); void refreshCoinm().then((ok) => setLines((current) => [...current, { kind: (ok ? "output" : "error") as Line["kind"], text: ok ? "COIN-M synced" : "COIN-M sync failed" }].slice(-100))); }
     else if (name === "status") next.push({ kind: "output", text: dashboard ? `${dashboard.service.environment} · ${dashboard.service.mode} · ${dashboard.service.healthy ? "healthy" : "offline"}` : "connecting" });
     else if (name === "strategies") next.push({ kind: "output", text: dashboard?.strategies.length ? dashboard.strategies.map((item) => `${item.status.padEnd(10)} ${item.symbol.padEnd(12)} ${item.name}`).join("\n") : "no active strategies" });
     else if (name === "orders") next.push({ kind: "output", text: dashboard?.recentOrders.length ? dashboard.recentOrders.map((item) => `${item.state.padEnd(18)} ${item.symbol} ${item.client_order_id}`).join("\n") : "no recent orders" });
