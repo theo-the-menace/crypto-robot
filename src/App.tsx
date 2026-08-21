@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -3045,7 +3046,7 @@ function AssetWorkspace({
   );
 }
 
-export function App() {
+function LegacyApp() {
   if (new URLSearchParams(window.location.search).get("widget") === "1")
     return (
       <main className="widget-shell">
@@ -3715,4 +3716,60 @@ export function App() {
       )}
     </main>
   );
+}
+
+type TerminalLine = { kind: "input" | "output" | "error"; text: string };
+type DashboardSnapshot = { service: { environment: string; mode: string; healthy: boolean }; risk: { allowedSymbols: string[]; maxOrderUsdt: number; recvWindowMs: number }; orders: { byState: Record<string, number>; unknown: number }; strategies: Array<{ id: string; name: string; status: string; symbol: string; updated_at: number }>; recentOrders: Array<{ client_order_id: string; product: string; symbol: string; state: string; updated_at: number }> };
+
+export function App() {
+  const [dashboard, setDashboard] = useState<DashboardSnapshot | null>(null);
+  const [candles, setCandles] = useState<CoinMCandle[]>([]);
+  const [interval, setIntervalValue] = useState("5m");
+  const [command, setCommand] = useState("");
+  const [lines, setLines] = useState<TerminalLine[]>([
+    { kind: "output", text: "Crypto Robot terminal · read-only mode" },
+    { kind: "output", text: "Type help for commands." },
+  ]);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const base = __DASHBOARD_API_URL__;
+  const token = () => window.localStorage.getItem("crypto-robot-dashboard-token") || "";
+  const remote = async <T,>(path: string): Promise<T> => {
+    const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token()}` } });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `request failed (${response.status})`);
+    return result as T;
+  };
+  const refresh = useCallback(async () => {
+    try {
+      const [state, market] = await Promise.all([
+        remote<DashboardSnapshot>("/v1/dashboard"),
+        remote<{ klines: Array<Array<string | number>> }>(`/v1/market/klines?symbol=BTCUSD_PERP&interval=${interval}&limit=300`),
+      ]);
+      setDashboard(state);
+      setCandles(market.klines.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) })));
+    } catch (error) {
+      setLines((current) => [...current.slice(-80), { kind: "error", text: error instanceof Error ? error.message : "remote server unavailable" }]);
+    }
+  }, [base, interval]);
+  useEffect(() => { void refresh(); const timer = window.setInterval(refresh, 5000); return () => window.clearInterval(timer); }, [refresh]);
+  const execute = async () => {
+    const value = command.trim();
+    if (!value) return;
+    const next = [...lines, { kind: "input" as const, text: `$ ${value}` }];
+    const [name, ...args] = value.toLowerCase().split(/\s+/);
+    try {
+      if (name === "help") next.push({ kind: "output", text: "status · strategies · orders · risk · refresh · interval 1m|5m|15m|1h|4h|1d · clear" });
+      else if (name === "clear") next.splice(0, next.length);
+      else if (name === "refresh") { await refresh(); next.push({ kind: "output", text: "state refreshed" }); }
+      else if (name === "interval" && ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"].includes(args[0])) { setIntervalValue(args[0]); next.push({ kind: "output", text: `chart interval: ${args[0]}` }); }
+      else if (!dashboard) next.push({ kind: "error", text: "no dashboard state; run refresh" });
+      else if (name === "status") next.push({ kind: "output", text: `${dashboard.service.environment} · ${dashboard.service.mode} · ${dashboard.service.healthy ? "healthy" : "offline"}` });
+      else if (name === "strategies") next.push({ kind: "output", text: dashboard.strategies.length ? dashboard.strategies.map((item) => `${item.status.padEnd(10)} ${item.symbol.padEnd(12)} ${item.name}`).join("\n") : "no active strategies" });
+      else if (name === "orders") next.push({ kind: "output", text: dashboard.recentOrders.length ? dashboard.recentOrders.slice(0, 10).map((item) => `${item.state.padEnd(18)} ${item.symbol} ${item.client_order_id}`).join("\n") : "no recent orders" });
+      else if (name === "risk") next.push({ kind: "output", text: `symbols: ${dashboard.risk.allowedSymbols.join(", ")}\nmax order: ${dashboard.risk.maxOrderUsdt} USDT\nunknown orders: ${dashboard.orders.unknown}` });
+      else next.push({ kind: "error", text: `unknown command: ${name}` });
+    } catch (error) { next.push({ kind: "error", text: error instanceof Error ? error.message : "command failed" }); }
+    setLines(next.slice(-100)); setCommand("");
+  };
+  return <main className="terminal-app"><header className="terminal-header"><div><span className="terminal-kicker">CRYPTO ROBOT / MARKET OPS</span><h1>BTCUSD_PERP</h1></div><div className="terminal-status"><i className={dashboard?.service.healthy ? "online" : "offline"} />{dashboard?.service.mode || "connecting"}<span>server</span></div></header><section className="terminal-chart-panel"><div className="terminal-chart-toolbar"><span>COIN-M · Binance Testnet</span><nav>{["1m", "5m", "15m", "1h", "4h", "1d"].map((item) => <button className={interval === item ? "active" : ""} key={item} onClick={() => setIntervalValue(item)}>{item}</button>)}</nav></div><LightweightBtcChart candles={candles} /></section><section className="terminal-shell" onClick={() => inputRef.current?.focus()}><div className="terminal-bar"><span>COMMAND CONSOLE</span><span>{dashboard ? `${dashboard.strategies.length} strategies · ${dashboard.orders.unknown} unknown orders` : "disconnected"}</span></div><div className="terminal-output">{lines.map((line, index) => <pre className={line.kind} key={`${index}-${line.text}`}>{line.text}</pre>)}</div><form className="terminal-input" onSubmit={(event) => { event.preventDefault(); void execute(); }}><span>$</span><input ref={inputRef} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} aria-label="Terminal command" /></form></section></main>;
 }

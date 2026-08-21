@@ -248,6 +248,17 @@ class Handler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         try:
             if parsed.path == "/v1/dashboard": return self.json(200, ENGINE.dashboard())
+            if parsed.path == "/v1/market/klines":
+                symbol = query.get("symbol", ["BTCUSD_PERP"])[0].upper()
+                interval = query.get("interval", ["5m"])[0]
+                limit = min(1000, max(10, int(query.get("limit", ["300"])[0])))
+                if symbol not in ("BTCUSD_PERP", "BTCUSDT"):
+                    raise BinanceError("Only BTCUSD_PERP and BTCUSDT are available.", 400)
+                if interval not in ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"):
+                    raise BinanceError("Interval is not allowed.", 400)
+                product = "spot" if symbol == "BTCUSDT" else "usdm"
+                path = "/api/v3/klines" if product == "spot" else "/fapi/v1/klines"
+                return self.json(200, {"symbol": symbol, "interval": interval, "klines": ENGINE.client.public(product, path, {"symbol": symbol, "interval": interval, "limit": limit})})
             if parsed.path == "/v1/binance/ping": return self.json(200, ENGINE.client.public("spot", "/api/v3/ping", {}))
             if parsed.path == "/v1/binance/ticker": return self.json(200, ENGINE.client.public("spot", "/api/v3/ticker/bookTicker", {"symbol": query.get("symbol", [""])[0].upper()}))
             if parsed.path == "/v1/binance/account":
