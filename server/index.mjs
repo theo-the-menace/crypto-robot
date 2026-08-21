@@ -58,6 +58,9 @@ const drafts = new Map();
 const futuresDrafts = new Map();
 const marginDrafts = new Map();
 const marginActionDrafts = new Map();
+const coinmSnapshotCache = new Map();
+const coinmSnapshotInflight = new Map();
+const todayFeesCache = new Map();
 const symbolAllowed = (symbol) => !allowedSymbols || allowedSymbols.includes(symbol);
 const emergency = new EmergencyPolicy({ budgetFraction: Number(process.env.EMERGENCY_BUDGET_FRACTION || 0.2), grantMs: Number(process.env.EMERGENCY_GRANT_MS || 30 * 60_000), cooldownMs: Number(process.env.EMERGENCY_COOLDOWN_MS || 15 * 60_000) });
 
@@ -83,11 +86,20 @@ async function accountSnapshot() {
 
 async function coinMSnapshot({ symbol = 'BTCUSD_PERP', startTime, endTime, limit = 100 } = {}) {
   if (!configured) throw new BinanceApiError('Configure Binance credentials before reading COIN-M.', { status: 503 });
+  const cacheKey = `${symbol}:${limit}:${startTime || ''}:${endTime || ''}`;
+  const cached = coinmSnapshotCache.get(cacheKey);
+  if (cached && Date.now() - cached.updatedAt < 5_000) return cached.value;
+  if (coinmSnapshotInflight.has(cacheKey)) return coinmSnapshotInflight.get(cacheKey);
   const range = { ...(startTime ? { startTime } : {}), ...(endTime ? { endTime } : {}) };
-  const [account, positions, trades, income, openOrders, orders] = await Promise.all([
+  const task = Promise.all([
     coinm.account(), coinm.positionRisk(symbol), coinm.userTrades(symbol, limit), coinm.income({ ...range, limit: Math.min(1000, limit) }), coinm.openOrders(symbol), coinm.allOrders(symbol, limit),
-  ]);
-  return { syncedAt: Date.now(), symbol, account, positions, trades, income, openOrders, orders };
+  ]).then(([account, positions, trades, income, openOrders, orders]) => {
+    const value = { syncedAt: Date.now(), symbol, account, positions, trades, income, openOrders, orders };
+    coinmSnapshotCache.set(cacheKey, { updatedAt: Date.now(), value });
+    return value;
+  }).finally(() => coinmSnapshotInflight.delete(cacheKey));
+  coinmSnapshotInflight.set(cacheKey, task);
+  return task;
 }
 
 function startOfTodayChina(now = new Date()) {
@@ -97,6 +109,8 @@ function startOfTodayChina(now = new Date()) {
 
 async function todayCoinMFees({ symbol = 'BTCUSD_PERP' } = {}) {
   if (!configured) throw new BinanceApiError('Configure Binance credentials before reading COIN-M fees.', { status: 503 });
+  const cached = todayFeesCache.get(symbol);
+  if (cached && Date.now() - cached.updatedAt < 10_000) return cached.value;
   const startTime = startOfTodayChina();
   const endTime = Date.now();
   const [income, premium] = await Promise.all([coinm.income({ symbol, startTime, endTime, limit: 1000 }), coinm.premiumIndex(symbol)]);
@@ -107,7 +121,9 @@ async function todayCoinMFees({ symbol = 'BTCUSD_PERP' } = {}) {
   const baseAsset = symbol.replace(/USD(?:_PERP)?$/, '');
   const prices = Object.fromEntries(Object.keys(byAsset).map((asset) => [asset, asset === 'USDT' ? 1 : asset === baseAsset ? markPrice : null]));
   const totalUsdt = Object.entries(byAsset).reduce((sum, [asset, amount]) => sum + (prices[asset] == null ? 0 : amount * prices[asset]), 0);
-  return { symbol, startTime, endTime, markPrice, income: rows, byAsset, prices, totalUsdt, unpricedAssets: Object.keys(byAsset).filter((asset) => prices[asset] == null) };
+  const value = { symbol, startTime, endTime, markPrice, income: rows, byAsset, prices, totalUsdt, unpricedAssets: Object.keys(byAsset).filter((asset) => prices[asset] == null) };
+  todayFeesCache.set(symbol, { updatedAt: Date.now(), value });
+  return value;
 }
 
 let assetCache = null;
