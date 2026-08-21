@@ -181,18 +181,26 @@ async function cachedCoinMKlines(symbol, endTime, limit = 1_000) {
   const state = marketCache.get(symbol) || { rows: null, updatedAt: 0 };
   marketCache.set(symbol, state);
   if (!state.rows) state.rows = await readMarketCache(marketCacheDirectory, symbol);
-  const interval = 60_000;
-  const available = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
-  const complete = available.length >= limit || (endTime && available.length && Number(available[0][0]) <= endTime - (limit - 1) * interval);
   const stale = Date.now() - state.updatedAt >= 10_000;
-  if (!complete || (!endTime && stale)) {
-    const page = (await serverCoinMMarket(symbol, '1m', endTime)).klines || [];
+  let available = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
+  let pageEnd = endTime;
+  let updated = false;
+  while (available.length < limit || (!endTime && stale && pageEnd === undefined)) {
+    const page = (await serverCoinMMarket(symbol, '1m', pageEnd)).klines || [];
+    if (!page.length) break;
     state.rows = mergeKlines(state.rows, page);
+    updated = true;
+    available = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
+    const oldest = Number(page[0][0]);
+    if (!Number.isFinite(oldest) || pageEnd === oldest - 1) break;
+    pageEnd = oldest - 1;
+    if (!endTime && stale) break;
+  }
+  if (updated) {
     state.updatedAt = Date.now();
     await writeMarketCache(marketCacheDirectory, symbol, state.rows);
   }
-  const rows = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
-  return rows.slice(-limit);
+  return available.slice(-limit);
 }
 
 async function orderBookContext(range) {
@@ -432,7 +440,7 @@ export function createCryptoServer() {
         const query = new URL(request.url, 'http://localhost').searchParams;
         const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
         const endTime = query.get('endTime');
-        const limit = Math.min(1_000, Math.max(1, Number(query.get('limit') || 240)));
+        const limit = Math.min(5_000, Math.max(1, Number(query.get('limit') || 240)));
         if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
         if (endTime && (!/^\d+$/.test(endTime) || Number(endTime) <= 0)) return sendJson(response, 400, { error: 'endTime is not valid.' });
         return sendJson(response, 200, { symbol, interval: '1m', klines: await cachedCoinMKlines(symbol, endTime ? Number(endTime) : undefined, limit) });

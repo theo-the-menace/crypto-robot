@@ -1,0 +1,181 @@
+//@version=5
+strategy("OpenClaw MTF ATR Scalp Strategy", overlay = true, pyramiding = 0, initial_capital = 10000, process_orders_on_close = true, calc_on_order_fills = true, calc_on_every_tick = false, max_labels_count = 500)
+anchorTf = input.timeframe("30", "Anchor timeframe")
+tradeSide = input.string("Both", "Trade side", options = ["Both", "Long only", "Short only"])
+emaLen = input.int(200, "EMA length", minval = 1)
+smaLen = input.int(200, "SMA length", minval = 1)
+requireBothMAs = input.bool(true, "Require price above/below both EMA and SMA")
+bbLen = input.int(20, "Squeeze BB length", minval = 1)
+bbMult = input.float(2.0, "Squeeze BB multiplier", minval = 0.1, step = 0.1)
+kcLen = input.int(20, "Squeeze KC length", minval = 1)
+kcMult = input.float(1.5, "Squeeze KC multiplier", minval = 0.1, step = 0.1)
+useTrueRange = input.bool(true, "Use true range in KC")
+atrLen = input.int(14, "ATR length", minval = 1)
+stopAtrMult = input.float(3.0, "Stop ATR multiple", minval = 0.1, step = 0.1)
+targetAtrMult = input.float(6.0, "Target ATR multiple", minval = 0.1, step = 0.1)
+useEmaSmoothAtrBands = input.bool(false, "ATR Bands: Use EMA to Smooth")
+useLongAnchorSqueezeStrengthening = input.bool(false, "Long filter: Anchor squeeze must strengthen")
+useShortAnchorSqueezeStrengthening = input.bool(false, "Short filter: Anchor squeeze must strengthen")
+useLongDistanceFilter = input.bool(false, "Long filter: Trigger must be ATR away from 200s")
+useShortDistanceFilter = input.bool(false, "Short filter: Trigger must be ATR away from 200s")
+longDistanceAtrMult = input.float(0.30, "Long filter: Trigger distance ATR multiple", minval = 0.0, step = 0.05)
+shortDistanceAtrMult = input.float(0.25, "Short filter: Trigger distance ATR multiple", minval = 0.0, step = 0.05)
+useAnchorEmaSlopeFilter = input.bool(false, "Filter: Anchor EMA slope must agree")
+anchorSlopeLookback = input.int(1, "Filter: Anchor EMA slope lookback", minval = 1)
+useLongVolumeFilter = input.bool(false, "Long filter: Volume above volume SMA")
+useShortVolumeFilter = input.bool(false, "Short filter: Volume above volume SMA")
+volumeLen = input.int(20, "Volume SMA length", minval = 1)
+longVolumeMult = input.float(1.00, "Long filter: Volume SMA multiple", minval = 0.0, step = 0.05)
+shortVolumeMult = input.float(1.00, "Short filter: Volume SMA multiple", minval = 0.0, step = 0.05)
+cooldownBars = input.int(0, "Filter: Cooldown bars after entry", minval = 0)
+showLiveBands = input.bool(true, "Show live ATR bands")
+showActiveTrade = input.bool(true, "Show active stop/target")
+showBiasBackground = input.bool(true, "Show anchor bias background")
+sendDynamicAlerts = input.bool(true, "Send alert() on signals")
+alertFormat = input.string("Readable", "Alert format", options = ["Readable", "JSON"])
+webhookSecret = input.string("oc_tv_a6c91d4f", "Webhook secret")
+f_squeeze_value() =>
+    src = close
+    bbBasis = ta.sma(src, bbLen)
+    bbDev = bbMult * ta.stdev(src, bbLen)
+    upperBB = bbBasis + bbDev
+    lowerBB = bbBasis - bbDev
+    kcBasis = ta.sma(src, kcLen)
+    rangeSeries = useTrueRange ? ta.tr(true) : (high - low)
+    rangeMa = ta.sma(rangeSeries, kcLen)
+    upperKC = kcBasis + rangeMa * kcMult
+    lowerKC = kcBasis - rangeMa * kcMult
+    avgHighLow = math.avg(ta.highest(high, kcLen), ta.lowest(low, kcLen))
+    ta.linreg(src - math.avg(avgHighLow, ta.sma(close, kcLen)), kcLen, 0)
+f_trend_ok(_close, _ema, _sma, _isLong) =>
+    requireBothMAs ?
+         (_isLong ? (_close > _ema and _close > _sma) : (_close < _ema and _close < _sma)) :
+         (_isLong ? _close > _ema : _close < _ema)
+f_log_atr(_len) =>
+    logHigh = math.log(high)
+    logLow = math.log(low)
+    logClose = math.log(close)
+    prevLogClose = nz(logClose[1], logClose)
+    logTr = math.max(logHigh - logLow, math.max(math.abs(logHigh - prevLogClose), math.abs(logLow - prevLogClose)))
+    ta.rma(logTr, _len)
+emaTrigger = ta.ema(close, emaLen)
+smaTrigger = ta.sma(close, smaLen)
+squeezeTrigger = f_squeeze_value()
+anchorClose = request.security(syminfo.tickerid, anchorTf, close, barmerge.gaps_off, barmerge.lookahead_off)
+anchorEma = request.security(syminfo.tickerid, anchorTf, ta.ema(close, emaLen), barmerge.gaps_off, barmerge.lookahead_off)
+anchorSma = request.security(syminfo.tickerid, anchorTf, ta.sma(close, smaLen), barmerge.gaps_off, barmerge.lookahead_off)
+anchorSqueeze = request.security(syminfo.tickerid, anchorTf, f_squeeze_value(), barmerge.gaps_off, barmerge.lookahead_off)
+anchorEmaPrev = request.security(syminfo.tickerid, anchorTf, ta.ema(close, emaLen)[anchorSlopeLookback], barmerge.gaps_off, barmerge.lookahead_off)
+anchorBiasLong = f_trend_ok(anchorClose, anchorEma, anchorSma, true) and anchorSqueeze > 0
+anchorBiasShort = f_trend_ok(anchorClose, anchorEma, anchorSma, false) and anchorSqueeze < 0
+triggerTrendLong = f_trend_ok(close, emaTrigger, smaTrigger, true)
+triggerTrendShort = f_trend_ok(close, emaTrigger, smaTrigger, false)
+anchorSqueezePrev = request.security(syminfo.tickerid, anchorTf, f_squeeze_value()[1], barmerge.gaps_off, barmerge.lookahead_off)
+anchorSqueezeStrengthLong = not useLongAnchorSqueezeStrengthening or (anchorSqueeze > anchorSqueezePrev)
+anchorSqueezeStrengthShort = not useShortAnchorSqueezeStrengthening or (anchorSqueeze < anchorSqueezePrev)
+anchorEmaSlopeLong = not useAnchorEmaSlopeFilter or (anchorEma > anchorEmaPrev)
+anchorEmaSlopeShort = not useAnchorEmaSlopeFilter or (anchorEma < anchorEmaPrev)
+triggerAtr = ta.atr(atrLen)
+triggerRefHigh = math.max(emaTrigger, smaTrigger)
+triggerRefLow = math.min(emaTrigger, smaTrigger)
+triggerDistanceLong = not useLongDistanceFilter or (close > triggerRefHigh + triggerAtr * longDistanceAtrMult)
+triggerDistanceShort = not useShortDistanceFilter or (close < triggerRefLow - triggerAtr * shortDistanceAtrMult)
+volumeSma = ta.sma(volume, volumeLen)
+volumeLongOk = not useLongVolumeFilter or (volume > volumeSma * longVolumeMult)
+volumeShortOk = not useShortVolumeFilter or (volume > volumeSma * shortVolumeMult)
+longSignal = barstate.isconfirmed and anchorBiasLong and anchorSqueezeStrengthLong and anchorEmaSlopeLong and triggerTrendLong and triggerDistanceLong and volumeLongOk and ta.crossover(squeezeTrigger, 0)
+shortSignal = barstate.isconfirmed and anchorBiasShort and anchorSqueezeStrengthShort and anchorEmaSlopeShort and triggerTrendShort and triggerDistanceShort and volumeShortOk and ta.crossunder(squeezeTrigger, 0)
+longEnabled = tradeSide == "Both" or tradeSide == "Long only"
+shortEnabled = tradeSide == "Both" or tradeSide == "Short only"
+finalLongSignal = longEnabled and longSignal
+finalShortSignal = shortEnabled and shortSignal
+logAtr = f_log_atr(atrLen)
+upperBandSourceLog = useEmaSmoothAtrBands ? ta.ema(math.log(high), atrLen) : math.log(high)
+lowerBandSourceLog = useEmaSmoothAtrBands ? ta.ema(math.log(low), atrLen) : math.log(low)
+upperStopBand = math.exp(upperBandSourceLog + logAtr * stopAtrMult)
+lowerStopBand = math.exp(lowerBandSourceLog - logAtr * stopAtrMult)
+upperTargetBand = math.exp(upperBandSourceLog + logAtr * targetAtrMult)
+lowerTargetBand = math.exp(lowerBandSourceLog - logAtr * targetAtrMult)
+rrRatio = targetAtrMult / stopAtrMult
+secretField = webhookSecret != "" ? ",\"secret\":\"" + webhookSecret + "\"" : ""
+rrText = str.tostring(rrRatio, "#.##")
+var float activeStop = na
+var float activeTarget = na
+var string activeSide = ""
+var int lastEntryBarIndex = na
+if strategy.position_size == 0
+    activeStop := na
+    activeTarget := na
+    activeSide := ""
+cooldownOk = na(lastEntryBarIndex) or (bar_index - lastEntryBarIndex > cooldownBars)
+enterLong = finalLongSignal and cooldownOk and strategy.position_size <= 0
+enterShort = finalShortSignal and cooldownOk and strategy.position_size >= 0
+if enterLong
+    activeStop := lowerStopBand
+    activeTarget := upperTargetBand
+    activeSide := "LONG"
+    lastEntryBarIndex := bar_index
+    strategy.entry("Long", strategy.long, comment = "Long")
+    strategy.exit("Long Exit", from_entry = "Long", stop = activeStop, limit = activeTarget)
+if enterShort
+    activeStop := upperStopBand
+    activeTarget := lowerTargetBand
+    activeSide := "SHORT"
+    lastEntryBarIndex := bar_index
+    strategy.entry("Short", strategy.short, comment = "Short")
+    strategy.exit("Short Exit", from_entry = "Short", stop = activeStop, limit = activeTarget)
+if strategy.position_size > 0 and not na(activeStop) and not na(activeTarget)
+    strategy.exit("Long Exit", from_entry = "Long", stop = activeStop, limit = activeTarget)
+if strategy.position_size < 0 and not na(activeStop) and not na(activeTarget)
+    strategy.exit("Short Exit", from_entry = "Short", stop = activeStop, limit = activeTarget)
+longMessage =
+     alertFormat == "Readable" ?
+     syminfo.ticker + " LONG | " + timeframe.period + "m/" + anchorTf + "m" +
+     " | entry " + str.tostring(close, format.mintick) +
+     " | stop " + str.tostring(lowerStopBand, format.mintick) +
+     " | target " + str.tostring(upperTargetBand, format.mintick) +
+     " | RR " + rrText :
+     "{\"system\":\"openclaw_scalp\",\"signal\":\"long\",\"ticker\":\"" + syminfo.tickerid +
+     "\",\"trigger_tf\":\"" + timeframe.period +
+     "\",\"anchor_tf\":\"" + anchorTf +
+     "\",\"entry\":" + str.tostring(close, format.mintick) +
+     ",\"stop\":" + str.tostring(lowerStopBand, format.mintick) +
+     ",\"target\":" + str.tostring(upperTargetBand, format.mintick) +
+     ",\"rr\":" + rrText +
+     ",\"anchor_bias\":\"long\"" +
+     secretField +
+     "}"
+shortMessage =
+     alertFormat == "Readable" ?
+     syminfo.ticker + " SHORT | " + timeframe.period + "m/" + anchorTf + "m" +
+     " | entry " + str.tostring(close, format.mintick) +
+     " | stop " + str.tostring(upperStopBand, format.mintick) +
+     " | target " + str.tostring(lowerTargetBand, format.mintick) +
+     " | RR " + rrText :
+     "{\"system\":\"openclaw_scalp\",\"signal\":\"short\",\"ticker\":\"" + syminfo.tickerid +
+     "\",\"trigger_tf\":\"" + timeframe.period +
+     "\",\"anchor_tf\":\"" + anchorTf +
+     "\",\"entry\":" + str.tostring(close, format.mintick) +
+     ",\"stop\":" + str.tostring(upperStopBand, format.mintick) +
+     ",\"target\":" + str.tostring(lowerTargetBand, format.mintick) +
+     ",\"rr\":" + rrText +
+     ",\"anchor_bias\":\"short\"" +
+     secretField +
+     "}"
+if sendDynamicAlerts and enterLong
+    alert(longMessage, alert.freq_once_per_bar_close)
+if sendDynamicAlerts and enterShort
+    alert(shortMessage, alert.freq_once_per_bar_close)
+alertcondition(enterLong, title = "OpenClaw Long Entry", message = "OpenClaw long entry")
+alertcondition(enterShort, title = "OpenClaw Short Entry", message = "OpenClaw short entry")
+plot(emaTrigger, "EMA 200", color = color.new(color.red, 0), linewidth = 2)
+plot(smaTrigger, "SMA 200", color = color.new(color.red, 20), linewidth = 2)
+plot(showLiveBands ? upperStopBand : na, "Upper Stop Band", color = color.new(color.white, 0), linewidth = 1)
+plot(showLiveBands ? lowerStopBand : na, "Lower Stop Band", color = color.new(color.white, 0), linewidth = 1)
+plot(showLiveBands ? upperTargetBand : na, "Upper Target Band", color = color.new(color.lime, 0), linewidth = 1)
+plot(showLiveBands ? lowerTargetBand : na, "Lower Target Band", color = color.new(color.lime, 0), linewidth = 1) 
+plot(showActiveTrade and strategy.position_size != 0 ? activeStop : na, "Active Stop", color = color.new(color.orange, 0), linewidth = 2, style = plot.style_linebr)
+plot(showActiveTrade and strategy.position_size != 0 ? activeTarget : na, "Active Target", color = color.new(color.aqua, 0), linewidth = 2, style = plot.style_linebr)
+plotshape(enterLong, title = "Long Marker", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = "L")
+plotshape(enterShort, title = "Short Marker", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "S")
+bgcolor(showBiasBackground ? (anchorBiasLong ? color.new(color.green, 90) : anchorBiasShort ? color.new(color.red, 90) : na) : na, title = "Anchor Bias")

@@ -29,7 +29,7 @@ const formatChinaTick = (time: number, type: TickMarkType) => {
   return `${parts.hour}:${parts.minute}`;
 };
 
-function Chart({ candles, loadOlder }: { candles: Candle[]; loadOlder: () => Promise<void> }) {
+function Chart({ candles, loadOlder, resetViewport }: { candles: Candle[]; loadOlder: () => Promise<void>; resetViewport: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<any>(null);
   const series = useRef<any>(null);
@@ -57,11 +57,11 @@ function Chart({ candles, loadOlder }: { candles: Candle[]; loadOlder: () => Pro
     else {
       const range = chart.current.timeScale().getVisibleLogicalRange();
       series.current.setData(bars); volume.current.setData(volumes);
-      if (!old.length) chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 5 });
+      if (!old.length || resetViewport) chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 5 });
       else if (prepend && range) chart.current.timeScale().setVisibleLogicalRange({ from: range.from + prepend, to: range.to + prepend });
     }
     previous.current = candles;
-  }, [candles]);
+  }, [candles, resetViewport]);
 
   useEffect(() => {
     const scale = chart.current?.timeScale();
@@ -81,6 +81,7 @@ function Chart({ candles, loadOlder }: { candles: Candle[]; loadOlder: () => Pro
 export function MarketTerminal() {
   const [interval, setIntervalValue] = useState(() => localStorage.getItem("crypto-robot-interval") || "5m");
   const [baseCandles, setBaseCandles] = useState<Candle[]>(cached);
+  const [fullHistoryLoaded, setFullHistoryLoaded] = useState(false);
   const [funding, setFunding] = useState<Funding | null>(null);
   const candles = aggregateKlines(baseCandles.map((item) => [item.time, item.open, item.high, item.low, item.close, item.volume, item.time + intervalMs["1m"] - 1, item.quoteVolume]), intervalMs[interval]).map(parseRow);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -92,7 +93,7 @@ export function MarketTerminal() {
 
   const history = useCallback(async (endTime?: number) => {
     const suffix = endTime ? `&endTime=${endTime}` : "";
-    const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&limit=1000${suffix}`, { cache: "no-store" });
+    const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&limit=5000${suffix}`, { cache: "no-store" });
     if (!response.ok) throw new Error(`history failed (${response.status})`);
     return (await response.json()).klines.map(parseRow) as Candle[];
   }, []);
@@ -111,14 +112,7 @@ export function MarketTerminal() {
       try {
         let rows = await history();
         if (!active) return;
-        setBaseCandles((current) => { const next = merge(current, rows); candlesRef.current = next; return next; });
-        for (let page = 0; page < 2 && rows.length; page++) {
-          const oldest = candlesRef.current[0];
-          rows = await history(oldest.time - 1);
-          if (!active) return;
-          if (rows.at(-1)?.time !== oldest.time - intervalMs["1m"]) break;
-          setBaseCandles((current) => { const next = merge(rows, current); candlesRef.current = next; return next; });
-        }
+        setBaseCandles((current) => { const next = merge(current, rows); candlesRef.current = next; return next; }); setFullHistoryLoaded(true);
       } catch (error) { setLines((current) => [...current, { kind: "error", text: error instanceof Error ? error.message : "history unavailable" }]); }
     })();
     return () => { active = false; };
@@ -157,5 +151,5 @@ export function MarketTerminal() {
 
   const fundingRate = Number(funding?.lastFundingRate);
   const nextFunding = funding?.nextFundingTime ? new Date(funding.nextFundingTime).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "--:--";
-  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((value) => <button className={value === interval ? "active" : ""} key={value} onClick={() => setIntervalValue(value)}>{value}</button>)}</nav><Chart key={interval} candles={candles} loadOlder={loadOlder} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()}><div className="output">{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} /></form></section></main>;
+  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((value) => <button className={value === interval ? "active" : ""} key={value} onClick={() => setIntervalValue(value)}>{value}</button>)}</nav><Chart key={interval} candles={candles} loadOlder={loadOlder} resetViewport={fullHistoryLoaded} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()}><div className="output">{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} /></form></section></main>;
 }
