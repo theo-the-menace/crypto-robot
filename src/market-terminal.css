@@ -1,5 +1,5 @@
 * { box-sizing: border-box; }
-html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #080b0f; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: #080b0f; }
 button, input { font: inherit; }
 .market-terminal { display: grid; width: 100%; height: 100%; grid-template-rows: minmax(0, 70%) minmax(180px, 30%); color: #d7dde5; background: #080b0f; font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace; }
 .chart-pane { position: relative; min-height: 0; border-bottom: 1px solid #25303c; background: #10151c; }
