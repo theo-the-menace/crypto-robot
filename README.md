@@ -28,6 +28,8 @@ For local development, the React/Vite frontend listens on `127.0.0.1:8888` and t
 
 The chart keeps one canonical BTCUSD perpetual 1-minute K-line cache on the host at `.cache/market/BTCUSD_PERP-1m.json` (ignored by Git). Higher display intervals are aggregated in the browser from that same series. The browser retains only the latest 1,000 one-minute rows for fast first paint after refresh, then reconciles with the local API. Set `MARKET_CACHE_DIR` to store the host cache elsewhere.
 
+When the local API starts, it continues downloading older 1-minute BTCUSD perpetual K-lines in the background from the earliest cached candle, writing progress to that host cache every ten pages. It stops only when Binance has no earlier contract data. `GET /api/market/backfill` reports the local download state.
+
 Wallet-routing experiments are Testnet-only in `execution/scenario_simulator.py`. They model USDT wallet transfers, close simulated COIN-M positions before returning collateral, and generate a dry-run COIN-M market-order draft for the requested 20x one-second momentum scenario. The unrestricted scenario is explicitly rejected outside Testnet and never submits a live order.
 
 ```bash

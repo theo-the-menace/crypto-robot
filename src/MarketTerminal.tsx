@@ -123,10 +123,10 @@ export function MarketTerminal() {
   }, [history]);
 
   useEffect(() => {
-    const refresh = async () => { try { const rows = await history(); setBaseCandles((current) => merge(current, rows)); } catch {} };
+    const refresh = async () => { try { const rows = await history(); setBaseCandles((current) => merge(current, rows)); await loadOlder(); } catch {} };
     const timer = setInterval(() => { void refresh(); }, 10_000);
     return () => clearInterval(timer);
-  }, [history]);
+  }, [history, loadOlder]);
 
   useEffect(() => {
     const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding?symbol=BTCUSD_PERP`, { cache: "no-store" }); if (response.ok) setFunding((await response.json()).premium || null); } catch {} };

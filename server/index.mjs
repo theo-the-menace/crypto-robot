@@ -27,6 +27,7 @@ const defaultModel = modelOptions.includes(process.env.GATEWAY_MODEL) ? process.
 const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING_EFFORT) ? process.env.GATEWAY_REASONING_EFFORT : 'medium';
 const marketCacheDirectory = process.env.MARKET_CACHE_DIR || resolve(process.cwd(), '.cache', 'market');
 const marketCache = new Map();
+const marketBackfill = { running: false, complete: false, rows: 0, oldestTime: null, error: null };
 let fundingCache = { value: null, updatedAt: 0 };
 
 function parseModelJson(value) {
@@ -107,7 +108,7 @@ async function assetSnapshot() {
   return result;
 }
 
-async function coinMMarket(symbol, interval, endTime) {
+async function coinMMarket(symbol, interval, endTime, limit = 240) {
   const base = environment === 'testnet' ? 'https://testnet.binancefuture.com' : 'https://dapi.binance.com';
   const get = async (path, params) => {
     const response = await fetch(`${base}${path}?${new URLSearchParams(params)}`, { signal: AbortSignal.timeout(10_000) });
@@ -115,7 +116,7 @@ async function coinMMarket(symbol, interval, endTime) {
     if (!response.ok) throw new BinanceApiError(result.msg || `Binance Coin-M request failed (${response.status}).`, { status: response.status, code: result.code });
     return result;
   };
-  const klineParams = { symbol, interval, limit: '240', ...(endTime ? { endTime: String(endTime) } : {}) };
+  const klineParams = { symbol, interval, limit: String(limit), ...(endTime ? { endTime: String(endTime) } : {}) };
   if (endTime) return { symbol, interval, klines: await get('/dapi/v1/klines', klineParams), depth: { bids: [], asks: [] }, premium: { markPrice: '0', indexPrice: '0' }, partial: true };
   const [klines, depth, premium] = await Promise.all([
     get('/dapi/v1/klines', klineParams),
@@ -201,6 +202,31 @@ async function cachedCoinMKlines(symbol, endTime, limit = 1_000) {
     await writeMarketCache(marketCacheDirectory, symbol, state.rows);
   }
   return available.slice(-limit);
+}
+
+async function backfillCoinMHistory(symbol = 'BTCUSD_PERP') {
+  if (marketBackfill.running || marketBackfill.complete) return;
+  marketBackfill.running = true; marketBackfill.error = null;
+  try {
+    const state = marketCache.get(symbol) || { rows: null, updatedAt: 0 };
+    marketCache.set(symbol, state);
+    if (!state.rows) state.rows = await readMarketCache(marketCacheDirectory, symbol);
+    let endTime = Number(state.rows[0]?.[0]) - 1;
+    if (!Number.isFinite(endTime) || endTime <= 0) endTime = Date.now();
+    let pagesSinceWrite = 0;
+    while (endTime > 0) {
+      const page = (await coinMMarket(symbol, '1m', endTime, 1_500)).klines || [];
+      if (!page.length) { marketBackfill.complete = true; break; }
+      state.rows = mergeKlines(state.rows, page);
+      endTime = Number(page[0][0]) - 1;
+      marketBackfill.rows = state.rows.length; marketBackfill.oldestTime = Number(state.rows[0][0]); pagesSinceWrite += 1;
+      if (pagesSinceWrite >= 10 || page.length < 1_500) { await writeMarketCache(marketCacheDirectory, symbol, state.rows); pagesSinceWrite = 0; }
+      if (page.length < 1_500) { marketBackfill.complete = true; break; }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    if (pagesSinceWrite) await writeMarketCache(marketCacheDirectory, symbol, state.rows);
+  } catch (error) { marketBackfill.error = error instanceof Error ? error.message : 'Market history backfill failed.'; }
+  finally { marketBackfill.running = false; }
 }
 
 async function orderBookContext(range) {
@@ -454,6 +480,7 @@ export function createCryptoServer() {
         }
         return sendJson(response, 200, { symbol, premium: fundingCache.value });
       }
+      if (request.method === 'GET' && request.url === '/api/market/backfill') return sendJson(response, 200, marketBackfill);
       if (request.method === 'GET' && request.url?.startsWith('/api/coinm-market?')) {
         const query = new URL(request.url, 'http://localhost').searchParams;
         const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
@@ -563,4 +590,4 @@ export function createCryptoServer() {
   });
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) createCryptoServer().listen(port, '127.0.0.1', () => console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`));
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) createCryptoServer().listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void backfillCoinMHistory(); });
