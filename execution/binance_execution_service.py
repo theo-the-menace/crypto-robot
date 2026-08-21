@@ -261,7 +261,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise BinanceError("Interval is not allowed.", 400)
                 product = "spot" if symbol == "BTCUSDT" else "usdm"
                 path = "/api/v3/klines" if product == "spot" else "/fapi/v1/klines"
-                return self.json(200, {"symbol": symbol, "interval": interval, "klines": ENGINE.client.public(product, path, {"symbol": symbol, "interval": interval, "limit": limit})})
+                params = {"symbol": symbol, "interval": interval, "limit": limit}
+                if "endTime" in query: params["endTime"] = int(query["endTime"][0])
+                return self.json(200, {"symbol": symbol, "interval": interval, "klines": ENGINE.client.public(product, path, params)})
             if parsed.path == "/v1/binance/ping": return self.json(200, ENGINE.client.public("spot", "/api/v3/ping", {}))
             if parsed.path == "/v1/binance/ticker": return self.json(200, ENGINE.client.public("spot", "/api/v3/ticker/bookTicker", {"symbol": query.get("symbol", [""])[0].upper()}))
             if parsed.path == "/v1/binance/account":

@@ -879,11 +879,13 @@ type CoinMCandle = {
   quoteVolume: number;
 };
 
-function LightweightBtcChart({ candles }: { candles: CoinMCandle[] }) {
+function LightweightBtcChart({ candles, onLoadOlder }: { candles: CoinMCandle[]; onLoadOlder?: () => void }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<any>(null);
   const candleRef = useRef<any>(null);
   const volumeRef = useRef<any>(null);
+  const previousRef = useRef<Array<{ time: number }>>([]);
+  const loadingOlderRef = useRef(false);
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -895,9 +897,29 @@ function LightweightBtcChart({ candles }: { candles: CoinMCandle[] }) {
     return () => { chart.remove(); chartRef.current = null; candleRef.current = null; volumeRef.current = null; };
   }, []);
   useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const loadOlder = (range: { from: number } | null) => {
+      if (!range || range.from > 5 || loadingOlderRef.current) return;
+      loadingOlderRef.current = true;
+      onLoadOlder?.();
+      window.setTimeout(() => { loadingOlderRef.current = false; }, 500);
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(loadOlder);
+    return () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(loadOlder);
+  }, [onLoadOlder]);
+  useEffect(() => {
     const data = candles.filter((item) => Number.isFinite(item.time) && item.high >= item.low).map((item) => ({ time: Math.floor(item.time / 1000) as any, open: item.open, high: item.high, low: item.low, close: item.close }));
     const volumes = candles.filter((item) => Number.isFinite(item.time)).map((item) => ({ time: Math.floor(item.time / 1000) as any, value: Math.max(0, item.volume), color: item.close >= item.open ? "#2fc58a66" : "#f64d6866" }));
-    candleRef.current?.setData(data); volumeRef.current?.setData(volumes); if (data.length) chartRef.current?.timeScale().fitContent();
+    const previous = previousRef.current;
+    const windowChanged = previous.length !== data.length || previous[0]?.time !== data[0]?.time || previous.at(-2)?.time !== data.at(-2)?.time;
+    if (windowChanged) {
+      candleRef.current?.setData(data); volumeRef.current?.setData(volumes);
+      if (!previous.length && data.length) chartRef.current?.timeScale().fitContent();
+    } else if (data.length) {
+      candleRef.current?.update(data.at(-1)); volumeRef.current?.update(volumes.at(-1));
+    }
+    previousRef.current = data;
   }, [candles]);
   return <div className="lightweight-chart" ref={containerRef} aria-label="BTC candlestick chart" />;
 }
@@ -3730,7 +3752,7 @@ export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const refreshInFlight = useRef(false);
   const base = __DASHBOARD_API_URL__;
-  const token = () => window.localStorage.getItem("crypto-robot-dashboard-token") || __DASHBOARD_TOKEN__;
+  const token = () => __DASHBOARD_TOKEN__ || window.localStorage.getItem("crypto-robot-dashboard-token") || "";
   const remote = async <T,>(path: string): Promise<T> => {
     const response = await fetch(`${base}${path}`, { cache: "no-store", headers: { Authorization: `Bearer ${token()}` } });
     const result = await response.json().catch(() => ({}));
@@ -3743,16 +3765,26 @@ export function App() {
     try {
       const [state, market] = await Promise.all([
         remote<DashboardSnapshot>("/v1/dashboard"),
-        remote<{ klines: Array<Array<string | number>> }>(`/v1/market/klines?symbol=BTCUSD_PERP&interval=${interval}&limit=300`),
+        remote<{ klines: Array<Array<string | number>> }>(`/v1/market/klines?symbol=BTCUSD_PERP&interval=${interval}&limit=1000`),
       ]);
       setDashboard(state);
-      setCandles(market.klines.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) })));
+      const incoming = market.klines.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) }));
+      setCandles((current) => [...new Map([...current, ...incoming].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time));
     } catch (error) {
       const message = error instanceof Error ? error.message : "remote server unavailable";
       setLines((current) => current.at(-1)?.text === message ? current : [...current.slice(-80), { kind: "error", text: message }]);
     } finally { refreshInFlight.current = false; }
   }, [base, interval]);
   useEffect(() => { void refresh(); const timer = window.setInterval(refresh, 1000); return () => window.clearInterval(timer); }, [refresh]);
+  useEffect(() => { setCandles([]); }, [interval]);
+  const loadOlder = useCallback(() => {
+    const oldest = candles[0];
+    if (!oldest) return;
+    void remote<{ klines: Array<Array<string | number>> }>(`/v1/market/klines?symbol=BTCUSD_PERP&interval=${interval}&limit=1000&endTime=${oldest.time - 1}`).then((market) => {
+      const older = market.klines.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) }));
+      setCandles((current) => [...new Map([...older, ...current].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time));
+    });
+  }, [candles, interval]);
   const execute = async () => {
     const value = command.trim();
     if (!value) return;
@@ -3778,5 +3810,5 @@ export function App() {
     } catch (error) { next.push({ kind: "error", text: error instanceof Error ? error.message : "command failed" }); }
     setLines(next.slice(-100)); setCommand("");
   };
-  return <main className="terminal-app"><section className="terminal-chart-panel"><div className="terminal-chart-toolbar"><nav>{["1m", "5m", "15m", "1h", "4h", "1d"].map((item) => <button className={interval === item ? "active" : ""} key={item} onClick={() => setIntervalValue(item)}>{item}</button>)}</nav></div><LightweightBtcChart candles={candles} /></section><section className="terminal-shell" onClick={() => inputRef.current?.focus()}><div className="terminal-output">{lines.map((line, index) => <pre className={line.kind} key={`${index}-${line.text}`}>{line.text}</pre>)}</div><form className="terminal-input" onSubmit={(event) => { event.preventDefault(); void execute(); }}><span>$</span><input ref={inputRef} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} aria-label="Terminal command" /></form></section></main>;
+  return <main className="terminal-app"><section className="terminal-chart-panel"><div className="terminal-chart-toolbar"><nav>{["1m", "5m", "15m", "1h", "4h", "1d"].map((item) => <button className={interval === item ? "active" : ""} key={item} onClick={() => setIntervalValue(item)}>{item}</button>)}</nav></div><LightweightBtcChart candles={candles} onLoadOlder={loadOlder} /></section><section className="terminal-shell" onClick={() => inputRef.current?.focus()}><div className="terminal-output">{lines.map((line, index) => <pre className={line.kind} key={`${index}-${line.text}`}>{line.text}</pre>)}</div><form className="terminal-input" onSubmit={(event) => { event.preventDefault(); void execute(); }}><span>$</span><input ref={inputRef} value={command} onChange={(event) => setCommand(event.target.value)} autoComplete="off" spellCheck={false} aria-label="Terminal command" /></form></section></main>;
 }
