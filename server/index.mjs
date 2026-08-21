@@ -84,10 +84,10 @@ async function accountSnapshot() {
 async function coinMSnapshot({ symbol = 'BTCUSD_PERP', startTime, endTime, limit = 100 } = {}) {
   if (!configured) throw new BinanceApiError('Configure Binance credentials before reading COIN-M.', { status: 503 });
   const range = { ...(startTime ? { startTime } : {}), ...(endTime ? { endTime } : {}) };
-  const [account, positions, trades, income, openOrders] = await Promise.all([
-    coinm.account(), coinm.positionRisk(symbol), coinm.userTrades(symbol, limit), coinm.income({ ...range, limit: Math.min(1000, limit) }), coinm.openOrders(symbol),
+  const [account, positions, trades, income, openOrders, orders] = await Promise.all([
+    coinm.account(), coinm.positionRisk(symbol), coinm.userTrades(symbol, limit), coinm.income({ ...range, limit: Math.min(1000, limit) }), coinm.openOrders(symbol), coinm.allOrders(symbol, limit),
   ]);
-  return { syncedAt: Date.now(), symbol, account, positions, trades, income, openOrders };
+  return { syncedAt: Date.now(), symbol, account, positions, trades, income, openOrders, orders };
 }
 
 let assetCache = null;

@@ -5,6 +5,7 @@ const BASE_URLS = {
   live: 'https://api.binance.com',
 };
 const FUTURES_BASE_URLS = { testnet: 'https://testnet.binancefuture.com', live: 'https://fapi.binance.com' };
+const COIN_M_BASE_URLS = { testnet: 'https://testnet.binancefuture.com', live: 'https://dapi.binance.com' };
 
 function compactParams(params) {
   return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ''));
@@ -96,6 +97,31 @@ export function createBinanceUsdMClient({ apiKey, secretKey, environment = 'test
     marginType: (symbol, marginType) => request('POST', '/fapi/v1/marginType', { symbol, marginType }, true),
     testOrder: (order) => request('POST', '/fapi/v1/order/test', order, true),
     placeOrder: (order) => request('POST', '/fapi/v1/order', order, true),
+  };
+}
+
+export function createBinanceCoinMClient({ apiKey, secretKey, environment = 'testnet', fetchImpl = fetch, now = Date.now, recvWindow = 5_000 } = {}) {
+  const baseUrl = COIN_M_BASE_URLS[environment];
+  if (!baseUrl) throw new Error('Binance environment must be testnet or live.');
+  let clockOffset = 0; let clockSynced = false;
+  async function request(method, path, params = {}, signed = false) {
+    if (signed && (!apiKey || !secretKey)) throw new BinanceApiError('Binance API credentials are not configured.', { status: 503 });
+    if (signed && !clockSynced) { const { serverTime } = await request('GET', '/dapi/v1/time'); clockOffset = Number(serverTime) - now(); clockSynced = true; }
+    const values = signed ? { ...params, recvWindow, timestamp: now() + clockOffset } : params;
+    const query = signed ? signQuery(values, secretKey) : new URLSearchParams(compactParams(values)).toString();
+    const response = await fetchImpl(`${baseUrl}${path}${query ? `?${query}` : ''}`, { method, headers: signed ? { 'X-MBX-APIKEY': apiKey } : undefined, signal: AbortSignal.timeout(10_000) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { const executionUnknown = response.status >= 500 && method !== 'GET'; throw new BinanceApiError(body.msg || `Binance request failed (${response.status}).`, { status: response.status, code: body.code, executionUnknown }); }
+    return body;
+  }
+  return {
+    environment,
+    account: () => request('GET', '/dapi/v1/account', {}, true),
+    positionRisk: (symbol) => request('GET', '/dapi/v1/positionRisk', symbol ? { symbol } : {}, true),
+    userTrades: (symbol, limit = 100) => request('GET', '/dapi/v1/userTrades', { symbol, limit }, true),
+    income: (params = {}) => request('GET', '/dapi/v1/income', { limit: 1000, ...params }, true),
+    openOrders: (symbol) => request('GET', '/dapi/v1/openOrders', symbol ? { symbol } : {}, true),
+    allOrders: (symbol, limit = 100) => request('GET', '/dapi/v1/allOrders', { symbol, limit }, true),
   };
 }
 

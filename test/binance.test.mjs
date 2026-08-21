@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient, signQuery } from '../src/binance.mjs';
+import { createBinanceCoinMClient, createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient, signQuery } from '../src/binance.mjs';
 
 test('signQuery signs the exact encoded query', () => {
   const signed = signQuery({ symbol: 'BTCUSDT', side: 'BUY', note: 'a b' }, 'secret');
@@ -32,6 +32,17 @@ test('USD-M Futures client uses the Futures time and account endpoints', async (
   await client.account();
   assert.match(calls[0], /testnet\.binancefuture\.com\/fapi\/v1\/time/);
   assert.match(calls[1], /\/fapi\/v2\/account\?/);
+});
+
+test('COIN-M client exposes account, positions, trades, income, and open orders', async () => {
+  const calls = [];
+  const client = createBinanceCoinMClient({ apiKey: 'public', secretKey: 'private', now: () => 1_000, fetchImpl: async (url) => { calls.push(url); return new Response(JSON.stringify(url.endsWith('/dapi/v1/time') ? { serverTime: 2_000 } : [])); } });
+  await client.account(); await client.positionRisk('BTCUSD_PERP'); await client.userTrades('BTCUSD_PERP'); await client.income({ startTime: 1 }); await client.openOrders('BTCUSD_PERP');
+  assert.match(calls[1], /\/dapi\/v1\/account\?/);
+  assert.match(calls[2], /\/dapi\/v1\/positionRisk\?symbol=BTCUSD_PERP/);
+  assert.match(calls[3], /\/dapi\/v1\/userTrades\?symbol=BTCUSD_PERP/);
+  assert.match(calls[4], /\/dapi\/v1\/income\?/);
+  assert.match(calls[5], /\/dapi\/v1\/openOrders\?symbol=BTCUSD_PERP/);
 });
 
 test('asset clients use the official signed wallet, earn, funding, and Futures endpoints', async () => {
