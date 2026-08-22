@@ -35,19 +35,21 @@ html, body, #root { height: 100%; }
 .assistant-chart-slot { position: relative; min-width: 0; min-height: 0; border-left: 1px solid #202a36; background: #10151c; }
 .assistant-chart-content, .assistant-chart-content > .chart-pane { height: 100%; min-height: 0; }
 .assistant-panel-toggle { position: absolute; z-index: 8; top: 8px; right: 8px; }
-.assistant-chart-content .chart-pane nav { right: 44px; max-width: calc(100% - 50px); overflow-x: auto; }
+.assistant-chart-content .chart-toolbar { right: 44px; max-width: calc(100% - 50px); }
 @media (max-width: 900px) { .assistant-shell, .assistant-shell.left-closed, .assistant-shell.right-closed, .assistant-shell.left-closed.right-closed { grid-template-columns: 1fr; } .assistant-sidebar { position: absolute; z-index: 20; width: 230px; height: 100%; } .assistant-shell.left-open .assistant-sidebar { display: flex; } .assistant-shell.left-closed .assistant-sidebar { display: none; } .assistant-chart-slot { position: absolute; z-index: 15; inset: 0; } .assistant-shell.right-closed .assistant-chart-slot { display: none; } .right-rail { position: absolute; z-index: 16; top: 8px; right: 8px; width: 34px; height: 34px; border: 1px solid #304052; background: #111a23; } }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: #080b0f; }
 button, input { font: inherit; }
 .market-terminal { display: grid; width: 100%; height: 100%; grid-template-rows: minmax(0, 70%) minmax(180px, 30%); color: #d7dde5; background: #080b0f; font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace; }
 .chart-pane { position: relative; min-height: 0; border-bottom: 1px solid #25303c; background: #10151c; }
-.chart-pane nav { position: absolute; z-index: 5; top: 0; right: 58px; display: flex; gap: 3px; padding: 6px; }
+.chart-toolbar { position: absolute; z-index: 5; top: 0; right: 58px; left: 0; }
+.chart-pane nav { display: flex; gap: 3px; overflow-x: auto; padding: 6px; scrollbar-width: none; }
+.chart-pane nav::-webkit-scrollbar { display: none; }
 .indicator-controls { display: flex; gap: 3px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #27313d; }
-.chart-pane button { border: 0; padding: 5px 8px; color: #758398; background: #10151ccc; cursor: pointer; }
+.chart-pane button { flex: 0 0 auto; border: 0; padding: 5px 8px; color: #758398; background: #10151ccc; cursor: pointer; }
 .chart-pane button:hover, .chart-pane button.active { color: #edf3fa; background: #2a3643; }
 .market-chart { width: 100%; height: 100%; }
 .chart-layer { position: absolute; inset: 0; }
-.funding-strip { position: absolute; z-index: 4; left: 12px; right: 12px; bottom: 8px; display: flex; align-items: center; gap: 14px; min-height: 26px; padding: 4px 8px; color: #8290a0; background: #10151ce6; border-top: 1px solid #27313d; font-size: 11px; pointer-events: none; }
+.funding-strip { display: flex; align-items: center; gap: 14px; min-height: 26px; overflow-x: auto; padding: 4px 12px; color: #8290a0; background: #10151ce6; border-top: 1px solid #27313d; font-size: 11px; pointer-events: none; white-space: nowrap; }
 .funding-strip strong { font-size: 12px; }
 .funding-strip .positive { color: #39c58a; }
 .funding-strip .negative { color: #ef6672; }

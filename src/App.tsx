@@ -108,6 +108,21 @@ type Message = {
   draft?: Draft;
   order?: Record<string, unknown>;
 };
+
+const terminalCommandReply = (value: string) => {
+  const command = value.trim().toLowerCase();
+  if (!/^[a-z-]+$/.test(command)) return null;
+  if (command === "help") return "chart-log\nhelp";
+  if (command !== "chart-log") return null;
+  try {
+    return JSON.parse(localStorage.getItem("crypto-robot-chart-switch-log-v1") || "[]")
+      .slice(-30)
+      .map((item: unknown) => JSON.stringify(item))
+      .join("\n") || "no chart logs";
+  } catch {
+    return "chart log unavailable";
+  }
+};
 type ChatSession = {
   id: string;
   title: string;
@@ -3055,7 +3070,6 @@ export function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const [input, setInput] = useState("");
-  const [commandInput, setCommandInput] = useState("");
   const [attachment, setAttachment] = useState<ImageAttachment | null>(null);
   const marketContext = useRef<MarketContext | null>(null);
   useLayoutEffect(() => {
@@ -3227,14 +3241,6 @@ export function App() {
     setError("");
   }
 
-  function submitCommand(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const command = commandInput.trim();
-    if (!command) return;
-    window.dispatchEvent(new CustomEvent("crypto-terminal-command", { detail: command }));
-    setCommandInput("");
-  }
-
   async function send() {
     const content = input.trim() || (attachment ? "请分析这张图片。" : "");
     if (!content || busy) return;
@@ -3252,6 +3258,17 @@ export function App() {
     setMessages(baseMessages);
     setInput("");
     setAttachment(null);
+    const commandReply = !sentAttachment ? terminalCommandReply(content) : null;
+    if (commandReply !== null) {
+      const assistant: Message = { id: crypto.randomUUID(), role: "assistant", content: commandReply };
+      const nextMessages = [...baseMessages, assistant];
+      setMessages(nextMessages);
+      setSessions((existing) => [
+        { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
+        ...existing.filter((item) => item.id !== sessionId),
+      ]);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -3345,10 +3362,6 @@ export function App() {
           <Plus size={17} />
           New chat
         </button>
-        <form className="new-command" onSubmit={submitCommand}>
-          <label htmlFor="sidebar-command">New command</label>
-          <input id="sidebar-command" value={commandInput} onChange={(event) => setCommandInput(event.target.value)} placeholder="chart-log" autoComplete="off" spellCheck={false} />
-        </form>
         <div className="sidebar-lists">
           <nav className="recents" aria-label="最近对话">
             <div className="section-title">
@@ -3401,20 +3414,6 @@ export function App() {
         </button>
       )}
       <section className="conversation">
-        <div className="conversation-top">
-          <div>
-            <Bot size={18} />
-            <strong>
-              {activeSessionId
-                ? sessions.find((item) => item.id === activeSessionId)?.title ||
-                  "交易对话"
-                : "新对话"}
-            </strong>
-          </div>
-          <div className="top-actions">
-            <span>{status?.environment === "live" ? "LIVE" : "TESTNET"}</span>
-          </div>
-        </div>
         <div className="messages">
           {!messages.length && (
             <div className="empty">

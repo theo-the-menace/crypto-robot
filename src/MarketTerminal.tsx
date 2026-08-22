@@ -306,8 +306,8 @@ export function MarketTerminal() {
     void refresh(); const timer = setInterval(refresh, 5000); return () => clearInterval(timer);
   }, []);
 
-  const runCommand = (value: string) => {
-    value = value.trim(); if (!value) return;
+  const run = () => {
+    const value = command.trim(); if (!value) return;
     const next: Line[] = [...lines, { kind: "input", text: `$ ${value}` }]; const [name, arg] = value.toLowerCase().split(/\s+/);
     if (name === "clear") next.splice(0);
     else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nchart-log\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w>\nclear" });
@@ -330,12 +330,6 @@ export function MarketTerminal() {
     else next.push({ kind: "error", text: `unknown command: ${name}` });
     setLines(next.slice(-100)); setCommand("");
   };
-  const run = () => runCommand(command);
-  useEffect(() => {
-    const receive = (event: Event) => runCommand(String((event as CustomEvent).detail || ""));
-    globalThis.addEventListener("crypto-terminal-command", receive);
-    return () => globalThis.removeEventListener("crypto-terminal-command", receive);
-  });
 
   const fundingRate = Number(funding?.lastFundingRate);
   const nextFunding = funding?.nextFundingTime ? new Date(funding.nextFundingTime).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : "--:--";
@@ -346,6 +340,6 @@ export function MarketTerminal() {
   const onRangeChangeFor = (value: string) => (range: TimeRange) => { rangesRef.current[value] = range; persistUi(interval, enabled, rangesRef.current); };
   const selectInterval = (next: string) => { if (next === interval) return; chartTrace("switch-request", { from: interval, to: next, leavingRange: rangesRef.current[interval] || null, enteringRange: rangesRef.current[next] || null, currentCandles: candles.length, currentLast: candles.at(-1)?.time }); setIntervalValue(next); };
   const indicatorFor = (items: Candle[]) => { const source = rows(items); const bands = bollinger(source); return { ma7: enabled.ma7 ? sma(source, 7) : [], ma25: enabled.ma25 ? sma(source, 25) : [], ma60: enabled.ma60 ? sma(source, 60) : [], ma99: enabled.ma99 ? sma(source, 99) : [], ema200: enabled.ema200 ? carryForward(ema(rows(daily), 200), items.map((item) => item.time)) : [], ema21: enabled.ema21 ? carryForward(ema(rows(weekly), 21), items.map((item) => item.time)) : [], bbMiddle: enabled.bb ? bands.middle : [], bbUpper: enabled.bb ? bands.upper : [], bbLower: enabled.bb ? bands.lower : [] }; };
-  const chart = <section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav>{intervals.map((item) => <div className="chart-layer" style={{ visibility: item.value === interval ? "visible" : "hidden", pointerEvents: item.value === interval ? "auto" : "none" }} key={item.value}><Chart candles={candleSets[item.value] || []} loadOlder={() => loadOlderFor(item.value)} line={item.value === "time"} indicators={indicatorFor(candleSets[item.value] || [])} initialRange={rangesRef.current[item.value]} onRangeChange={onRangeChangeFor(item.value)} period={item.value} active={item.value === interval} /></div>)}<div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section>;
+  const chart = <section className="chart-pane"><div className="chart-toolbar"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></div>{intervals.map((item) => <div className="chart-layer" style={{ visibility: item.value === interval ? "visible" : "hidden", pointerEvents: item.value === interval ? "auto" : "none" }} key={item.value}><Chart candles={candleSets[item.value] || []} loadOlder={() => loadOlderFor(item.value)} line={item.value === "time"} indicators={indicatorFor(candleSets[item.value] || [])} initialRange={rangesRef.current[item.value]} onRangeChange={onRangeChangeFor(item.value)} period={item.value} active={item.value === interval} /></div>)}</section>;
   return chart;
 }

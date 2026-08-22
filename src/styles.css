@@ -28,9 +28,6 @@ button { cursor: pointer; }
 .left-reopen { left: 16px; }
 .right-reopen { right: 16px; }
 .new-chat, .settings-entry { display: flex; width: 100%; min-height: 38px; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 6px; padding: 0 11px; color: var(--ink); background: var(--panel); font-size: 12px; font-weight: 650; text-align: left; }
-.new-command { display: grid; gap: 5px; margin-top: 9px; }
-.new-command label { color: var(--muted); font-size: 10px; font-weight: 650; }
-.new-command input { width: 100%; min-height: 32px; border: 1px solid var(--border); border-radius: 6px; padding: 0 9px; color: var(--ink); background: var(--panel); font-size: 11px; outline: 0; }
 .new-chat:hover, .settings-entry:hover { background: var(--panel-muted); }
 .sidebar-lists { display: grid; min-height: 0; flex: 1; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: 18px -6px 12px; }
 .recents { display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr); margin: 0; padding: 0 6px 10px; }
@@ -54,15 +51,10 @@ button { cursor: pointer; }
 .balance span { font-variant-numeric: tabular-nums; }
 .balance-section p { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .settings-entry { margin-top: 10px; border-color: transparent; color: var(--muted); }
-.conversation { display: grid; height: 100vh; min-width: 0; grid-template-rows: max(68px, calc(58px + env(safe-area-inset-top))) minmax(0, 1fr) auto; background: var(--bg); }
-.conversation-top { position: relative; z-index: 5; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding: max(10px, env(safe-area-inset-top)) 28px 0; background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.conversation { display: grid; height: 100vh; min-width: 0; grid-template-rows: minmax(0, 1fr) auto; background: var(--bg); }
 :root[data-desktop="true"] .portfolio { padding-top: 44px; }
-:root[data-desktop="true"] .conversation { grid-template-rows: 86px minmax(0, 1fr) auto; }
-:root[data-desktop="true"] .conversation-top { padding-top: 24px; }
-.conversation-top > div { display: flex; align-items: center; gap: 8px; }
 .top-actions { display: flex; align-items: center; gap: 7px; }
 .model-picker { position: relative; flex: 0 1 auto; min-width: 0; }.model-trigger { display: flex; max-width: 220px; align-items: center; gap: 7px; overflow: hidden; border: 0; border-radius: 5px; padding: 7px 8px; color: var(--muted); background: transparent; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.model-trigger:hover { color: var(--ink); background: var(--panel-muted); }.model-menu { position: absolute; right: 0; bottom: calc(100% + 8px); width: min(252px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: 13px; padding: 7px 6px; background: var(--panel); box-shadow: 0 13px 32px var(--shadow); }.model-menu-label { padding: 6px 10px 4px; color: var(--muted); font-size: 9px; }.model-menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; border: 0; border-radius: 10px; padding: 6px 10px; color: var(--ink); background: transparent; font-size: 11px; text-align: left; }.model-menu button:hover, .model-menu button.selected { background: var(--panel-muted); }.model-menu-divider { height: 1px; margin: 5px 7px; background: var(--border); }
-.conversation-top span { border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; color: var(--muted); font-size: 10px; font-weight: 750; }
 .market-rail { position: relative; display: flex; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border-left: 1px solid var(--border); background: var(--panel); }
 .market-rail > .asset-app { width: 100%; min-width: 0; flex: 1 1 auto; min-height: 0; }
 .market-rail > .chart-pane { width: 100%; min-width: 0; flex: 1 1 auto; }
@@ -264,6 +256,6 @@ button { cursor: pointer; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 @media (max-width: 1100px) { .terminal-shell { grid-template-columns: var(--left-width, 14vw) minmax(360px, 1fr) var(--right-width, 36vw); } }
-@media (max-width: 760px) { .terminal-shell, .terminal-shell.left-collapsed, .terminal-shell.right-collapsed { height: auto; min-height: 100vh; grid-template-columns: 1fr; overflow: visible; } .portfolio, .left-collapsed .portfolio { min-height: auto; visibility: visible; border-right: 0; border-bottom: 1px solid var(--border); padding: 13px 16px; } .portfolio header { padding-bottom: 11px; } .new-chat, .recents, .balance-section, .settings-entry, .sidebar-toggle, .resize-handle, .sidebar-reopen { display: none; } .connection { border-bottom: 0; } .conversation { height: calc(100vh - 104px); min-height: 500px; } .conversation-top { padding-inline: 16px; } .conversation-top > div:first-child strong { display: block; overflow: hidden; max-width: 120px; text-overflow: ellipsis; white-space: nowrap; } .composer .model-trigger { max-width: 135px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .messages { padding: 24px 16px; } .composer-wrap { padding: 12px 16px 16px; } .order-draft dl { grid-template-columns: 1fr; gap: 8px; } }
+@media (max-width: 760px) { .terminal-shell, .terminal-shell.left-collapsed, .terminal-shell.right-collapsed { height: auto; min-height: 100vh; grid-template-columns: 1fr; overflow: visible; } .portfolio, .left-collapsed .portfolio { min-height: auto; visibility: visible; border-right: 0; border-bottom: 1px solid var(--border); padding: 13px 16px; } .portfolio header { padding-bottom: 11px; } .new-chat, .recents, .balance-section, .settings-entry, .sidebar-toggle, .resize-handle, .sidebar-reopen { display: none; } .connection { border-bottom: 0; } .conversation { height: calc(100vh - 52px); min-height: 500px; } .composer .model-trigger { max-width: 135px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .messages { padding: 24px 16px; } .composer-wrap { padding: 12px 16px 16px; } .order-draft dl { grid-template-columns: 1fr; gap: 8px; } }
 @media (max-width: 760px) { .sidebar-lists { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }
