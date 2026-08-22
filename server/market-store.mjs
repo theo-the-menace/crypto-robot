@@ -8,18 +8,15 @@ const monthKey = (time) => { const date = new Date(Number(time)); return `${date
 const monthRange = (month) => { const [year, value] = month.split('-').map(Number); return [Date.UTC(year, value - 1, 1), Date.UTC(year, value, 1) - 1]; };
 
 export class MarketStore {
-  constructor({ runtimeDirectory, snapshotDirectory, symbol = 'BTCUSD_PERP' }) {
-    this.runtimeDirectory = join(runtimeDirectory, symbol, '1m');
-    this.snapshotDirectory = join(snapshotDirectory, symbol, '1m');
+  constructor({ directory, symbol = 'BTCUSD_PERP' }) {
+    this.snapshotDirectory = join(directory, symbol, '1m');
     this.symbol = symbol;
-    this.derivedDirectory = join(snapshotDirectory, symbol, 'derived');
+    this.derivedDirectory = join(directory, symbol, 'derived');
     this.cache = new Map();
-    this.overlays = new Map();
     this.derived = new Map();
   }
 
   async readJson(file) { try { return JSON.parse(await readFile(file, 'utf8')); } catch (error) { if (error?.code === 'ENOENT') return null; throw error; } }
-  runtimeFile(month) { return join(this.runtimeDirectory, `${month}.json`); }
   snapshotFile(month) { return join(this.snapshotDirectory, `${month}.json`); }
   remember(month, rows) {
     this.cache.delete(month); this.cache.set(month, rows);
@@ -46,11 +43,8 @@ export class MarketStore {
   async month(month) {
     if (this.cache.has(month)) return this.cache.get(month);
     const snapshot = await this.readJson(this.snapshotFile(month)) || [];
-    const runtime = await this.readJson(this.runtimeFile(month)) || [];
-    this.overlays.set(month, runtime);
-    const rows = mergeKlines(snapshot, runtime);
-    this.remember(month, rows);
-    return rows;
+    this.remember(month, snapshot);
+    return snapshot;
   }
 
   async window(from, to, limit = Infinity) {
@@ -86,13 +80,12 @@ export class MarketStore {
     const grouped = new Map();
     for (const row of rows) { const month = monthKey(row[0]); grouped.set(month, [...(grouped.get(month) || []), row]); }
     for (const [month, incoming] of grouped) {
-      const merged = mergeKlines(await this.month(month), incoming); const overlay = mergeKlines(this.overlays.get(month) || [], incoming);
+      const merged = mergeKlines(await this.month(month), incoming);
       this.remember(month, merged);
-      this.overlays.set(month, overlay);
       if (persist) {
-        await mkdir(this.runtimeDirectory, { recursive: true });
-        const file = this.runtimeFile(month); const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
-        await writeFile(temporary, JSON.stringify(overlay), 'utf8'); await rename(temporary, file);
+        await mkdir(this.snapshotDirectory, { recursive: true });
+        const file = this.snapshotFile(month); const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
+        await writeFile(temporary, JSON.stringify(merged), 'utf8'); await rename(temporary, file);
       }
     }
   }

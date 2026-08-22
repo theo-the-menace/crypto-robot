@@ -26,7 +26,7 @@ const modelOptions = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'];
 const reasoningOptions = ['low', 'medium', 'high', 'xhigh', 'max'];
 const defaultModel = modelOptions.includes(process.env.GATEWAY_MODEL) ? process.env.GATEWAY_MODEL : 'gpt-5.6-luna';
 const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING_EFFORT) ? process.env.GATEWAY_REASONING_EFFORT : 'medium';
-const marketStore = new MarketStore({ runtimeDirectory: resolve(process.cwd(), '.cache', 'shards'), snapshotDirectory: resolve(process.cwd(), 'data', 'market') });
+const marketStore = new MarketStore({ directory: resolve(process.cwd(), 'data', 'market') });
 let fundingCache = { value: null, updatedAt: 0 };
 const marketStreams = new Set();
 
