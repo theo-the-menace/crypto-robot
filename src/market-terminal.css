@@ -12,11 +12,11 @@ button, input { font: inherit; }
 .funding-strip strong { font-size: 12px; }
 .funding-strip .positive { color: #39c58a; }
 .funding-strip .negative { color: #ef6672; }
-.console { display: grid; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; background: #080b0f; }
-.output { min-height: 0; overflow: auto; padding: 12px 14px; }
+.console { display: grid; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; background: #080b0f; user-select: text; -webkit-user-select: text; }
+.output { min-height: 0; overflow: auto; padding: 12px 14px; user-select: text; -webkit-user-select: text; }
 .output pre { margin: 0 0 6px; white-space: pre-wrap; font: 12px/1.5 inherit; }
 .output .input, .console form { color: #67d9a4; }
 .output .output { color: #aab6c5; }
 .output .error { color: #ed777f; }
 .console form { display: flex; gap: 9px; align-items: center; border-top: 1px solid #202a36; padding: 12px 14px; }
-.console input { width: 100%; border: 0; outline: 0; color: #edf2f7; background: transparent; }
+.console input { width: 100%; border: 0; outline: 0; color: #edf2f7; background: transparent; user-select: text; -webkit-user-select: text; }
