@@ -4,7 +4,6 @@ import { bollinger, carryForward, ema, isHorizontalGesture, sma, type IndicatorP
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
 type Funding = { lastFundingRate?: string; nextFundingTime?: number; markPrice?: string; indexPrice?: string };
-type FundingPoint = { time: number; value: number };
 type Line = { kind: "input" | "output" | "error"; text: string };
 type Dashboard = { service: { environment: string; mode: string; healthy: boolean }; strategies: Array<{ name: string; status: string; symbol: string }>; recentOrders: Array<{ state: string; symbol: string; client_order_id: string }>; risk: { allowedSymbols: string[]; maxOrderUsdt: number }; orders: { unknown: number } };
 type CoinMSnapshot = { syncedAt: number; positions: Array<{ symbol: string; positionAmt: string; entryPrice: string; markPrice: string; leverage: string; unrealizedProfit: string }>; trades: Array<{ orderId: number | string; side: string; price: string; qty: string; quoteQty?: string; commission: string; commissionAsset: string; realizedPnl?: string; time: number }>; income: Array<{ incomeType: string; income: string; asset: string; symbol?: string; time: number }>; openOrders: Array<{ orderId: number | string; side: string; type: string; price: string; origQty: string; status: string }>; orders: Array<{ orderId: number | string; side: string; type: string; price: string; origQty: string; executedQty: string; status: string; time: number }> };
@@ -51,7 +50,7 @@ const formatChinaTick = (time: number, type: TickMarkType) => {
   if (type === TickMarkType.DayOfMonth) return `${Number(parts.month)}-${Number(parts.day)}`;
   return `${parts.hour}:${parts.minute}`;
 };
-function Chart({ candles, loadOlder, resetViewport, line, indicators, fundingHistory, initialRange, onRangeChange, period }: { candles: Candle[]; loadOlder: () => Promise<void>; resetViewport: boolean; line: boolean; indicators: Record<string, IndicatorPoint[]>; fundingHistory: FundingPoint[]; initialRange?: TimeRange; onRangeChange: (range: TimeRange) => void; period: string }) {
+function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRange, onRangeChange, period }: { candles: Candle[]; loadOlder: () => Promise<void>; resetViewport: boolean; line: boolean; indicators: Record<string, IndicatorPoint[]>; initialRange?: TimeRange; onRangeChange: (range: TimeRange) => void; period: string }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<any>(null);
   const series = useRef<any>(null);
@@ -70,7 +69,6 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, fundingHis
     volume.current.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
     const colors: Record<string, string> = { ma7: "#f6c945", ma25: "#58a6ff", ma60: "#c678dd", ma99: "#f08c46", ema200: "#f97316", ema21: "#22c55e", bbMiddle: "#aab6c5", bbUpper: "#64748b", bbLower: "#64748b" };
     for (const [name, color] of Object.entries(colors)) overlays.current[name] = chart.current.addSeries(LineSeries, { color, lineWidth: name.startsWith("bb") ? 1 : 2, lineStyle: name === "bbMiddle" ? 0 : 2, lastValueVisible: false, priceLineVisible: false });
-    overlays.current.funding = chart.current.addSeries(LineSeries, { color: "#d8a7ff", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, title: "Funding Rate" }, 1);
     return () => chart.current?.remove();
   }, []);
 
@@ -100,8 +98,7 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, fundingHis
 
   useLayoutEffect(() => {
     for (const [name, series] of Object.entries(overlays.current)) series.setData((indicators[name] || []).map((point) => ({ time: Math.floor(point.time / 1000) as any, value: point.value })));
-    overlays.current.funding?.setData(fundingHistory.map((point) => ({ time: Math.floor(point.time / 1000) as any, value: point.value })));
-  }, [indicators, fundingHistory]);
+  }, [indicators]);
 
   useEffect(() => {
     const scale = chart.current?.timeScale();
@@ -151,7 +148,6 @@ export function MarketTerminal() {
   const [interval, setIntervalValue] = useState(initialUi.interval);
   const [candleSets, setCandleSets] = useState<Record<string, Candle[]>>(() => ({ [initialUi.interval]: cached(initialUi.interval) }));
   const [funding, setFunding] = useState<Funding | null>(null);
-  const [fundingHistory, setFundingHistory] = useState<FundingPoint[]>([]);
   const [loadedInterval, setLoadedInterval] = useState<string | null>(null);
   const [daily, setDaily] = useState<Candle[]>([]);
   const [weekly, setWeekly] = useState<Candle[]>([]);
@@ -208,11 +204,6 @@ export function MarketTerminal() {
     void loadReference("1d", setDaily); void loadReference("1w", setWeekly);
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding-history?symbol=BTCUSD_PERP&limit=1000`, { cache: "no-store" }); if (response.ok && active) setFundingHistory((await response.json()).rows.map((row: { fundingTime: number; fundingRate: string }) => ({ time: Number(row.fundingTime), value: Number(row.fundingRate) })).filter((point: FundingPoint) => Number.isFinite(point.time) && Number.isFinite(point.value))); } catch {} };
-    void refresh(); const timer = setInterval(() => { void refresh(); }, 10 * 60_000); return () => { active = false; clearInterval(timer); };
-  }, []);
   const refreshCoinm = useCallback(async () => { try { const response = await fetch(`${MARKET_BASE}/coinm/snapshot?symbol=BTCUSD_PERP&limit=100`, { cache: "no-store" }); if (response.ok) { setCoinm(await response.json()); return true; } } catch {} return false; }, []);
   useEffect(() => { void refreshCoinm(); const timer = setInterval(() => { void refreshCoinm(); }, 1_000); return () => clearInterval(timer); }, [refreshCoinm]);
 
@@ -259,5 +250,5 @@ export function MarketTerminal() {
   const toggle = (name: IndicatorName) => setEnabled((current) => ({ ...current, [name]: !current[name] }));
   const onRangeChange = (range: TimeRange) => { rangesRef.current[interval] = range; localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); };
   const selectInterval = (next: string) => { if (rangesRef.current[interval]) rangesRef.current[next] = rangesRef.current[interval]; setIntervalValue(next); };
-  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav><Chart key={interval === "time" ? "time" : "candles"} candles={candles} loadOlder={loadOlder} resetViewport={loadedInterval === interval} line={interval === "time"} indicators={indicators} fundingHistory={fundingHistory} initialRange={rangesRef.current[interval]} onRangeChange={onRangeChange} period={interval} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()}><div className="output" ref={output}>{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }} onPointerDown={(event) => event.stopPropagation()}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => event.stopPropagation()} autoComplete="off" spellCheck={false} /></form></section></main>;
+  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav><Chart key={interval === "time" ? "time" : "candles"} candles={candles} loadOlder={loadOlder} resetViewport={loadedInterval === interval} line={interval === "time"} indicators={indicators} initialRange={rangesRef.current[interval]} onRangeChange={onRangeChange} period={interval} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()}><div className="output" ref={output}>{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }} onPointerDown={(event) => event.stopPropagation()}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => event.stopPropagation()} autoComplete="off" spellCheck={false} /></form></section></main>;
 }
