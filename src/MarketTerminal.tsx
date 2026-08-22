@@ -9,7 +9,7 @@ type Line = { kind: "input" | "output" | "error"; text: string };
 type Dashboard = { service: { environment: string; mode: string; healthy: boolean }; strategies: Array<{ name: string; status: string; symbol: string }>; recentOrders: Array<{ state: string; symbol: string; client_order_id: string }>; risk: { allowedSymbols: string[]; maxOrderUsdt: number }; orders: { unknown: number } };
 type CoinMSnapshot = { syncedAt: number; positions: Array<{ symbol: string; positionAmt: string; entryPrice: string; markPrice: string; leverage: string; unrealizedProfit: string }>; trades: Array<{ orderId: number | string; side: string; price: string; qty: string; quoteQty?: string; commission: string; commissionAsset: string; realizedPnl?: string; time: number }>; income: Array<{ incomeType: string; income: string; asset: string; symbol?: string; time: number }>; openOrders: Array<{ orderId: number | string; side: string; type: string; price: string; origQty: string; status: string }>; orders: Array<{ orderId: number | string; side: string; type: string; price: string; origQty: string; executedQty: string; status: string; time: number }> };
 type IndicatorName = "ma7" | "ma25" | "ma60" | "ma99" | "ema200" | "ema21" | "bb";
-type TimeRange = { from: number; to: number };
+type TimeRange = { from: number; to: number; fromTime?: number; toTime?: number };
 type TerminalUi = { interval: string; enabled: Record<IndicatorName, boolean>; ranges: Record<string, TimeRange> };
 
 const BASE = __DASHBOARD_API_URL__;
@@ -20,13 +20,15 @@ const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 3
 const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80 };
 const intervalValues = new Set(intervals.map((item) => item.value));
 const uiKey = "crypto-robot-terminal-ui-v5";
+const chartDebugEnabled = () => { try { return localStorage.getItem("crypto-robot-chart-debug") === "1" || new URLSearchParams(location.search).has("chartDebug"); } catch { return false; } };
+const chartDebug = (event: string, details: Record<string, unknown> = {}) => { if (chartDebugEnabled()) console.debug(`[chart] ${event}`, { at: new Date().toISOString(), ...details }); };
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
 const defaultEnabled: Record<IndicatorName, boolean> = { ma7: true, ma25: true, ma60: false, ma99: false, ema200: true, ema21: true, bb: false };
 const savedUi = (): TerminalUi => {
   try {
     const value = JSON.parse(localStorage.getItem(uiKey) || "{}");
-    return { interval: intervalValues.has(value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => intervalValues.has(key) && Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from && range.from > -1_000_000 && range.to < 10_000_000 ? [[key, range]] : [])) };
+    return { interval: intervalValues.has(value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => intervalValues.has(key) && Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from && range.from > -1_000_000 && range.to < 10_000_000 && (!range.fromTime || Number.isFinite(range.fromTime)) && (!range.toTime || Number.isFinite(range.toTime)) ? [[key, range]] : [])) };
   } catch { return { interval: "5m", enabled: defaultEnabled, ranges: {} }; }
 };
 const rows = (candles: Candle[]) => candles.map((item) => [item.time, item.open, item.high, item.low, item.close, item.volume, item.time + 59_999, item.quoteVolume]);
@@ -53,6 +55,8 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
   const restoredRange = useRef(initialRange);
   const followLatest = useRef(true);
   const seriesKind = useRef<boolean | null>(null);
+  const restoring = useRef(false);
+  const lastLoggedRange = useRef(0);
 
   useLayoutEffect(() => {
     if (!host.current) return;
@@ -66,7 +70,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     return () => chart.current?.remove();
   }, []);
 
-  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; followLatest.current = !initialRange; }, [period]);
+  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; followLatest.current = !initialRange; chartDebug("period-change", { period, saved: initialRange || null }); }, [period]);
 
   useLayoutEffect(() => {
     if (!series.current) return;
@@ -80,6 +84,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     const bars = candles.map((item) => line ? { time: Math.floor(item.time / 1000) as any, value: item.close } : { time: Math.floor(item.time / 1000) as any, open: item.open, high: item.high, low: item.low, close: item.close });
     const volumes = candles.map((item) => ({ time: Math.floor(item.time / 1000) as any, value: item.volume, color: item.close >= item.open ? "#39c58a66" : "#ef667266" }));
     const old = previous.current;
+    chartDebug("data-update", { period, old: old.length, next: candles.length, first: candles[0]?.time, last: candles.at(-1)?.time });
     const prepend = old.length && candles[0].time < old[0].time ? candles.findIndex((item) => item.time === old[0].time) : 0;
     const sameWindow = old.length === candles.length && old[0]?.time === candles[0].time && old.at(-2)?.time === candles.at(-2)?.time;
     if (sameWindow) { series.current.update(bars.at(-1)); volume.current.update(volumes.at(-1)); }
@@ -89,7 +94,15 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       if (!old.length) {
         const savedRange = restoredRange.current;
         followLatest.current = !savedRange || savedRange.to >= candles.length - 2;
-        if (savedRange) chart.current.timeScale().setVisibleLogicalRange(savedRange);
+        if (savedRange) {
+          const fromIndex = savedRange.fromTime ? Math.max(0, candles.findIndex((item) => item.time >= savedRange.fromTime!)) : savedRange.from;
+          const toIndex = savedRange.toTime ? Math.max(fromIndex + 1, candles.findIndex((item) => item.time >= savedRange.toTime!)) : savedRange.to;
+          const width = Math.max(2, savedRange.to - savedRange.from);
+          restoring.current = true;
+          chartDebug("restore", { period, saved: savedRange, mapped: { from: fromIndex, to: Math.max(fromIndex + width, toIndex) }, candles: candles.length });
+          chart.current.timeScale().setVisibleLogicalRange({ from: fromIndex, to: Math.max(fromIndex + width, toIndex) });
+          requestAnimationFrame(() => { restoring.current = false; });
+        }
         else {
           const visible = Math.min(defaultVisible[period] || 160, bars.length);
           chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - visible), to: bars.length + 5 });
@@ -125,9 +138,12 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     if (!scale) return;
     const save = () => {
       const logical = scale.getVisibleLogicalRange();
+      if (restoring.current) return;
       if (logical && candles.length) followLatest.current = logical.to >= candles.length - 2;
+      if (logical && Date.now() - lastLoggedRange.current > 500) { lastLoggedRange.current = Date.now(); chartDebug("range-change", { period, logical, followLatest: followLatest.current }); }
       const range = scale.getVisibleLogicalRange();
-      if (range && Number.isFinite(range.from) && Number.isFinite(range.to) && range.to > range.from) onRangeChange({ from: range.from, to: range.to });
+      const visible = scale.getVisibleRange();
+      if (range && visible && Number.isFinite(range.from) && Number.isFinite(range.to) && range.to > range.from) onRangeChange({ from: range.from, to: range.to, fromTime: Number(visible.from) * 1000, toTime: Number(visible.to) * 1000 });
     };
     scale.subscribeVisibleLogicalRangeChange(save);
     return () => scale.unsubscribeVisibleLogicalRangeChange(save);

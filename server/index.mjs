@@ -256,19 +256,22 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
       const manifest = await marketStore.manifest();
       let cursor = Number(manifest.lastTime || 0) + 60_000;
       const now = Math.floor(Date.now() / 60_000) * 60_000;
-      if (!cursor || cursor > now || now - cursor > 1_500 * 60_000) return;
+      if (!cursor || cursor > now || now - cursor > 1_500 * 60_000) { console.log(JSON.stringify({ event: 'coinm_gap_skip', cursor, now, gapMinutes: cursor ? Math.max(0, (now - cursor) / 60_000) : null })); return; }
+      console.log(JSON.stringify({ event: 'coinm_gap_reconcile', from: cursor, to: now, gapMinutes: (now - cursor) / 60_000 }));
       const page = await coinMMarket(symbol, '1m', now + 59_999, 1_500, cursor);
       if (page.klines?.length) await marketStore.merge(page.klines, { persist: true });
+      console.log(JSON.stringify({ event: 'coinm_gap_reconciled', rows: page.klines?.length || 0 }));
     }).catch((error) => console.warn('COIN-M gap reconciliation unavailable', error instanceof Error ? error.message : error));
     return reconcile;
   };
   const reconnect = () => { if (stopped) return; setTimeout(() => { void connect(); }, retryMs); retryMs = Math.min(retryMs * 2, 30_000); };
   const connect = async () => {
     if (stopped) return;
+    console.log(JSON.stringify({ event: 'coinm_ws_connecting', symbol, retryMs, lastLocalTime: (await marketStore.manifest().catch(() => ({}))).lastTime || null }));
     await reconcileGap();
     const stream = symbol.toLowerCase();
     try { socket = new WebSocket(`wss://dstream.binance.com/stream?streams=${stream}@kline_1m/${stream}@markPrice@1s`); } catch { reconnect(); return; }
-    socket.addEventListener('open', () => { retryMs = 1_000; });
+    socket.addEventListener('open', () => { console.log(JSON.stringify({ event: 'coinm_ws_open', symbol })); retryMs = 1_000; });
     socket.addEventListener('message', (message) => {
       try {
         const payload = JSON.parse(String(message.data)); const event = payload.data || payload;
@@ -278,7 +281,7 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
         merge = merge.then(() => marketStore.merge([row], { persist: Boolean(event.k.x) })).then(() => broadcastMarketRow(symbol, row)).catch((error) => console.warn('COIN-M stream merge unavailable', error instanceof Error ? error.message : error));
       } catch {}
     });
-    socket.addEventListener('close', reconnect);
+    socket.addEventListener('close', () => { console.warn(JSON.stringify({ event: 'coinm_ws_close', symbol, retryMs })); reconnect(); });
     socket.addEventListener('error', () => { try { socket.close(); } catch {} });
   };
   void connect();
