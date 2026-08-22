@@ -105,6 +105,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     if (sameWindow) { series.current.update(bars.at(-1)); volume.current.update(volumes.at(-1)); }
     else {
       const range = chart.current.timeScale().getVisibleLogicalRange();
+      if (!old.length) restoring.current = true;
       series.current.setData(bars); volume.current.setData(volumes);
       if (!old.length) {
         const savedRange = restoredRange.current;
@@ -136,7 +137,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       else if (old.length && range && followLatest.current && candles.length > old.length) {
         const added = candles.length - old.length;
         chart.current.timeScale().setVisibleLogicalRange({ from: range.from + added, to: range.to + added });
-      }
+      } else if (old.length && range) chart.current.timeScale().setVisibleLogicalRange(range);
     }
     previous.current = candles;
   }, [candles, line, period]);
