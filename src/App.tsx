@@ -27,17 +27,20 @@ import {
   Monitor,
   Moon,
   MoreHorizontal,
+  Pencil,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Plus,
+  Pin,
   RefreshCw,
   Search,
   SendHorizontal,
   Settings2,
   ShieldCheck,
   Sun,
+  Trash2,
   WalletCards,
   X,
 } from "lucide-react";
@@ -113,6 +116,7 @@ type ChatSession = {
   title: string;
   messages: Message[];
   updatedAt: number;
+  pinned?: boolean;
 };
 type ChartPoint = { time: number; close: number };
 type Theme = "light" | "dark" | "system";
@@ -3069,6 +3073,7 @@ export function App() {
   const [error, setError] = useState("");
   const news: NewsItem[] = [];
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sessionMenu, setSessionMenu] = useState<string | null>(null);
   const [leftWidth, setLeftWidth] = useState(() =>
     Math.min(
       window.innerWidth * 0.2,
@@ -3224,6 +3229,22 @@ export function App() {
     setAttachment(null);
     setError("");
   }
+  function togglePinned(session: ChatSession) {
+    setSessions((current) => current.map((item) => item.id === session.id ? { ...item, pinned: !item.pinned } : item));
+    setSessionMenu(null);
+  }
+  function renameSession(session: ChatSession) {
+    const title = window.prompt("Rename conversation", session.title)?.trim();
+    if (title) setSessions((current) => current.map((item) => item.id === session.id ? { ...item, title } : item));
+    setSessionMenu(null);
+  }
+  function deleteSession(session: ChatSession) {
+    if (window.confirm(`Delete “${session.title}” and all messages in it?`)) {
+      setSessions((current) => current.filter((item) => item.id !== session.id));
+      if (activeSessionId === session.id) newChat();
+    }
+    setSessionMenu(null);
+  }
 
   async function send() {
     const content = input.trim() || (attachment ? "请分析这张图片。" : "");
@@ -3342,15 +3363,22 @@ export function App() {
             </div>
             <div className="recents-list">
               {sessions.length ? (
-                sessions.map((session) => (
-                  <button
-                    className={activeSessionId === session.id ? "active" : ""}
-                    key={session.id}
-                    onClick={() => openSession(session)}
-                  >
-                    <MessageSquare size={14} />
-                    <span>{session.title}</span>
-                  </button>
+                [...sessions].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt).map((session) => (
+                  <div className={`chat-session ${activeSessionId === session.id ? "active" : ""}`} key={session.id}>
+                    <button onClick={() => openSession(session)}>
+                      {session.pinned && <Pin size={12} fill="currentColor" />}
+                      <MessageSquare size={14} />
+                      <span>{session.title}</span>
+                    </button>
+                    <div className="chat-session-more">
+                      <button title="Conversation options" aria-label="Conversation options" onClick={() => setSessionMenu(sessionMenu === session.id ? null : session.id)}><MoreHorizontal size={17} /></button>
+                      {sessionMenu === session.id && <div className="chat-session-menu">
+                        <button onClick={() => togglePinned(session)}><Pin size={15} />{session.pinned ? "Unpin" : "Pin"}</button>
+                        <button onClick={() => renameSession(session)}><Pencil size={15} />Rename</button>
+                        <button className="danger" onClick={() => deleteSession(session)}><Trash2 size={15} />Delete</button>
+                      </div>}
+                    </div>
+                  </div>
                 ))
               ) : (
                 <p>暂无最近对话</p>

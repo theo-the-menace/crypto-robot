@@ -33,9 +33,18 @@ button { cursor: pointer; }
 .recents { display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr); margin: 0; padding: 0 6px 10px; }
 .recents .section-title { padding: 0 5px; }
 .recents-list { min-height: 0; overflow: auto; }
-.recents-list > button { display: flex; width: 100%; align-items: center; gap: 9px; border: 0; border-radius: 5px; padding: 9px 8px; color: var(--muted); background: transparent; font-size: 12px; text-align: left; }
-.recents-list > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recents-list > button:hover, .recents-list > button.active { color: var(--ink); background: var(--panel-muted); }
+.chat-session { position: relative; display: grid; min-height: 0; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 8px; color: var(--muted); }
+.chat-session:hover, .chat-session.active { color: var(--ink); background: var(--panel-muted); }
+.chat-session > button { display: flex; min-width: 0; align-items: center; gap: 5px; border: 0; border-radius: 8px; padding: 3px 10px; color: inherit; background: transparent; text-align: left; }
+.chat-session > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.chat-session-more { position: relative; display: flex; align-items: center; padding-right: 4px; }
+.chat-session-more > button { display: grid; visibility: hidden; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 6px; padding: 0; color: var(--muted); background: transparent; }
+.chat-session:hover .chat-session-more > button, .chat-session-more:focus-within > button { visibility: visible; }
+.chat-session-more > button:hover { color: var(--ink); background: var(--panel-muted); }
+.chat-session-menu { position: absolute; top: calc(100% + 3px); right: 2px; z-index: 8; display: grid; width: 150px; padding: 5px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel); box-shadow: 0 10px 24px rgb(0 0 0 / 16%); }
+.chat-session-menu button { display: flex; align-items: center; gap: 8px; border: 0; border-radius: 6px; padding: 8px; color: var(--ink); background: transparent; text-align: left; font-size: 12px; }
+.chat-session-menu button:hover { background: var(--panel-muted); }
+.chat-session-menu .danger { color: #c85252; }
 .recents-list > p { padding: 0 6px; color: var(--muted); font-size: 11px; }
 .connection { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 12px 4px; font-size: 12px; }
 .connection > div { display: flex; align-items: center; gap: 7px; font-weight: 650; }
