@@ -187,7 +187,6 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       if (!range || (event.deltaX === 0 && event.deltaY === 0)) return;
       event.preventDefault();
       event.stopPropagation();
-      event.stopImmediatePropagation();
       const horizontalDominant = Math.abs(event.deltaX) > Math.abs(event.deltaY);
       if (!event.ctrlKey && horizontalDominant) {
         const offset = event.deltaX * (range.to - range.from) / Math.max(element.clientWidth, 1);
