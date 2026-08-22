@@ -25,9 +25,15 @@ const chartTrace = (event: string, details: Record<string, unknown> = {}) => {
   const entry = { at: new Date().toISOString(), event, ...details };
   try {
     const current = JSON.parse(localStorage.getItem(chartLogKey) || "[]");
-    localStorage.setItem(chartLogKey, JSON.stringify([...current.slice(-199), entry]));
+    const next = [...(Array.isArray(current) ? current : []).slice(-99), entry];
+    const encoded = JSON.stringify(next);
+    localStorage.setItem(chartLogKey, encoded.length > 256_000 ? JSON.stringify(next.slice(-25)) : encoded);
   } catch {}
   console.info("[chart]", entry);
+};
+const persistUi = (interval: string, enabled: Record<IndicatorName, boolean>, ranges: Record<string, TimeRange>) => {
+  try { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges })); }
+  catch { try { localStorage.removeItem(chartLogKey); localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges })); } catch {} }
 };
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
@@ -287,7 +293,7 @@ export function MarketTerminal() {
     void refresh(); const timer = setInterval(() => { void refresh(); }, 60_000); return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); }, [interval, enabled]);
+  useEffect(() => { persistUi(interval, enabled, rangesRef.current); }, [interval, enabled]);
   useEffect(() => {
     if (!TOKEN) return;
     const refresh = async () => { try { const response = await fetch(`${BASE}/v1/dashboard`, { cache: "no-store", headers: { Authorization: `Bearer ${TOKEN}` } }); if (response.ok) setDashboard(await response.json()); } catch {} };
@@ -324,8 +330,8 @@ export function MarketTerminal() {
   const bb = bollinger(rows(candles));
   const indicators: Record<string, IndicatorPoint[]> = { ma7: enabled.ma7 ? sma(rows(candles), 7) : [], ma25: enabled.ma25 ? sma(rows(candles), 25) : [], ma60: enabled.ma60 ? sma(rows(candles), 60) : [], ma99: enabled.ma99 ? sma(rows(candles), 99) : [], ema200: enabled.ema200 ? carryForward(ema(rows(daily), 200), candles.map((item) => item.time)) : [], ema21: enabled.ema21 ? carryForward(ema(rows(weekly), 21), candles.map((item) => item.time)) : [], bbMiddle: enabled.bb ? bb.middle : [], bbUpper: enabled.bb ? bb.upper : [], bbLower: enabled.bb ? bb.lower : [] };
   const toggle = (name: IndicatorName) => setEnabled((current) => ({ ...current, [name]: !current[name] }));
-  const onRangeChange = (range: TimeRange) => { rangesRef.current[interval] = range; localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); };
-  const onRangeChangeFor = (value: string) => (range: TimeRange) => { rangesRef.current[value] = range; localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); };
+  const onRangeChange = (range: TimeRange) => { rangesRef.current[interval] = range; persistUi(interval, enabled, rangesRef.current); };
+  const onRangeChangeFor = (value: string) => (range: TimeRange) => { rangesRef.current[value] = range; persistUi(interval, enabled, rangesRef.current); };
   const selectInterval = (next: string) => { if (next === interval) return; chartTrace("switch-request", { from: interval, to: next, leavingRange: rangesRef.current[interval] || null, enteringRange: rangesRef.current[next] || null, currentCandles: candles.length, currentLast: candles.at(-1)?.time }); setIntervalValue(next); };
   const indicatorFor = (items: Candle[]) => { const source = rows(items); const bands = bollinger(source); return { ma7: enabled.ma7 ? sma(source, 7) : [], ma25: enabled.ma25 ? sma(source, 25) : [], ma60: enabled.ma60 ? sma(source, 60) : [], ma99: enabled.ma99 ? sma(source, 99) : [], ema200: enabled.ema200 ? carryForward(ema(rows(daily), 200), items.map((item) => item.time)) : [], ema21: enabled.ema21 ? carryForward(ema(rows(weekly), 21), items.map((item) => item.time)) : [], bbMiddle: enabled.bb ? bands.middle : [], bbUpper: enabled.bb ? bands.upper : [], bbLower: enabled.bb ? bands.lower : [] }; };
   return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav>{intervals.map((item) => <div className="chart-layer" style={{ visibility: item.value === interval ? "visible" : "hidden", pointerEvents: item.value === interval ? "auto" : "none" }} key={item.value}><Chart candles={candleSets[item.value] || []} loadOlder={() => loadOlderFor(item.value)} line={item.value === "time"} indicators={indicatorFor(candleSets[item.value] || [])} initialRange={rangesRef.current[item.value]} onRangeChange={onRangeChangeFor(item.value)} period={item.value} /></div>)}<div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()} onPointerDown={(event) => event.stopPropagation()}><div className="output" ref={output}>{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => event.stopPropagation()} autoComplete="off" spellCheck={false} /></form></section></main>;
