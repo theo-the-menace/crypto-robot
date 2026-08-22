@@ -11,11 +11,22 @@ const value = (name) => process.env[name] || '';
 const modelList = (name) => value(name).split(',').map((item) => item.trim()).filter(Boolean);
 async function callGemini(route, model, key, content) {
   const parts = Array.isArray(content) ? content.map((item) => item.type === 'text' ? { text: item.text } : { inlineData: { mimeType: item.image_url.url.match(/^data:([^;]+)/)?.[1] || 'image/jpeg', data: item.image_url.url.split(',')[1] } }) : [{ text: content }];
-  const response = await fetch(`${value(route.base).replace(/\/$/, '')}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0 } }), signal: AbortSignal.timeout(Number(process.env.PROVIDER_TIMEOUT_MS || 45_000) });
+  const url = `${value(route.base).replace(/\/$/, '')}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0 } }),
+    signal: AbortSignal.timeout(Number(process.env.PROVIDER_TIMEOUT_MS || 45_000)),
+  });
   const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error?.message || `Gemini failed (${response.status})`); return body.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
 }
 async function callOpenAi(route, model, key, content) {
-  const response = await fetch(`${value(route.base).replace(/\/$/, '')}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ model, messages: [{ role: 'user', content }], temperature: 0 }), signal: AbortSignal.timeout(Number(process.env.PROVIDER_TIMEOUT_MS || 45_000) });
+  const response = await fetch(`${value(route.base).replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content }], temperature: 0 }),
+    signal: AbortSignal.timeout(Number(process.env.PROVIDER_TIMEOUT_MS || 45_000)),
+  });
   const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error?.message || `Provider failed (${response.status})`); return body.choices?.[0]?.message?.content || '';
 }
 export async function completeWithOverseasStrategy({ content }) {
