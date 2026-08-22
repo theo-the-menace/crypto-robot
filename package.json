@@ -21,8 +21,6 @@
     "check": "node --check src/*.mjs server/*.mjs test/*.mjs server/*.test.mjs && python3 -m py_compile execution/binance_execution_service.py execution/scenario_simulator.py && tsc -b"
   },
   "dependencies": {
-    "@assistant-ui/react": "^0.15.16",
-    "@assistant-ui/react-ai-sdk": "^1.4.7",
     "@vitejs/plugin-react": "latest",
     "lightweight-charts": "^5.2.1",
     "lucide-react": "latest",
