@@ -19,14 +19,14 @@ const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" 
 const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000 };
 const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80 };
 const intervalValues = new Set(intervals.map((item) => item.value));
-const uiKey = "crypto-robot-terminal-ui-v4";
+const uiKey = "crypto-robot-terminal-ui-v5";
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
 const defaultEnabled: Record<IndicatorName, boolean> = { ma7: true, ma25: true, ma60: false, ma99: false, ema200: true, ema21: true, bb: false };
 const savedUi = (): TerminalUi => {
   try {
     const value = JSON.parse(localStorage.getItem(uiKey) || "{}");
-    return { interval: intervalValues.has(value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => intervalValues.has(key) && Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from ? [[key, range]] : [])) };
+    return { interval: intervalValues.has(value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => intervalValues.has(key) && Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from && range.from > -1_000_000 && range.to < 10_000_000 ? [[key, range]] : [])) };
   } catch { return { interval: "5m", enabled: defaultEnabled, ranges: {} }; }
 };
 const rows = (candles: Candle[]) => candles.map((item) => [item.time, item.open, item.high, item.low, item.close, item.volume, item.time + 59_999, item.quoteVolume]);
@@ -66,7 +66,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     return () => chart.current?.remove();
   }, []);
 
-  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; }, [period, initialRange]);
+  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; followLatest.current = !initialRange; }, [period]);
 
   useLayoutEffect(() => {
     if (!series.current) return;
@@ -88,8 +88,8 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       series.current.setData(bars); volume.current.setData(volumes);
       if (!old.length) {
         const savedRange = restoredRange.current;
-        followLatest.current = !savedRange || savedRange.to >= (candles.at(-1)?.time || 0);
-        if (savedRange) chart.current.timeScale().setVisibleRange({ from: savedRange.from / 1000, to: savedRange.to / 1000 });
+        followLatest.current = !savedRange || savedRange.to >= candles.length - 2;
+        if (savedRange) chart.current.timeScale().setVisibleLogicalRange(savedRange);
         else {
           const visible = Math.min(defaultVisible[period] || 160, bars.length);
           chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - visible), to: bars.length + 5 });
@@ -102,7 +102,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       }
     }
     previous.current = candles;
-  }, [candles, line, initialRange, period]);
+  }, [candles, line, period]);
 
   useLayoutEffect(() => {
     for (const [name, series] of Object.entries(overlays.current)) series.setData((indicators[name] || []).map((point) => ({ time: Math.floor(point.time / 1000) as any, value: point.value })));
@@ -126,9 +126,8 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     const save = () => {
       const logical = scale.getVisibleLogicalRange();
       if (logical && candles.length) followLatest.current = logical.to >= candles.length - 2;
-      const range = scale.getVisibleRange();
-      const from = Number(range?.from) * 1000; const to = Number(range?.to) * 1000;
-      if (Number.isFinite(from) && Number.isFinite(to) && to > from) onRangeChange({ from, to });
+      const range = scale.getVisibleLogicalRange();
+      if (range && Number.isFinite(range.from) && Number.isFinite(range.to) && range.to > range.from) onRangeChange({ from: range.from, to: range.to });
     };
     scale.subscribeVisibleLogicalRangeChange(save);
     return () => scale.unsubscribeVisibleLogicalRangeChange(save);
