@@ -28,6 +28,9 @@ button { cursor: pointer; }
 .left-reopen { left: 16px; }
 .right-reopen { right: 16px; }
 .new-chat, .settings-entry { display: flex; width: 100%; min-height: 38px; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 6px; padding: 0 11px; color: var(--ink); background: var(--panel); font-size: 12px; font-weight: 650; text-align: left; }
+.new-command { display: grid; gap: 5px; margin-top: 9px; }
+.new-command label { color: var(--muted); font-size: 10px; font-weight: 650; }
+.new-command input { width: 100%; min-height: 32px; border: 1px solid var(--border); border-radius: 6px; padding: 0 9px; color: var(--ink); background: var(--panel); font-size: 11px; outline: 0; }
 .new-chat:hover, .settings-entry:hover { background: var(--panel-muted); }
 .sidebar-lists { display: grid; min-height: 0; flex: 1; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: 18px -6px 12px; }
 .recents { display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr); margin: 0; padding: 0 6px 10px; }

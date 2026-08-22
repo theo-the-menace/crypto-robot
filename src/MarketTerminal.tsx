@@ -306,8 +306,8 @@ export function MarketTerminal() {
     void refresh(); const timer = setInterval(refresh, 5000); return () => clearInterval(timer);
   }, []);
 
-  const run = () => {
-    const value = command.trim(); if (!value) return;
+  const runCommand = (value: string) => {
+    value = value.trim(); if (!value) return;
     const next: Line[] = [...lines, { kind: "input", text: `$ ${value}` }]; const [name, arg] = value.toLowerCase().split(/\s+/);
     if (name === "clear") next.splice(0);
     else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nchart-log\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w>\nclear" });
@@ -330,6 +330,12 @@ export function MarketTerminal() {
     else next.push({ kind: "error", text: `unknown command: ${name}` });
     setLines(next.slice(-100)); setCommand("");
   };
+  const run = () => runCommand(command);
+  useEffect(() => {
+    const receive = (event: Event) => runCommand(String((event as CustomEvent).detail || ""));
+    window.addEventListener("crypto-terminal-command", receive);
+    return () => window.removeEventListener("crypto-terminal-command", receive);
+  });
 
   const fundingRate = Number(funding?.lastFundingRate);
   const nextFunding = funding?.nextFundingTime ? new Date(funding.nextFundingTime).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : "--:--";

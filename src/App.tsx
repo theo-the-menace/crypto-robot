@@ -3059,6 +3059,7 @@ export function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const [input, setInput] = useState("");
+  const [commandInput, setCommandInput] = useState("");
   const [attachment, setAttachment] = useState<ImageAttachment | null>(null);
   const marketContext = useRef<MarketContext | null>(null);
   useLayoutEffect(() => {
@@ -3230,6 +3231,14 @@ export function App() {
     setError("");
   }
 
+  function submitCommand(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const command = commandInput.trim();
+    if (!command) return;
+    window.dispatchEvent(new CustomEvent("crypto-terminal-command", { detail: command }));
+    setCommandInput("");
+  }
+
   async function send() {
     const content = input.trim() || (attachment ? "请分析这张图片。" : "");
     if (!content || busy) return;
@@ -3340,6 +3349,10 @@ export function App() {
           <Plus size={17} />
           New chat
         </button>
+        <form className="new-command" onSubmit={submitCommand}>
+          <label htmlFor="sidebar-command">New command</label>
+          <input id="sidebar-command" value={commandInput} onChange={(event) => setCommandInput(event.target.value)} placeholder="chart-log" autoComplete="off" spellCheck={false} />
+        </form>
         <div className="sidebar-lists">
           <nav className="recents" aria-label="最近对话">
             <div className="section-title">
