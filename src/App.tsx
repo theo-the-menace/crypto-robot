@@ -3444,20 +3444,6 @@ export function App() {
         </button>
       )}
       <section className="conversation">
-        <div className="conversation-top">
-          <div>
-            <Bot size={18} />
-            <strong>
-              {activeSessionId
-                ? sessions.find((item) => item.id === activeSessionId)?.title ||
-                  "交易对话"
-                : "新对话"}
-            </strong>
-          </div>
-          <div className="top-actions">
-            <span>{status?.environment === "live" ? "LIVE" : "TESTNET"}</span>
-          </div>
-        </div>
         <div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
           {!messages.length && (
             <div className="empty">
