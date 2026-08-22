@@ -20,20 +20,22 @@ const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 3
 const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80 };
 const intervalValues = new Set(intervals.map((item) => item.value));
 const uiKey = "crypto-robot-terminal-ui-v6";
-const chartLogKey = "crypto-robot-chart-switch-log-v1";
+let pendingChartLogs: Array<Record<string, unknown>> = [];
+let chartLogTimer: ReturnType<typeof setTimeout> | undefined;
+const flushChartLogs = () => {
+  const entries = pendingChartLogs.splice(0);
+  chartLogTimer = undefined;
+  if (entries.length) void fetch("/api/chart-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entries }) }).catch(() => {});
+};
 const chartTrace = (event: string, details: Record<string, unknown> = {}) => {
   const entry = { at: new Date().toISOString(), event, ...details };
-  try {
-    const current = JSON.parse(localStorage.getItem(chartLogKey) || "[]");
-    const next = [...(Array.isArray(current) ? current : []).slice(-99), entry];
-    const encoded = JSON.stringify(next);
-    localStorage.setItem(chartLogKey, encoded.length > 256_000 ? JSON.stringify(next.slice(-25)) : encoded);
-  } catch {}
+  pendingChartLogs.push(entry);
+  if (!chartLogTimer) chartLogTimer = setTimeout(flushChartLogs, 250);
   console.info("[chart]", entry);
 };
 const persistUi = (interval: string, enabled: Record<IndicatorName, boolean>, ranges: Record<string, TimeRange>) => {
   try { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges })); }
-  catch { try { localStorage.removeItem(uiKey); localStorage.removeItem(chartLogKey); localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: {} })); } catch {} }
+  catch { try { localStorage.removeItem(uiKey); localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: {} })); } catch {} }
 };
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
@@ -310,8 +312,7 @@ export function MarketTerminal() {
     const value = command.trim(); if (!value) return;
     const next: Line[] = [...lines, { kind: "input", text: `$ ${value}` }]; const [name, arg] = value.toLowerCase().split(/\s+/);
     if (name === "clear") next.splice(0);
-    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nchart-log\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w>\nclear" });
-    else if (name === "chart-log") { try { next.push({ kind: "output", text: JSON.parse(localStorage.getItem(chartLogKey) || "[]").slice(-30).map((item: any) => JSON.stringify(item)).join("\n") || "no chart logs" }); } catch { next.push({ kind: "error", text: "chart log unavailable" }); } }
+    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w>\nclear" });
     else if (name === "sync") { next.push({ kind: "output", text: "syncing COIN-M..." }); void refreshCoinm().then((ok) => setLines((current) => [...current, { kind: (ok ? "output" : "error") as Line["kind"], text: ok ? "COIN-M synced" : "COIN-M sync failed" }].slice(-100))); }
     else if (name === "today-fees") {
       next.push({ kind: "output", text: "loading today's COIN-M fees..." });
