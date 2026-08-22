@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { mergeKlines } from './market-cache.mjs';
+import { mergeKlines } from './market-rows.mjs';
 import { aggregateMarketKlines } from './market-aggregate.mjs';
 
 const monthKey = (time) => { const date = new Date(Number(time)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`; };

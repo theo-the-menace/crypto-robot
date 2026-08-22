@@ -1,22 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import { access, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const symbol = 'BTCUSD_PERP';
 const directory = join('data', 'quant', 'binance-vision', 'cm', 'fundingRate', symbol);
-const legacyDirectory = join('.cache', 'quant', 'binance-vision', 'cm', 'fundingRate', symbol);
 const first = new Date(Date.UTC(2020, 7, 1));
 const today = new Date();
 const last = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
 
 await mkdir(directory, { recursive: true });
-for (const name of await readdir(legacyDirectory).catch(() => [])) {
-  if (!name.endsWith('.zip')) continue;
-  const file = join(legacyDirectory, name);
-  execFileSync('unzip', ['-oq', file, '-d', directory]);
-  await rm(file);
-}
-
 for (let month = first; month < last; month = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1))) {
   const stamp = `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}`;
   const name = `${symbol}-fundingRate-${stamp}.zip`;

@@ -19,12 +19,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-try:
-    import websocket
-except ImportError:
-    websocket = None
-
-
 HOST = os.getenv("BINANCE_EXECUTION_HOST", "127.0.0.1")
 PORT = int(os.getenv("BINANCE_EXECUTION_PORT", "8888"))
 DB_PATH = Path(os.getenv("BINANCE_EXECUTION_DB", "/var/lib/binance-execution/orders.sqlite"))
@@ -40,10 +34,6 @@ MAX_ORDER_USDT = float(os.getenv("MAX_ORDER_USDT", "100"))
 RECV_WINDOW = int(os.getenv("BINANCE_RECV_WINDOW", "5000"))
 TIMEOUT = float(os.getenv("BINANCE_REQUEST_TIMEOUT", "8"))
 RECONCILE_INTERVAL = float(os.getenv("BINANCE_RECONCILE_INTERVAL", "5"))
-MARKET_HISTORY_DAYS = int(os.getenv("BINANCE_MARKET_HISTORY_DAYS", "365"))
-MARKET_BACKFILL_INTERVAL = float(os.getenv("BINANCE_MARKET_BACKFILL_INTERVAL", "2"))
-MARKET_SYMBOL = "BTCUSD_PERP"
-MARKET_INTERVALS = ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d")
 CLIENT_ID = re.compile(r"^[A-Za-z0-9._:-]{8,36}$")
 PRODUCTS = {
     "spot": {
@@ -87,36 +77,7 @@ def database() -> sqlite3.Connection:
         id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
         symbol TEXT NOT NULL, updated_at INTEGER NOT NULL
     )""")
-    db.execute("""CREATE TABLE IF NOT EXISTS market_candles (
-        symbol TEXT NOT NULL, interval TEXT NOT NULL, open_time INTEGER NOT NULL,
-        open REAL NOT NULL, high REAL NOT NULL, low REAL NOT NULL, close REAL NOT NULL,
-        volume REAL NOT NULL, quote_volume REAL NOT NULL, close_time INTEGER NOT NULL,
-        PRIMARY KEY (symbol, interval, open_time)
-    ) WITHOUT ROWID""")
-    db.execute("CREATE INDEX IF NOT EXISTS market_candles_recent ON market_candles(symbol, interval, open_time DESC)")
     return db
-
-
-def save_candles(symbol: str, interval: str, rows: list[list[Any]] | list[dict[str, Any]]) -> None:
-    values = []
-    for row in rows:
-        if isinstance(row, dict):
-            values.append((symbol, interval, int(row["time"]), float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"]), float(row["volume"]), float(row["quoteVolume"]), int(row.get("closeTime", row["time"])) ))
-        else:
-            values.append((symbol, interval, int(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4]), float(row[5]), float(row[7]), int(row[6])))
-    if not values: return
-    with database() as db:
-        db.executemany("""INSERT INTO market_candles VALUES (?,?,?,?,?,?,?,?,?,?)
-            ON CONFLICT(symbol,interval,open_time) DO UPDATE SET open=excluded.open,high=excluded.high,low=excluded.low,close=excluded.close,volume=excluded.volume,quote_volume=excluded.quote_volume,close_time=excluded.close_time""", values)
-        db.execute("DELETE FROM market_candles WHERE symbol=? AND interval=? AND open_time<?", (symbol, interval, int((time.time() - MARKET_HISTORY_DAYS * 86400) * 1000)))
-
-
-def cached_candles(symbol: str, interval: str, limit: int, end_time: int | None = None) -> list[list[Any]]:
-    where = "symbol=? AND interval=?" + (" AND open_time<=?" if end_time else "")
-    params: tuple[Any, ...] = (symbol, interval, end_time) if end_time else (symbol, interval)
-    with database() as db:
-        rows = list(db.execute(f"SELECT * FROM market_candles WHERE {where} ORDER BY open_time DESC LIMIT ?", (*params, limit)))
-    return [[row["open_time"], str(row["open"]), str(row["high"]), str(row["low"]), str(row["close"]), str(row["volume"]), row["close_time"], str(row["quote_volume"])] for row in reversed(rows)]
 
 
 def public_order(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -290,27 +251,6 @@ class Handler(BaseHTTPRequestHandler):
         with path.open("rb") as source:
             while chunk := source.read(1024 * 1024): self.wfile.write(chunk)
 
-    def stream_market(self, symbol: str, interval: str) -> None:
-        if websocket is None: return self.json(503, {"error": "Market stream dependency is unavailable."})
-        host = "dstream.binance.com" if ENVIRONMENT == "live" else "dstream.binancefuture.com"
-        url = f"wss://{host}/ws/{symbol.lower()}@kline_{interval}"
-        self.send_response(200); self.send_header("Content-Type", "application/x-ndjson"); self.send_header("Cache-Control", "no-store"); self.send_header("Access-Control-Allow-Origin", "*"); self.end_headers()
-        while True:
-            connection = None
-            try:
-                connection = websocket.create_connection(url, timeout=30)
-                while True:
-                    event = json.loads(connection.recv())
-                    candle = event.get("k")
-                    if not candle: continue
-                    row = {"time": candle["t"], "open": candle["o"], "high": candle["h"], "low": candle["l"], "close": candle["c"], "volume": candle["v"], "quoteVolume": candle["q"]}
-                    save_candles(symbol, interval, [row])
-                    self.wfile.write(json.dumps(row, separators=(",", ":")).encode() + b"\n"); self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError): return
-            except Exception: logging.exception("market stream disconnected; reconnecting"); time.sleep(1)
-            finally:
-                if connection: connection.close()
-
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/":
@@ -322,34 +262,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.market_file(parsed.path.removeprefix("/v1/market-data/"))
         if parsed.path == "/v1/dashboard" or parsed.path.startswith("/v1/orders/"):
             if not (self.dashboard_authorized() or self.authorized()): return self.json(401, {"error": "Unauthorized"})
-        elif not parsed.path.startswith("/v1/market/") and not self.authorized(): return self.json(401, {"error": "Unauthorized"})
+        elif not self.authorized(): return self.json(401, {"error": "Unauthorized"})
         query = urllib.parse.parse_qs(parsed.query)
         try:
             if parsed.path == "/v1/dashboard": return self.json(200, ENGINE.dashboard())
-            if parsed.path == "/v1/market/stream":
-                symbol = query.get("symbol", ["BTCUSD_PERP"])[0].upper()
-                interval = query.get("interval", ["5m"])[0]
-                if symbol != "BTCUSD_PERP" or interval not in ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"): raise BinanceError("Market stream is not allowed.", 400)
-                return self.stream_market(symbol, interval)
-            if parsed.path == "/v1/market/klines":
-                symbol = query.get("symbol", ["BTCUSD_PERP"])[0].upper()
-                interval = query.get("interval", ["5m"])[0]
-                limit = min(1000, max(10, int(query.get("limit", ["300"])[0])))
-                if symbol not in ("BTCUSD_PERP", "BTCUSDT"):
-                    raise BinanceError("Only BTCUSD_PERP and BTCUSDT are available.", 400)
-                if interval not in ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"):
-                    raise BinanceError("Interval is not allowed.", 400)
-                product = "spot" if symbol == "BTCUSDT" else "coinm"
-                path = "/api/v3/klines" if product == "spot" else "/dapi/v1/klines"
-                params = {"symbol": symbol, "interval": interval, "limit": limit}
-                if "endTime" in query: params["endTime"] = int(query["endTime"][0])
-                end_time = params.get("endTime")
-                rows = cached_candles(symbol, interval, limit, end_time)
-                if len(rows) < limit:
-                    fetched = ENGINE.client.public(product, path, params)
-                    save_candles(symbol, interval, fetched)
-                    rows = cached_candles(symbol, interval, limit, end_time)
-                return self.json(200, {"symbol": symbol, "interval": interval, "klines": rows})
             if parsed.path == "/v1/binance/ping": return self.json(200, ENGINE.client.public("spot", "/api/v3/ping", {}))
             if parsed.path == "/v1/binance/ticker": return self.json(200, ENGINE.client.public("spot", "/api/v3/ticker/bookTicker", {"symbol": query.get("symbol", [""])[0].upper()}))
             if parsed.path == "/v1/binance/account":
