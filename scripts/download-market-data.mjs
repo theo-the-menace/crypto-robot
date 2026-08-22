@@ -19,6 +19,6 @@ for (const month of manifest.months || []) {
   if (month !== current && local.months?.includes(month)) { console.log(`kept ${month}`); continue; }
   await save(`BTCUSD_PERP/1m/${month}.json`, await get(`BTCUSD_PERP/1m/${month}.json`)); console.log(`downloaded ${month}`);
 }
-for (const interval of ['5m', '15m', '1h', '4h', '1d', '1w', '1M']) await save(`BTCUSD_PERP/derived/${interval}.json`, await get(`BTCUSD_PERP/derived/${interval}.json`));
+for (const interval of ['5m', '15m', '1h', '4h', '1d', '1w']) await save(`BTCUSD_PERP/derived/${interval}.json`, await get(`BTCUSD_PERP/derived/${interval}.json`));
 await save(manifestPath, manifestText);
 console.log(`market data ready: ${manifest.rows || 0} rows across ${(manifest.months || []).length} months`);

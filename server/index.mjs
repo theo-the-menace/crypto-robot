@@ -224,27 +224,11 @@ async function serverCoinMMarket(symbol, interval, endTime) {
   }
 }
 
-const intervalWindowMs = (interval, limit) => interval === '1M' ? limit * 32 * 86_400_000 : interval === '1w' ? limit * 7 * 86_400_000 : limit * Number(marketIntervals[interval]);
+const intervalWindowMs = (interval, limit) => interval === '1w' ? limit * 7 * 86_400_000 : limit * Number(marketIntervals[interval]);
 
 async function storedMarketKlines(interval, { from, to = Date.now(), limit = 1_000 } = {}) {
   const start = Number.isFinite(from) ? from : Math.max(0, to - intervalWindowMs(interval, limit + 2));
   return marketStore.interval(interval, start, to, limit);
-}
-
-async function refreshMarketTail(symbol = 'BTCUSD_PERP') {
-  try {
-    const manifest = await marketStore.manifest(); let cursor = Number(manifest.lastTime || Date.now() - 5 * 60_000); let latest = null;
-    const now = new Date(); const currentMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-    if (cursor < currentMonth - 60_000) throw new Error('Local history is more than one month behind. Run `npm run sync:market-history` before starting live updates.');
-    while (cursor <= Date.now()) {
-      const endTime = Math.min(Date.now(), cursor + 1_499 * 60_000);
-      const page = (await coinMMarket(symbol, '1m', endTime, 1_500, cursor)).klines || [];
-      if (!page.length) break;
-      await marketStore.merge(page); latest = page.at(-1);
-      const next = Number(latest?.[0]) + 60_000; if (!Number.isFinite(next) || next <= cursor) break; cursor = next;
-    }
-    if (latest) broadcastMarketRow(symbol, latest);
-  } catch (error) { console.warn('COIN-M tail refresh unavailable', error instanceof Error ? error.message : error); }
 }
 
 function broadcastMarketRow(symbol, row) {
@@ -258,17 +242,25 @@ function coinMKlineRow(event) {
   return [row.t, row.o, row.h, row.l, row.c, row.v, row.T, row.q, row.n, row.V, row.Q, '0'];
 }
 
+function coinMFunding(event) {
+  if (event?.e !== 'markPriceUpdate') return null;
+  return { markPrice: event.p, indexPrice: event.i, lastFundingRate: event.r, nextFundingTime: event.T };
+}
+
 function startMarketStream(symbol = 'BTCUSD_PERP') {
   let socket; let retryMs = 1_000; let stopped = false; let merge = Promise.resolve();
   const reconnect = () => { if (stopped) return; setTimeout(() => { void connect(); }, retryMs); retryMs = Math.min(retryMs * 2, 30_000); };
   const connect = async () => {
     if (stopped) return;
-    await refreshMarketTail(symbol);
-    try { socket = new WebSocket(`wss://dstream.binance.com/ws/${symbol.toLowerCase()}@kline_1m`); } catch { reconnect(); return; }
+    const stream = symbol.toLowerCase();
+    try { socket = new WebSocket(`wss://dstream.binance.com/stream?streams=${stream}@kline_1m/${stream}@markPrice@1s`); } catch { reconnect(); return; }
     socket.addEventListener('open', () => { retryMs = 1_000; });
     socket.addEventListener('message', (message) => {
       try {
-        const event = JSON.parse(String(message.data)); const row = coinMKlineRow(event); if (!row) return;
+        const payload = JSON.parse(String(message.data)); const event = payload.data || payload;
+        const funding = coinMFunding(event);
+        if (funding) { fundingCache = { value: funding, updatedAt: Date.now() }; return; }
+        const row = coinMKlineRow(event); if (!row) return;
         merge = merge.then(() => marketStore.merge([row], { persist: Boolean(event.k.x) })).then(() => broadcastMarketRow(symbol, row)).catch((error) => console.warn('COIN-M stream merge unavailable', error instanceof Error ? error.message : error));
       } catch {}
     });
@@ -560,11 +552,7 @@ export function createCryptoServer() {
       if (request.method === 'GET' && request.url?.startsWith('/api/market/funding?')) {
         const symbol = new URL(request.url, 'http://localhost').searchParams.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
         if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
-        if (!fundingCache.value || Date.now() - fundingCache.updatedAt >= 10_000) {
-          const market = await coinMMarket(symbol, '1m');
-          fundingCache = { value: market.premium || {}, updatedAt: Date.now() };
-        }
-        return sendJson(response, 200, { symbol, premium: fundingCache.value });
+        return sendJson(response, 200, { symbol, premium: fundingCache.value || {} });
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/coinm-market?')) {
         const query = new URL(request.url, 'http://localhost').searchParams;
@@ -572,7 +560,7 @@ export function createCryptoServer() {
         const interval = query.get('interval') || '5m';
         const endTime = query.get('endTime');
         if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first Coin-M view.' });
-        if (!['1s', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w', '1M'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
+        if (!['1s', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
         if (endTime && (!/^\d+$/.test(endTime) || Number(endTime) <= 0)) return sendJson(response, 400, { error: 'endTime is not valid.' });
         return sendJson(response, 200, await serverCoinMMarket(symbol, interval, endTime ? Number(endTime) : undefined));
       }
@@ -582,7 +570,7 @@ export function createCryptoServer() {
         const interval = query.get('interval') || '5m';
         const endTime = query.get('endTime');
         if (symbol !== 'BTCUSDT') return sendJson(response, 400, { error: 'Only BTCUSDT is available in this first USD-M view.' });
-        if (!['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w', '1M'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
+        if (!['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
         if (endTime && (!/^\d+$/.test(endTime) || Number(endTime) <= 0)) return sendJson(response, 400, { error: 'endTime is not valid.' });
         return sendJson(response, 200, await usdMMarket(symbol, interval, endTime ? Number(endTime) : undefined));
       }
@@ -618,7 +606,7 @@ export function createCryptoServer() {
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/coinm-stream?')) {
         const interval = new URL(request.url, 'http://localhost').searchParams.get('interval') || '5m';
-        if (!['1s', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w', '1M'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
+        if (!['1s', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
         if (await pipeServerCoinMStream(request, response, interval)) return;
         return sendJson(response, 503, { error: 'Server market relay unavailable.' });
       }
@@ -681,4 +669,4 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   server.on('close', () => stopMarketStream?.());
 }
 
-export { coinMKlineRow };
+export { coinMFunding, coinMKlineRow };

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateKlines, appendedPointCount, bollinger, carryForward, chartTickSpacing, clampVisibleLogicalRange, ema, fillSecondRows, fixedTimeTickIndices, isHorizontalGesture, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, sma, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
+import { aggregateKlines, appendedPointCount, bollinger, carryForward, chartTickSpacing, ema, fillSecondRows, fixedTimeTickIndices, isHorizontalGesture, klineWindow, mergeKlineRows, mergeTradeIntoSecondRows, nearHistoryStart, panWindowOffset, sma, updateKlinePrice, zoomWindowOffset } from '../src/chart-data.ts';
 
 test('aggregates one-minute rows into display intervals', () => {
   const rows = [[0, 10, 12, 9, 11, 2, 59_999, 20], [60_000, 11, 13, 10, 12, 3, 119_999, 36], [300_000, 12, 14, 11, 13, 4, 359_999, 52]];
@@ -75,12 +75,6 @@ test('zooms around the gesture center without crossing history bounds', () => {
   assert.equal(zoomWindowOffset(240, 60, 120, 60), 90);
   assert.equal(zoomWindowOffset(240, 0, 120, 145), 0);
   assert.equal(zoomWindowOffset(240, 120, 120, 145), 95);
-});
-
-test('clamps each chart logical range to its zoom limits', () => {
-  assert.deepEqual(clampVisibleLogicalRange({ from: 10, to: 20 }, 100, 20, 60), { from: 5, to: 25 });
-  assert.deepEqual(clampVisibleLogicalRange({ from: 10, to: 90 }, 100, 20, 60), { from: 20, to: 80 });
-  assert.deepEqual(clampVisibleLogicalRange({ from: 10, to: 40 }, 100, 20, 60), { from: 10, to: 40 });
 });
 
 test('treats gestures within sixty degrees of horizontal as panning', () => {

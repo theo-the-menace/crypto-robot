@@ -33,7 +33,7 @@ const fillVisionGaps = async (rows, stamp) => {
 const completeMonth = (rows, stamp) => { const [year, month] = stamp.split('-').map(Number); const first = stamp === '2020-08' ? Number(rows[0]?.[0]) : Date.UTC(year, month - 1, 1); const last = Date.UTC(year, month, 1) - 60_000; return rows.length === Math.round((last - first) / 60_000) + 1 && Number(rows[0]?.[0]) === first && Number(rows.at(-1)?.[0]) === last; };
 
 await mkdir(directory, { recursive: true });
-const intervals = ['5m', '15m', '1h', '4h', '1d', '1w', '1M'];
+const intervals = ['5m', '15m', '1h', '4h', '1d', '1w'];
 const derivedRows = Object.fromEntries(intervals.map((interval) => [interval, []]));
 const previousManifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8').catch(() => '{}'));
 const manifest = { symbol, interval: '1m', rows: 0, firstTime: null, lastTime: null, months: [], vision: {} };

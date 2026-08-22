@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import { aggregateMarketKlines } from './market-aggregate.mjs';
-import { coinMKlineRow } from './index.mjs';
+import { coinMFunding, coinMKlineRow } from './index.mjs';
 
 function post(port, path, payload) {
   return new Promise((resolve, reject) => {
@@ -21,10 +21,9 @@ test('aggregates cached one-minute rows before returning a daily chart', () => {
   assert.deepEqual(aggregateMarketKlines(rows, '1d'), [[0, 10, 13, 9, 12, 5, 119_999, 56], [86_400_000, 12, 14, 11, 13, 4, 86_459_999, 52]]);
 });
 
-test('uses calendar boundaries for weekly and monthly chart aggregation', () => {
+test('uses calendar boundaries for weekly chart aggregation', () => {
   const rows = [[Date.UTC(2026, 0, 4), 10, 12, 9, 11, 2, 0, 20], [Date.UTC(2026, 0, 5), 11, 13, 10, 12, 3, 0, 36], [Date.UTC(2026, 1, 1), 12, 14, 11, 13, 4, 0, 52]];
   assert.deepEqual(aggregateMarketKlines(rows, '1w').map((row) => row[0]), [Date.UTC(2025, 11, 29), Date.UTC(2026, 0, 5), Date.UTC(2026, 0, 26)]);
-  assert.deepEqual(aggregateMarketKlines(rows, '1M').map((row) => row[0]), [Date.UTC(2026, 0, 1), Date.UTC(2026, 1, 1)]);
 });
 
 test('keeps missing weekly candles out until source data is repaired', () => {
@@ -38,6 +37,11 @@ test('keeps missing weekly candles out until source data is repaired', () => {
 
 test('normalizes Binance COIN-M websocket klines without losing fields', () => {
   assert.deepEqual(coinMKlineRow({ k: { s: 'BTCUSD_PERP', i: '1m', t: 1, o: '2', h: '3', l: '1', c: '2.5', v: '4', T: 59_999, q: '5', n: 6, V: '2', Q: '2.5' } }), [1, '2', '3', '1', '2.5', '4', 59_999, '5', 6, '2', '2.5', '0']);
+});
+
+test('normalizes Binance COIN-M mark price updates for the funding strip', () => {
+  assert.deepEqual(coinMFunding({ e: 'markPriceUpdate', p: '65000', i: '64990', r: '0.0001', T: 123 }), { markPrice: '65000', indexPrice: '64990', lastFundingRate: '0.0001', nextFundingTime: 123 });
+  assert.equal(coinMFunding({ e: 'kline' }), null);
 });
 
 test('an expiring server-side draft can only submit once', async () => {

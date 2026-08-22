@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AreaSeries, CandlestickSeries, ColorType, createChart, HistogramSeries, LineSeries, TickMarkType } from "lightweight-charts";
-import { bollinger, carryForward, clampVisibleLogicalRange, ema, isHorizontalGesture, sma, type IndicatorPoint } from "./chart-data";
+import { bollinger, carryForward, ema, isHorizontalGesture, sma, type IndicatorPoint } from "./chart-data";
 import { readMarketWindow, writeMarketWindow } from "./market-db";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
@@ -15,13 +15,10 @@ type TerminalUi = { interval: string; enabled: Record<IndicatorName, boolean>; r
 const BASE = __DASHBOARD_API_URL__;
 const MARKET_BASE = "/api";
 const TOKEN = __DASHBOARD_TOKEN__;
-const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" }, { value: "5m", label: "5m" }, { value: "15m", label: "15m" }, { value: "1h", label: "1h" }, { value: "4h", label: "4h" }, { value: "1d", label: "1d" }, { value: "1w", label: "1W" }, { value: "1M", label: "1M" }];
-const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000, "1M": 2_678_400_000 };
-const zoomLimits: Record<string, { min: number; max: number }> = {
-  time: { min: 30, max: 2_000 }, "1m": { min: 30, max: 2_000 }, "5m": { min: 30, max: 2_000 }, "15m": { min: 30, max: 2_000 },
-  "1h": { min: 24, max: 1_500 }, "4h": { min: 20, max: 1_200 }, "1d": { min: 20, max: 1_000 }, "1w": { min: 12, max: 520 }, "1M": { min: 6, max: 120 },
-};
-const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80, "1M": 60 };
+const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" }, { value: "5m", label: "5m" }, { value: "15m", label: "15m" }, { value: "1h", label: "1h" }, { value: "4h", label: "4h" }, { value: "1d", label: "1d" }, { value: "1w", label: "1W" }];
+const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000 };
+const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80 };
+const intervalValues = new Set(intervals.map((item) => item.value));
 const uiKey = "crypto-robot-terminal-ui-v4";
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
@@ -29,7 +26,7 @@ const defaultEnabled: Record<IndicatorName, boolean> = { ma7: true, ma25: true, 
 const savedUi = (): TerminalUi => {
   try {
     const value = JSON.parse(localStorage.getItem(uiKey) || "{}");
-    return { interval: intervals.some((item) => item.value === value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from ? [[key, range]] : [])) };
+    return { interval: intervalValues.has(value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => intervalValues.has(key) && Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from ? [[key, range]] : [])) };
   } catch { return { interval: "5m", enabled: defaultEnabled, ranges: {} }; }
 };
 const rows = (candles: Candle[]) => candles.map((item) => [item.time, item.open, item.high, item.low, item.close, item.volume, item.time + 59_999, item.quoteVolume]);
@@ -54,7 +51,6 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
   const previous = useRef<Candle[]>([]);
   const loading = useRef(false);
   const restoredRange = useRef(initialRange);
-  const clampingRange = useRef(false);
 
   useLayoutEffect(() => {
     if (!host.current) return;
@@ -100,26 +96,14 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
   useEffect(() => {
     const scale = chart.current?.timeScale();
     if (!scale) return;
-    const limits = zoomLimits[period] || zoomLimits["1m"];
-    const clamp = (range: { from: number; to: number } | null) => {
-      if (!range || clampingRange.current || candles.length < 1) return;
-      const min = Math.min(limits.min, candles.length);
-      const max = Math.min(limits.max, candles.length);
-      const clamped = clampVisibleLogicalRange(range, candles.length, min, max);
-      if (clamped.from === range.from && clamped.to === range.to) return;
-      clampingRange.current = true;
-      scale.setVisibleLogicalRange(clamped);
-      clampingRange.current = false;
-    };
     const check = async (range: { from: number; to: number } | null) => {
-      clamp(range);
       if (!range || range.from > 250 || loading.current) return;
       loading.current = true;
       try { await loadOlder(); } finally { loading.current = false; }
     };
     scale.subscribeVisibleLogicalRangeChange(check);
     return () => scale.unsubscribeVisibleLogicalRangeChange(check);
-  }, [candles.length, loadOlder, period]);
+  }, [loadOlder]);
 
   useEffect(() => {
     const scale = chart.current?.timeScale();
@@ -146,16 +130,14 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
         chart.current.timeScale().setVisibleLogicalRange({ from: range.from + offset, to: range.to + offset });
         return;
       }
-      const limits = zoomLimits[period] || zoomLimits["1m"];
-      const next = clampVisibleLogicalRange({ from: range.from, to: range.to }, candles.length, limits.min, limits.max);
-      const visible = next.to - next.from;
+      const visible = range.to - range.from;
       const target = visible * Math.exp(event.deltaY / 500);
-      const center = (next.from + next.to) / 2;
-      chart.current.timeScale().setVisibleLogicalRange(clampVisibleLogicalRange({ from: center - target / 2, to: center + target / 2 }, candles.length, limits.min, limits.max));
+      const center = (range.from + range.to) / 2;
+      chart.current.timeScale().setVisibleLogicalRange({ from: center - target / 2, to: center + target / 2 });
     };
     element.addEventListener("wheel", pan, { capture: true, passive: false });
     return () => element.removeEventListener("wheel", pan, true);
-  }, [candles.length, period]);
+  }, []);
 
   return <div className="market-chart" ref={host} />;
 }
@@ -235,11 +217,10 @@ export function MarketTerminal() {
   }, []);
 
   const refreshCoinm = useCallback(async () => { try { const response = await fetch(`${MARKET_BASE}/coinm/snapshot?symbol=BTCUSD_PERP&limit=100`, { cache: "no-store" }); if (response.ok) { setCoinm(await response.json()); return true; } } catch {} return false; }, []);
-  useEffect(() => { void refreshCoinm(); const timer = setInterval(() => { void refreshCoinm(); }, 1_000); return () => clearInterval(timer); }, [refreshCoinm]);
 
   useEffect(() => {
     const refresh = async () => { try { const response = await fetch(`${MARKET_BASE}/market/funding?symbol=BTCUSD_PERP`, { cache: "no-store" }); if (response.ok) setFunding((await response.json()).premium || null); } catch {} };
-    void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
+    void refresh(); const timer = setInterval(() => { void refresh(); }, 60_000); return () => clearInterval(timer);
   }, []);
 
   useEffect(() => { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); }, [interval, enabled]);
@@ -253,7 +234,7 @@ export function MarketTerminal() {
     const value = command.trim(); if (!value) return;
     const next: Line[] = [...lines, { kind: "input", text: `$ ${value}` }]; const [name, arg] = value.toLowerCase().split(/\s+/);
     if (name === "clear") next.splice(0);
-    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w|1M>\nclear" });
+    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w>\nclear" });
     else if (name === "sync") { next.push({ kind: "output", text: "syncing COIN-M..." }); void refreshCoinm().then((ok) => setLines((current) => [...current, { kind: (ok ? "output" : "error") as Line["kind"], text: ok ? "COIN-M synced" : "COIN-M sync failed" }].slice(-100))); }
     else if (name === "today-fees") {
       next.push({ kind: "output", text: "loading today's COIN-M fees..." });
@@ -268,7 +249,7 @@ export function MarketTerminal() {
     else if (name === "coinm-orders") next.push({ kind: "output", text: coinm?.orders.map((item) => `${new Date(item.time).toLocaleString()} ${item.status.padEnd(10)} ${item.side} ${item.origQty} ${item.type} @ ${item.price} filled ${item.executedQty} order ${item.orderId}`).join("\n") || "no COIN-M orders" });
     else if (name === "risk") next.push({ kind: "output", text: dashboard ? `symbols: ${dashboard.risk.allowedSymbols.join(", ")}\nmax order: ${dashboard.risk.maxOrderUsdt} USDT\nunknown orders: ${dashboard.orders.unknown}` : "connecting" });
     else if (name === "interval" && intervals.some((item) => item.value === arg)) selectInterval(arg);
-    else if (name === "interval") next.push({ kind: "error", text: "usage: interval <time|1m|5m|15m|1h|4h|1d|1w|1M>" });
+    else if (name === "interval") next.push({ kind: "error", text: "usage: interval <time|1m|5m|15m|1h|4h|1d|1w>" });
     else next.push({ kind: "error", text: `unknown command: ${name}` });
     setLines(next.slice(-100)); setCommand("");
   };

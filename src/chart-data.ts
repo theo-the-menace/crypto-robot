@@ -106,14 +106,6 @@ export function zoomWindowOffset(total: number, offset: number, oldCount: number
   return Math.min(Math.max(0, total - nextVisible), Math.max(0, total - 1 - nextEnd));
 }
 
-export function clampVisibleLogicalRange(range: { from: number; to: number }, total: number, minimum: number, maximum: number) {
-  if (!Number.isFinite(range.from) || !Number.isFinite(range.to) || total < 1) return range;
-  const min = Math.min(Math.max(1, minimum), total); const max = Math.min(Math.max(min, maximum), total); const visible = range.to - range.from;
-  if (visible >= min && visible <= max) return range;
-  const target = Math.min(max, Math.max(min, visible)); const center = (range.from + range.to) / 2;
-  return { from: center - target / 2, to: center + target / 2 };
-}
-
 export function nearHistoryStart(total: number, offset: number, visible: number, warmup = visible) {
   return offset >= Math.max(0, total - visible - Math.max(visible, warmup));
 }
