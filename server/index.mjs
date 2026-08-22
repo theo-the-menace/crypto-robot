@@ -7,7 +7,8 @@ import { fallbackIntent, inferProduct, multiProductTradePrompt, normalizeOrderIn
 import { EmergencyPolicy } from '../src/emergency-policy.mjs';
 import { analysisMessages, isTradeCommand, validImageDataUrl } from './market-context.mjs';
 import { requestedOrderBookRange } from './order-book-context.mjs';
-import { mergeKlines, readMarketCache, writeMarketCache } from './market-cache.mjs';
+import { MarketStore } from './market-store.mjs';
+import { aggregateMarketKlines, marketIntervals } from './market-aggregate.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -25,11 +26,9 @@ const modelOptions = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'];
 const reasoningOptions = ['low', 'medium', 'high', 'xhigh', 'max'];
 const defaultModel = modelOptions.includes(process.env.GATEWAY_MODEL) ? process.env.GATEWAY_MODEL : 'gpt-5.6-luna';
 const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING_EFFORT) ? process.env.GATEWAY_REASONING_EFFORT : 'medium';
-const marketCacheDirectory = process.env.MARKET_CACHE_DIR || resolve(process.cwd(), '.cache', 'market');
-const marketCache = new Map();
-const marketBackfill = { running: false, complete: false, rows: 0, oldestTime: null, error: null };
+const marketStore = new MarketStore({ runtimeDirectory: resolve(process.cwd(), '.cache', 'shards'), snapshotDirectory: resolve(process.cwd(), 'data', 'market') });
 let fundingCache = { value: null, updatedAt: 0 };
-const marketIntervals = { '1m': 60_000, '5m': 300_000, '15m': 900_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000, '1w': 'week', '1M': 'month' };
+const marketStreams = new Set();
 
 function parseModelJson(value) {
   const text = String(value || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
@@ -225,107 +224,27 @@ async function serverCoinMMarket(symbol, interval, endTime) {
   }
 }
 
-export function aggregateMarketKlines(rows, interval) {
-  const duration = marketIntervals[interval];
-  if (!duration || interval === '1m') return rows;
-  const grouped = [];
-  for (const row of rows) {
-    const date = new Date(Number(row[0]));
-    const time = duration === 'week'
-      ? Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - (date.getUTCDay() + 6) % 7)
-      : duration === 'month' ? Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) : Math.floor(Number(row[0]) / duration) * duration;
-    const previous = grouped.at(-1);
-    if (!previous || Number(previous[0]) !== time) { grouped.push([time, ...row.slice(1)]); continue; }
-    previous[2] = Math.max(Number(previous[2]), Number(row[2]));
-    previous[3] = Math.min(Number(previous[3]), Number(row[3]));
-    previous[4] = row[4]; previous[5] = Number(previous[5]) + Number(row[5]); previous[7] = Number(previous[7]) + Number(row[7]);
-  }
-  return grouped;
+const intervalWindowMs = (interval, limit) => interval === '1M' ? limit * 32 * 86_400_000 : interval === '1w' ? limit * 7 * 86_400_000 : limit * Number(marketIntervals[interval]);
+
+async function storedMarketKlines(interval, { from, to = Date.now(), limit = 1_000 } = {}) {
+  const start = Number.isFinite(from) ? from : Math.max(0, to - intervalWindowMs(interval, limit + 2));
+  return marketStore.interval(interval, start, to, limit);
 }
 
-async function cachedCoinMKlines(symbol, endTime, limit = 1_000, allRows = false) {
-  const state = marketCache.get(symbol) || { rows: null, updatedAt: 0 };
-  marketCache.set(symbol, state);
-  if (!state.rows) state.rows = await readMarketCache(marketCacheDirectory, symbol);
-  const stale = Date.now() - state.updatedAt >= 10_000;
-  let available = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
-  let pageEnd = endTime;
-  let updated = false;
-  while (available.length < limit || (!endTime && stale && pageEnd === undefined)) {
-    const page = (await serverCoinMMarket(symbol, '1m', pageEnd)).klines || [];
-    if (!page.length) break;
-    state.rows = mergeKlines(state.rows, page);
-    updated = true;
-    available = endTime ? state.rows.filter((row) => Number(row[0]) <= endTime) : state.rows;
-    const oldest = Number(page[0][0]);
-    if (!Number.isFinite(oldest) || pageEnd === oldest - 1) break;
-    pageEnd = oldest - 1;
-    if (!endTime && stale) break;
-  }
-  if (updated) {
-    state.updatedAt = Date.now();
-    await writeMarketCache(marketCacheDirectory, symbol, state.rows);
-  }
-  return allRows ? available : available.slice(-limit);
-}
-
-async function backfillCoinMHistory(symbol = 'BTCUSD_PERP') {
-  if (marketBackfill.running || marketBackfill.complete) return;
-  marketBackfill.running = true; marketBackfill.error = null;
+async function refreshMarketTail(symbol = 'BTCUSD_PERP') {
   try {
-    const state = marketCache.get(symbol) || { rows: null, updatedAt: 0 };
-    marketCache.set(symbol, state);
-    if (!state.rows) state.rows = await readMarketCache(marketCacheDirectory, symbol);
-    let endTime = Number(state.rows[0]?.[0]) - 1;
-    if (!Number.isFinite(endTime) || endTime <= 0) endTime = Date.now();
-    let pagesSinceWrite = 0;
-    while (endTime > 0) {
-      const page = (await coinMMarket(symbol, '1m', endTime, 1_500)).klines || [];
-      if (!page.length) { marketBackfill.complete = true; break; }
-      state.rows = mergeKlines(state.rows, page);
-      endTime = Number(page[0][0]) - 1;
-      marketBackfill.rows = state.rows.length; marketBackfill.oldestTime = Number(state.rows[0][0]); pagesSinceWrite += 1;
-      if (pagesSinceWrite >= 10 || page.length < 1_500) { await writeMarketCache(marketCacheDirectory, symbol, state.rows); pagesSinceWrite = 0; }
-      if (page.length < 1_500) { marketBackfill.complete = true; break; }
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    if (pagesSinceWrite) await writeMarketCache(marketCacheDirectory, symbol, state.rows);
-  } catch (error) { marketBackfill.error = error instanceof Error ? error.message : 'Market history backfill failed.'; }
-  finally {
-    marketBackfill.running = false;
-    if (!marketBackfill.complete && marketBackfill.error) setTimeout(() => { void backfillCoinMHistory(symbol); }, 5_000);
-  }
-}
-
-async function repairCoinMGaps(symbol = 'BTCUSD_PERP') {
-  const state = marketCache.get(symbol) || { rows: null, updatedAt: 0 };
-  marketCache.set(symbol, state);
-  if (!state.rows) state.rows = await readMarketCache(marketCacheDirectory, symbol);
-  const gaps = [];
-  for (let index = 1; index < state.rows.length; index++) {
-    const from = Number(state.rows[index - 1][0]) + 60_000;
-    const to = Number(state.rows[index][0]) - 60_000;
-    if (to >= from) gaps.push([from, to]);
-  }
-  for (const [from, to] of gaps) {
-    let cursor = from;
-    while (cursor <= to) {
-      let page = [];
-      for (let attempt = 0; attempt < 3 && !page.length; attempt++) {
-        try { page = (await coinMMarket(symbol, '1m', to, 1_500, cursor)).klines || []; }
-        catch (error) { console.warn('COIN-M gap repair retry', error instanceof Error ? error.message : error); }
-      }
+    const manifest = await marketStore.manifest(); let cursor = Number(manifest.lastTime || Date.now() - 5 * 60_000); let latest = null;
+    while (cursor <= Date.now()) {
+      const endTime = Math.min(Date.now(), cursor + 1_499 * 60_000);
+      const page = (await coinMMarket(symbol, '1m', endTime, 1_500, cursor)).klines || [];
       if (!page.length) break;
-      state.rows = mergeKlines(state.rows, page);
-      const next = Number(page.at(-1)?.[0]) + 60_000;
-      if (!Number.isFinite(next) || next <= cursor) break;
-      cursor = next;
-      if (page.length < 1_500) break;
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await marketStore.merge(page); latest = page.at(-1);
+      const next = Number(latest?.[0]) + 60_000; if (!Number.isFinite(next) || next <= cursor) break; cursor = next;
     }
-  }
-  await writeMarketCache(marketCacheDirectory, symbol, state.rows);
-  state.updatedAt = Date.now();
+    if (!latest) return;
+    const payload = `event: kline\ndata: ${JSON.stringify({ symbol, interval: '1m', row: latest })}\n\n`;
+    for (const response of marketStreams) response.write(payload);
+  } catch (error) { console.warn('COIN-M tail refresh unavailable', error instanceof Error ? error.message : error); }
 }
 
 async function orderBookContext(range) {
@@ -585,8 +504,26 @@ export function createCryptoServer() {
         if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
         if (!marketIntervals[interval]) return sendJson(response, 400, { error: 'Interval is not allowed.' });
         if (endTime && (!/^\d+$/.test(endTime) || Number(endTime) <= 0)) return sendJson(response, 400, { error: 'endTime is not valid.' });
-        const rows = await cachedCoinMKlines(symbol, endTime ? Number(endTime) : undefined, limit, ['4h', '1d', '1w', '1M'].includes(interval));
-        return sendJson(response, 200, { symbol, interval, klines: aggregateMarketKlines(rows, interval).slice(-limit) });
+        const to = endTime ? Number(endTime) : Date.now();
+        return sendJson(response, 200, { symbol, interval, klines: await storedMarketKlines(interval, { to, limit }) });
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/manifest?')) {
+        const symbol = new URL(request.url, 'http://localhost').searchParams.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
+        if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available.' });
+        return sendJson(response, 200, await marketStore.manifest());
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/window?')) {
+        const query = new URL(request.url, 'http://localhost').searchParams;
+        const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP'; const interval = query.get('interval') || '1m';
+        const from = Number(query.get('from')); const to = Number(query.get('to'));
+        if (symbol !== 'BTCUSD_PERP' || !marketIntervals[interval]) return sendJson(response, 400, { error: 'Market window is not valid.' });
+        if (![from, to].every(Number.isFinite) || from < 0 || to <= from) return sendJson(response, 400, { error: 'Time window is not valid.' });
+        return sendJson(response, 200, { symbol, interval, klines: await storedMarketKlines(interval, { from, to, limit: 100_000 }) });
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/stream?')) {
+        response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+        response.write(': connected\n\n'); marketStreams.add(response);
+        request.on('close', () => marketStreams.delete(response)); return;
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/market/funding?')) {
         const symbol = new URL(request.url, 'http://localhost').searchParams.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
@@ -597,7 +534,6 @@ export function createCryptoServer() {
         }
         return sendJson(response, 200, { symbol, premium: fundingCache.value });
       }
-      if (request.method === 'GET' && request.url === '/api/market/backfill') return sendJson(response, 200, marketBackfill);
       if (request.method === 'GET' && request.url?.startsWith('/api/coinm-market?')) {
         const query = new URL(request.url, 'http://localhost').searchParams;
         const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
@@ -707,4 +643,4 @@ export function createCryptoServer() {
   });
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) createCryptoServer().listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void (async () => { await backfillCoinMHistory(); await repairCoinMGaps(); })(); });
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) createCryptoServer().listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void refreshMarketTail(); setInterval(() => { void refreshMarketTail(); }, 10_000); });

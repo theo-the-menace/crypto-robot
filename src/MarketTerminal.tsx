@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AreaSeries, CandlestickSeries, ColorType, createChart, HistogramSeries, LineSeries, TickMarkType } from "lightweight-charts";
 import { bollinger, carryForward, ema, isHorizontalGesture, sma, type IndicatorPoint } from "./chart-data";
+import { readMarketWindow, writeMarketWindow } from "./market-db";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
 type Funding = { lastFundingRate?: string; nextFundingTime?: number; markPrice?: string; indexPrice?: string };
@@ -16,20 +17,9 @@ const MARKET_BASE = "/api";
 const TOKEN = __DASHBOARD_TOKEN__;
 const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" }, { value: "5m", label: "5m" }, { value: "15m", label: "15m" }, { value: "1h", label: "1h" }, { value: "4h", label: "4h" }, { value: "1d", label: "1d" }, { value: "1w", label: "1W" }, { value: "1M", label: "1M" }];
 const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000, "1M": 2_678_400_000 };
-const cacheKey = (interval: string) => `crypto-robot-btcusd-perp-v7-${interval}`;
-const browserCacheLimit = 800;
 const uiKey = "crypto-robot-terminal-ui-v4";
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
-const cached = (interval: string): Candle[] => { try { return JSON.parse(localStorage.getItem(cacheKey(interval)) || "[]"); } catch { return []; } };
-const pruneBrowserCache = () => {
-  for (const key of Object.keys(localStorage)) {
-    if (key.startsWith("crypto-robot-btcusd-perp-v6-")) localStorage.removeItem(key);
-    if (key.startsWith("crypto-robot-btcusd-perp-v7-")) {
-      try { const rows = JSON.parse(localStorage.getItem(key) || "[]"); localStorage.setItem(key, JSON.stringify(rows.slice(-browserCacheLimit))); } catch { localStorage.removeItem(key); }
-    }
-  }
-};
 const defaultEnabled: Record<IndicatorName, boolean> = { ma7: true, ma25: true, ma60: false, ma99: false, ema200: true, ema21: true, bb: false };
 const savedUi = (): TerminalUi => {
   try {
@@ -146,7 +136,7 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
 export function MarketTerminal() {
   const [initialUi] = useState(savedUi);
   const [interval, setIntervalValue] = useState(initialUi.interval);
-  const [candleSets, setCandleSets] = useState<Record<string, Candle[]>>(() => ({ [initialUi.interval]: cached(initialUi.interval) }));
+  const [candleSets, setCandleSets] = useState<Record<string, Candle[]>>({});
   const [funding, setFunding] = useState<Funding | null>(null);
   const [loadedInterval, setLoadedInterval] = useState<string | null>(null);
   const [daily, setDaily] = useState<Candle[]>([]);
@@ -161,43 +151,54 @@ export function MarketTerminal() {
   const rangesRef = useRef(initialUi.ranges);
   const input = useRef<HTMLInputElement>(null);
   const output = useRef<HTMLDivElement>(null);
-  useEffect(() => { try { pruneBrowserCache(); } catch {} }, []);
   useEffect(() => { candlesRef.current = candles; }, [candles]);
   useEffect(() => { const node = output.current; if (node) node.scrollTop = node.scrollHeight; }, [lines]);
 
-  const history = useCallback(async (endTime?: number) => {
+  const history = useCallback(async (endTime?: number, limit = 5_000) => {
     const suffix = endTime ? `&endTime=${endTime}` : "";
-    const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&interval=${interval === "time" ? "1m" : interval}&limit=5000${suffix}`, { cache: "no-store" });
+    const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&interval=${interval === "time" ? "1m" : interval}&limit=${limit}${suffix}`, { cache: "no-store" });
     if (!response.ok) throw new Error(`history failed (${response.status})`);
     return (await response.json()).klines.map(parseRow) as Candle[];
+  }, [interval]);
+
+  const window = useCallback(async (from: number, to: number) => {
+    const value = interval === "time" ? "1m" : interval; const bucket = Math.max(intervalMs[interval] * 500, 86_400_000); const cachedFrom = Math.floor(from / bucket) * bucket; const cachedTo = Math.ceil(to / bucket) * bucket; const key = `${value}:${cachedFrom}:${cachedTo}`;
+    const cached = await readMarketWindow(key).catch(() => null) as Array<Array<string | number>> | null;
+    if (cached?.length) setCandleSets((current) => ({ ...current, [interval]: cached.map(parseRow) }));
+    const response = await fetch(`${MARKET_BASE}/market/window?symbol=BTCUSD_PERP&interval=${value}&from=${cachedFrom}&to=${cachedTo}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`window failed (${response.status})`);
+    const rows = (await response.json()).klines as Array<Array<string | number>>;
+    void writeMarketWindow(key, rows).catch(() => {});
+    return rows.map(parseRow) as Candle[];
   }, [interval]);
 
   const loadOlder = useCallback(async () => {
     const oldest = candlesRef.current[0];
     if (!oldest) return;
     const rows = await history(oldest.time - 1);
-    if (rows.at(-1)?.time === oldest.time - intervalMs[interval]) setCandleSets((current) => ({ ...current, [interval]: merge(rows, current[interval] || []) }));
+    const latest = rows.at(-1);
+    if (latest && latest.time < oldest.time) setCandleSets((current) => ({ ...current, [interval]: merge(rows, current[interval] || []) }));
   }, [history, interval]);
 
   useEffect(() => {
-    setCandleSets((current) => current[interval] ? current : { ...current, [interval]: cached(interval) });
     setLoadedInterval(null);
     let active = true;
     void (async () => {
       try {
-        let rows = await history();
+        const saved = rangesRef.current[interval]; const span = saved ? saved.to - saved.from : intervalMs[interval] * 500;
+        const rows = saved ? await window(Math.max(0, saved.from - span), saved.to + span) : await history(undefined, 1_000);
         if (!active) return;
         setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) })); setLoadedInterval(interval);
       } catch (error) { setLines((current) => [...current, { kind: "error", text: error instanceof Error ? error.message : "history unavailable" }]); }
     })();
     return () => { active = false; };
-  }, [history]);
+  }, [history, interval, window]);
 
   useEffect(() => {
-    const refresh = async () => { try { const rows = await history(); setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) })); } catch {} };
-    const timer = setInterval(() => { void refresh(); }, 10_000);
-    return () => clearInterval(timer);
-  }, [history, loadOlder]);
+    const stream = new EventSource(`${MARKET_BASE}/market/stream?symbol=BTCUSD_PERP`);
+    stream.addEventListener("kline", () => { void history(undefined, 20).then((rows) => setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) }))).catch(() => {}); });
+    return () => stream.close();
+  }, [history, interval]);
 
   useEffect(() => {
     const loadReference = async (value: "1d" | "1w", setValue: (rows: Candle[]) => void) => { try { const response = await fetch(`${MARKET_BASE}/market/klines?symbol=BTCUSD_PERP&interval=${value}&limit=5000`, { cache: "no-store" }); if (response.ok) setValue((await response.json()).klines.map(parseRow)); } catch {} };
@@ -212,7 +213,6 @@ export function MarketTerminal() {
     void refresh(); const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => { const timer = setInterval(() => { try { localStorage.setItem(cacheKey(interval), JSON.stringify((candleSets[interval] || []).slice(-browserCacheLimit))); } catch {} }, 1_000); return () => clearInterval(timer); }, [interval, candleSets]);
   useEffect(() => { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); }, [interval, enabled]);
   useEffect(() => {
     if (!TOKEN) return;
