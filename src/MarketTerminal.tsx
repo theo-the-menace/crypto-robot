@@ -33,7 +33,7 @@ const chartTrace = (event: string, details: Record<string, unknown> = {}) => {
 };
 const persistUi = (interval: string, enabled: Record<IndicatorName, boolean>, ranges: Record<string, TimeRange>) => {
   try { localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges })); }
-  catch { try { localStorage.removeItem(chartLogKey); localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges })); } catch {} }
+  catch { try { localStorage.removeItem(uiKey); localStorage.removeItem(chartLogKey); localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: {} })); } catch {} }
 };
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
