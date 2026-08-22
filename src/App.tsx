@@ -58,6 +58,7 @@ import {
   type KlineRow,
 } from "./chart-data";
 import { aggregateAssetBalances } from "./asset-summary";
+import { ChatSidebar } from "./chat-ui";
 import { MarketTerminal as MarketChart } from "./MarketTerminal";
 
 type ModelId = "gpt-5.6-luna" | "gpt-5.6-sol" | "gpt-5.6-terra";
@@ -3058,6 +3059,9 @@ export function App() {
   const modelPickerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const followingMessages = useRef(true);
+  const [showLatest, setShowLatest] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
       return JSON.parse(
@@ -3081,6 +3085,15 @@ export function App() {
     textarea.style.height = `${height}px`;
     textarea.style.overflowY = textarea.scrollHeight > 144 ? "auto" : "hidden";
   }, [input]);
+  useLayoutEffect(() => {
+    if (followingMessages.current && messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+  }, [messages]);
+  const onMessagesScroll = () => {
+    const node = messagesRef.current;
+    if (!node) return;
+    followingMessages.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
+    setShowLatest(!followingMessages.current);
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const news: NewsItem[] = [];
@@ -3351,67 +3364,7 @@ export function App() {
       className={`terminal-shell ${leftCollapsed ? "left-collapsed" : ""} ${rightCollapsed ? "right-collapsed" : ""} ${resizing ? "is-resizing" : ""}`}
       style={shellStyle}
     >
-      <aside className="portfolio">
-        <header>
-          <CircleDollarSign size={23} />
-          <div>
-            <strong>CryptoAgent</strong>
-          </div>
-          <button
-            className="sidebar-toggle left-panel-toggle"
-            title="隐藏左侧栏"
-            aria-label="隐藏左侧栏"
-            onClick={() => setLeftCollapsed(true)}
-          >
-            <PanelLeftClose size={17} />
-          </button>
-        </header>
-        <button className="new-chat" onClick={newChat}>
-          <Plus size={17} />
-          New chat
-        </button>
-        <div className="sidebar-lists">
-          <nav className="recents" aria-label="最近对话">
-            <div className="section-title">
-              <span>Recents</span>
-            </div>
-            <div className="recents-list">
-              {sessions.length ? (
-                sessions.map((session) => (
-                  <div className={`recent-row ${activeSessionId === session.id ? "active" : ""}`} key={session.id}>
-                    <button className="recent-open" onClick={() => openSession(session)}>
-                      <MessageSquare size={14} />
-                      <span>{session.title}</span>
-                    </button>
-                    <button className="recent-menu" title="更多操作" aria-label={`删除会话 ${session.title}`} onClick={(event) => { event.stopPropagation(); setDeleteSession(session); }}>
-                      <MoreHorizontal size={16} />
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <p>暂无最近对话</p>
-              )}
-            </div>
-          </nav>
-          <MarketPanel items={news} />
-        </div>
-        <button
-          className="settings-entry"
-          onClick={() => setSettingsOpen(true)}
-        >
-          <Settings2 size={16} />
-          设置与外观
-        </button>
-        <button
-          className="resize-handle left-resize"
-          title="调整左侧栏宽度"
-          aria-label="调整左侧栏宽度"
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setResizing("left");
-          }}
-        />
-      </aside>
+      {!leftCollapsed && <ChatSidebar brand="CryptoAgent" brandIcon={<CircleDollarSign size={21} />} sessions={sessions as never} activeSessionId={activeSessionId} width={leftWidth} onWidthChange={setLeftWidth} onCollapse={() => setLeftCollapsed(true)} onNewChat={newChat} onSelectSession={(id) => { const session = sessions.find((item) => item.id === id); if (session) openSession(session); }} onSettings={() => setSettingsOpen(true)} onDelete={(session) => setDeleteSession(sessions.find((item) => item.id === session.id) || session as never)} />}
       {leftCollapsed && (
         <button
           className="sidebar-reopen left-reopen"
@@ -3423,7 +3376,7 @@ export function App() {
         </button>
       )}
       <section className="conversation">
-        <div className="messages">
+        <div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
           {!messages.length && (
             <div className="empty">
               <Bot size={32} />
@@ -3481,6 +3434,7 @@ export function App() {
             </article>
           )}
           {error && <div className="global-error">{error}</div>}
+          <button className={showLatest ? "scroll-down visible" : "scroll-down"} title="回到底部" aria-label="回到底部" onClick={() => { followingMessages.current = true; messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" }); setShowLatest(false); }}><ChevronDown size={18} /></button>
         </div>
         <div className="composer-wrap">
           <div className="composer">
