@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { appendFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { BinanceApiError, createBinanceCoinMClient, createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient } from '../src/binance.mjs';
 import { auditBinancePermissions } from '../src/permissions.mjs';
@@ -32,6 +33,7 @@ const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING
 const marketStore = new MarketStore({ directory: resolve(process.cwd(), 'data', 'market') });
 let fundingCache = { value: null, updatedAt: 0 };
 const marketStreams = new Set();
+let marketReady = Promise.resolve();
 const marketMessages = new MarketMessageStore();
 setGmailMessageHandler(async (message) => {
   const result = await processGmailMessage(message, marketMessages);
@@ -73,6 +75,15 @@ const symbolAllowed = (symbol) => !allowedSymbols || allowedSymbols.includes(sym
 const emergency = new EmergencyPolicy({ budgetFraction: Number(process.env.EMERGENCY_BUDGET_FRACTION || 0.2), grantMs: Number(process.env.EMERGENCY_GRANT_MS || 30 * 60_000), cooldownMs: Number(process.env.EMERGENCY_COOLDOWN_MS || 15 * 60_000) });
 
 function sendJson(response, status, body) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(body)); }
+const chartLogDirectory = resolve(process.cwd(), '.cache', 'chart-log');
+async function saveChartLogs(entries) {
+  const today = new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10);
+  await mkdir(chartLogDirectory, { recursive: true });
+  const files = await readdir(chartLogDirectory).catch(() => []);
+  await Promise.all(files.filter((file) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(file) && file.slice(0, 10) < today).map((file) => unlink(resolve(chartLogDirectory, file)).catch(() => {})));
+  const rows = entries.filter((entry) => entry && typeof entry === 'object').slice(-100).map((entry) => `${JSON.stringify(entry)}\n`).join('');
+  if (rows) await appendFile(resolve(chartLogDirectory, `${today}.jsonl`), rows, { mode: 0o600 });
+}
 async function body(request, maxLength = 50_000) {
   let raw = '';
   for await (const chunk of request) { raw += chunk; if (raw.length > maxLength) throw new Error('Request body is too large.'); }
@@ -293,6 +304,7 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
     socket.addEventListener('close', () => { console.warn(JSON.stringify({ event: 'coinm_ws_close', symbol, retryMs })); reconnect(); });
     socket.addEventListener('error', () => { try { socket.close(); } catch {} });
   };
+  marketReady = reconcileGap();
   void connect();
   return () => { stopped = true; socket?.close(); };
 }
@@ -426,13 +438,18 @@ export function createCryptoServer() {
       if (request.method === 'GET' && request.url === '/api/status') {
         return sendJson(response, 200, { configured, environment, liveTradingEnabled, allowedSymbols, maxOrderUsdt, futures: { configured, maxLeverage: 125, confirmationRequired: true }, margin: { configured, confirmationRequired: true, borrowRepayEnabled: false }, model: { provider: gatewayProvider, models: modelOptions, reasoning: reasoningOptions, defaultModel, defaultReasoning } });
       }
+      if (request.method === 'POST' && request.url === '/api/chart-log') {
+        const payload = await body(request, 100_000);
+        await saveChartLogs(Array.isArray(payload.entries) ? payload.entries : [payload.entry]);
+        return sendJson(response, 204, {});
+      }
       if (request.method === 'GET' && request.url === '/api/gmail/status') return sendJson(response, 200, await gmailStatus());
       if (request.method === 'GET' && request.url === '/api/market/messages/stream') {
         response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
         for (const item of await marketMessages.list(100)) response.write(`event: market-message\ndata: ${JSON.stringify(item)}\n\n`);
         const unsubscribe = marketMessages.subscribe(response); request.on('close', unsubscribe); return;
       }
-      if (request.method === 'GET' && request.url?.startsWith('/api/market/messages')) return sendJson(response, 200, { messages: await marketMessages.list(Number(new URL(request.url, 'http://localhost').searchParams.get('limit') || 100)) });
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/messages')) { const query = new URL(request.url, 'http://localhost').searchParams; return sendJson(response, 200, { messages: await marketMessages.list(Number(query.get('limit') || 50), query.get('before')) }); }
       if (request.method === 'GET' && request.url === '/api/gmail/oauth/start') {
         const location = gmailOAuthStart(); response.writeHead(302, { Location: location }); return response.end();
       }
@@ -566,6 +583,7 @@ export function createCryptoServer() {
         return sendJson(response, 200, { symbol, interval, klines: await binance.klines(symbol, interval, 120) });
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/market/klines?')) {
+        await marketReady;
         const query = new URL(request.url, 'http://localhost').searchParams;
         const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
         const interval = query.get('interval') || '1m';
@@ -578,11 +596,13 @@ export function createCryptoServer() {
         return sendJson(response, 200, { symbol, interval, klines: await storedMarketKlines(interval, { to, limit }) });
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/market/manifest?')) {
+        await marketReady;
         const symbol = new URL(request.url, 'http://localhost').searchParams.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
         if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available.' });
         return sendJson(response, 200, await marketStore.manifest());
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/market/window?')) {
+        await marketReady;
         const query = new URL(request.url, 'http://localhost').searchParams;
         const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP'; const interval = query.get('interval') || '1m';
         const from = Number(query.get('from')); const to = Number(query.get('to'));
@@ -591,6 +611,7 @@ export function createCryptoServer() {
         return sendJson(response, 200, { symbol, interval, klines: await storedMarketKlines(interval, { from, to, limit: 100_000 }) });
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/market/stream?')) {
+        await marketReady;
         response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
         response.write(': connected\n\n'); marketStreams.add(response);
         request.on('close', () => marketStreams.delete(response)); return;

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -111,20 +112,6 @@ type Message = {
   draft?: Draft;
   order?: Record<string, unknown>;
 };
-const terminalCommandReply = (value: string) => {
-  const command = value.trim().toLowerCase();
-  if (!/^[a-z-]+$/.test(command)) return null;
-  if (command === "help") return "chart-log\nhelp";
-  if (command !== "chart-log") return null;
-  try {
-    return JSON.parse(localStorage.getItem("crypto-robot-chart-switch-log-v1") || "[]")
-      .slice(-30)
-      .map((item: unknown) => JSON.stringify(item))
-      .join("\n") || "no chart logs";
-  } catch {
-    return "chart log unavailable";
-  }
-};
 type ChatSession = {
   id: string;
   title: string;
@@ -138,11 +125,8 @@ type NewsItem = {
   id: string;
   title: string;
   source: string;
-  summary: string;
-  analysis?: string;
-  impact?: "bullish" | "bearish" | "mixed" | "neutral";
-  confidence?: number;
-  chart?: { symbol?: string | null; interval?: string | null; levels?: Array<{ price: number; label: string }> } | null;
+  content: string;
+  image?: string | null;
   createdAt: number;
   publishedAt?: number;
   original?: { subject?: string; from?: string; internalDate?: string };
@@ -313,13 +297,14 @@ function modelLabel(model: ModelId, prefix = "GPT-") {
   return `${prefix}${family[0].toUpperCase()}${family.slice(1)}`;
 }
 
-function MarketPanel({ items, onSelect }: { items: NewsItem[]; onSelect: (item: NewsItem) => void }) {
+function MarketPanel({ items, onSelect, onLoadMore, loading, hasMore }: { items: NewsItem[]; onSelect: (item: NewsItem) => void; onLoadMore: () => void; loading: boolean; hasMore: boolean }) {
+  const onScroll = (event: React.UIEvent<HTMLDivElement>) => { const node = event.currentTarget; if (hasMore && !loading && node.scrollHeight - node.scrollTop - node.clientHeight < 80) onLoadMore(); };
   return (
     <section className="market-panel" aria-label="市场动态">
       <div className="section-title">
         <span>Market</span>
       </div>
-      <div className="market-event-list">
+      <div className="market-event-list" onScroll={onScroll}>
         {items.length ? (
           items.map((item) => (
             <article
@@ -337,12 +322,12 @@ function MarketPanel({ items, onSelect }: { items: NewsItem[]; onSelect: (item: 
                 </time>
               </div>
               <strong>{item.title}</strong>
-              <p>{item.summary}</p>
             </article>
           ))
         ) : (
           <p className="market-empty">市场消息正在同步</p>
         )}
+        {loading && <p className="market-empty">正在加载更早消息</p>}
       </div>
     </section>
   );
@@ -356,9 +341,8 @@ function MarketArticle({ item, onBack }: { item: NewsItem; onBack: () => void })
     </header>
     <div className="market-article-body">
       <h1>{item.title}</h1>
-      <p className="article-summary">{item.summary}</p>
-      {item.analysis && <div className="article-analysis"><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.analysis}</ReactMarkdown></div>}
-      {item.original?.subject && <footer className="article-source">原始邮件：{item.original.subject}</footer>}
+      {item.image && <img className="market-article-image" src={item.image} alt="" />}
+      <div className="article-analysis"><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown></div>
     </div>
   </article>;
 }
@@ -3124,14 +3108,21 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsHasMore, setNewsHasMore] = useState(true);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   useEffect(() => {
     let active = true;
-    fetch("/api/market/messages?limit=100", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((body) => { if (active && body?.messages) setNews(body.messages); }).catch(() => {});
+    fetch("/api/market/messages?limit=50", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((body) => { if (active && body?.messages) { setNews(body.messages); setNewsHasMore(body.messages.length === 50); } }).catch(() => {});
     const stream = new EventSource("/api/market/messages/stream");
-    stream.addEventListener("market-message", (event) => { try { const item = JSON.parse((event as MessageEvent).data) as NewsItem; setNews((current) => [item, ...current.filter((entry) => entry.id !== item.id)].slice(0, 100)); } catch {} });
+    stream.addEventListener("market-message", (event) => { try { const item = JSON.parse((event as MessageEvent).data) as NewsItem; setNews((current) => [item, ...current.filter((entry) => entry.id !== item.id)].sort((a, b) => Number(b.publishedAt || b.createdAt) - Number(a.publishedAt || a.createdAt)).slice(0, 200)); } catch {} });
     return () => { active = false; stream.close(); };
   }, []);
+  const loadMoreNews = useCallback(async () => {
+    if (newsLoading || !newsHasMore) return;
+    setNewsLoading(true);
+    try { const before = news.at(-1)?.publishedAt || news.at(-1)?.createdAt; const response = await fetch(`/api/market/messages?limit=50&before=${before || ""}`, { cache: "no-store" }); const body = response.ok ? await response.json() : null; const page = body?.messages || []; setNews((current) => [...current, ...page.filter((item: NewsItem) => !current.some((entry) => entry.id === item.id))]); setNewsHasMore(page.length === 50); } catch {} finally { setNewsLoading(false); }
+  }, [news, newsHasMore, newsLoading]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);
   useEffect(() => {
@@ -3334,17 +3325,6 @@ export function App() {
     setMessages(baseMessages);
     setInput("");
     setAttachment(null);
-    const commandReply = !sentAttachment ? terminalCommandReply(content) : null;
-    if (commandReply !== null) {
-      const assistant: Message = { id: crypto.randomUUID(), role: "assistant", content: commandReply };
-      const nextMessages = [...baseMessages, assistant];
-      setMessages(nextMessages);
-      setSessions((existing) => [
-        { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
-        ...existing.filter((item) => item.id !== sessionId),
-      ]);
-      return;
-    }
     setBusy(true);
     setError("");
     try {
@@ -3467,7 +3447,7 @@ export function App() {
               )}
             </div>
           </nav>
-          <MarketPanel items={news} onSelect={setSelectedNews} />
+          <MarketPanel items={news} onSelect={setSelectedNews} onLoadMore={() => void loadMoreNews()} loading={newsLoading} hasMore={newsHasMore} />
         </div>
         <button
           className="settings-entry"
