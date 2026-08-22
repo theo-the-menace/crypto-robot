@@ -1,0 +1,12 @@
+[Unit]
+Description=Crypto Robot Binance Vision market history sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=binance-exec
+Group=binance-exec
+WorkingDirectory=/opt/crypto-robot
+ExecStart=/usr/bin/npm run sync:market-history
+

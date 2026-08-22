@@ -3,6 +3,8 @@ import os
 import tempfile
 import unittest
 import urllib.error
+from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 
 
@@ -62,6 +64,15 @@ class ExecutionTest(unittest.TestCase):
         rows = service.cached_candles("BTCUSD_PERP", "1m", 10)
         self.assertEqual([row[0] for row in rows], [now - 120_000, now - 60_000])
         self.assertEqual(rows[-1][4], "3.0")
+
+    def test_market_files_are_confined_to_the_configured_directory(self):
+        with tempfile.TemporaryDirectory() as root:
+            market = Path(root) / "BTCUSD_PERP" / "1m"; market.mkdir(parents=True)
+            (market / "manifest.json").write_text('{"months":[]}', encoding="utf-8")
+            handler = object.__new__(service.Handler); handler.wfile = BytesIO(); responses = []
+            handler.send_response = lambda status: responses.append(status); handler.send_header = lambda *_: None; handler.end_headers = lambda: None
+            with patch.object(service, "MARKET_DATA_DIR", Path(root).resolve()): handler.market_file("BTCUSD_PERP/1m/manifest.json")
+            self.assertEqual(responses, [200]); self.assertEqual(handler.wfile.getvalue(), b'{"months":[]}')
 
 
 if __name__ == "__main__": unittest.main()

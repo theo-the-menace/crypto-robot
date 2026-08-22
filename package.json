@@ -10,6 +10,7 @@
     "restart": "node scripts/restart-dev.mjs",
     "download:market-data": "node --env-file-if-exists=.env scripts/download-market-data.mjs",
     "sync:market-history": "node scripts/sync-market-history.mjs",
+    "verify:market-data": "node scripts/verify-market-data.mjs",
     "download:funding-history": "node scripts/download-funding-history.mjs",
     "desktop": "concurrently -k \"npm:dev:api\" \"npm:dev:web\" \"wait-on http://127.0.0.1:8888 && CRYPTO_AGENT_DEV_SERVER=1 electron .\"",
     "dist:mac": "npm run build && electron-builder --mac",

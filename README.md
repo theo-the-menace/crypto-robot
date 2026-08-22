@@ -26,9 +26,11 @@ The local frontend uses the server dashboard API at `http://43.163.91.179:8888`.
 
 For local development, the React/Vite frontend listens on `127.0.0.1:8888` and the local Node API listens on `127.0.0.1:8889`; Vite proxies `/api` to the Node API.
 
-Market datasets live under the ignored `data/` directory and are never stored in Git. On a new host, run `npm run sync:market-history`; it resumes month by month from Binance Vision, writes local 1-minute files, and rebuilds the display intervals. `npm run download:market-data` remains available for mirroring from a private data server. Missing local data is reported as an error instead of silently showing an incomplete chart.
+Market datasets live under the ignored `data/` directory and are never stored in Git. The server runs `npm run sync:market-history` to resume month by month from Binance Vision and rebuild display intervals. Workstations set `MARKET_DATA_DOWNLOAD_URL=http://43.163.91.179:8888/v1/market-data` plus `MARKET_DATA_API_KEY`, then run `npm run download:market-data`; immutable local months are skipped and the current month is refreshed. Missing local data is reported as an error instead of silently showing an incomplete chart.
 
-At startup the API repairs the gap from the last local candle with Binance REST, then subscribes to the Binance COIN-M 1-minute K-line WebSocket. Every open-candle update is merged into the current month's runtime overlay and relayed to browsers over SSE. A reconnect runs REST repair again before resuming the stream.
+Completed months are accepted only after the Binance Vision ZIP matches its published SHA-256 checksum. The daily `market-history-sync.timer` replaces any unverified historical month with Vision data. REST repairs only the current month, and the COIN-M WebSocket updates its open candle until that month is later replaced by the official archive.
+
+At startup the API repairs the current-month gap from the last local candle with Binance REST, then subscribes to the Binance COIN-M 1-minute K-line WebSocket. Open-candle updates are relayed to browsers over SSE, and each closed minute is atomically persisted into the current month's file. A reconnect runs REST repair again before resuming the stream.
 
 Wallet-routing experiments are Testnet-only in `execution/scenario_simulator.py`. They model USDT wallet transfers, close simulated COIN-M positions before returning collateral, and generate a dry-run COIN-M market-order draft for the requested 20x one-second momentum scenario. The unrestricted scenario is explicitly rejected outside Testnet and never submits a live order.
 

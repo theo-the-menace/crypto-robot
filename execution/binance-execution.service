@@ -16,7 +16,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/binance-execution
+ReadWritePaths=/var/lib/binance-execution /opt/crypto-robot/data
 
 [Install]
 WantedBy=multi-user.target

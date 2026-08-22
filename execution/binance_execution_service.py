@@ -28,6 +28,7 @@ except ImportError:
 HOST = os.getenv("BINANCE_EXECUTION_HOST", "127.0.0.1")
 PORT = int(os.getenv("BINANCE_EXECUTION_PORT", "8888"))
 DB_PATH = Path(os.getenv("BINANCE_EXECUTION_DB", "/var/lib/binance-execution/orders.sqlite"))
+MARKET_DATA_DIR = Path(os.getenv("MARKET_DATA_DIR", "/opt/crypto-robot/data/market")).resolve()
 SERVICE_KEY = os.getenv("BINANCE_EXECUTION_API_KEY", "")
 DASHBOARD_KEY = os.getenv("BINANCE_DASHBOARD_API_KEY", "")
 API_KEY = os.getenv("BINANCE_API_KEY", "")
@@ -281,6 +282,14 @@ class Handler(BaseHTTPRequestHandler):
         if length > 100_000: raise BinanceError("Request body is too large.", 413)
         return json.loads(self.rfile.read(length) or b"{}")
 
+    def market_file(self, relative: str) -> None:
+        path = (MARKET_DATA_DIR / relative).resolve()
+        if MARKET_DATA_DIR not in path.parents or not path.is_file(): return self.json(404, {"error": "Market data file not found."})
+        size = path.stat().st_size
+        self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Cache-Control", "no-cache"); self.send_header("Content-Length", str(size)); self.end_headers()
+        with path.open("rb") as source:
+            while chunk := source.read(1024 * 1024): self.wfile.write(chunk)
+
     def stream_market(self, symbol: str, interval: str) -> None:
         if websocket is None: return self.json(503, {"error": "Market stream dependency is unavailable."})
         host = "dstream.binance.com" if ENVIRONMENT == "live" else "dstream.binancefuture.com"
@@ -308,6 +317,9 @@ class Handler(BaseHTTPRequestHandler):
             raw = DASHBOARD_HTML.encode()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(raw))); self.end_headers(); return self.wfile.write(raw)
         if parsed.path == "/health": return self.json(200, {"ok": True, "environment": ENVIRONMENT, "mode": MODE})
+        if parsed.path.startswith("/v1/market-data/"):
+            if not (self.dashboard_authorized() or self.authorized()): return self.json(401, {"error": "Unauthorized"})
+            return self.market_file(parsed.path.removeprefix("/v1/market-data/"))
         if parsed.path == "/v1/dashboard" or parsed.path.startswith("/v1/orders/"):
             if not (self.dashboard_authorized() or self.authorized()): return self.json(401, {"error": "Unauthorized"})
         elif not parsed.path.startswith("/v1/market/") and not self.authorized(): return self.json(401, {"error": "Unauthorized"})
@@ -379,24 +391,9 @@ def reconcile_loop() -> None:
         except Exception: logging.exception("background reconciliation failed")
 
 
-def market_backfill_loop() -> None:
-    while True:
-        try:
-            for interval in MARKET_INTERVALS:
-                with database() as db:
-                    oldest = db.execute("SELECT MIN(open_time) FROM market_candles WHERE symbol=? AND interval=?", (MARKET_SYMBOL, interval)).fetchone()[0]
-                params = {"symbol": MARKET_SYMBOL, "interval": interval, "limit": 1000}
-                if oldest: params["endTime"] = int(oldest) - 1
-                rows = ENGINE.client.public("coinm", "/dapi/v1/klines", params)
-                save_candles(MARKET_SYMBOL, interval, rows)
-                time.sleep(MARKET_BACKFILL_INTERVAL)
-        except Exception: logging.exception("market history backfill failed"); time.sleep(5)
-
-
 def main() -> None:
     if not SERVICE_KEY: raise SystemExit("BINANCE_EXECUTION_API_KEY is required.")
     threading.Thread(target=reconcile_loop, daemon=True).start()
-    threading.Thread(target=market_backfill_loop, daemon=True).start()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     logging.info("Binance execution service listening on %s:%s (%s/%s)", HOST, PORT, ENVIRONMENT, MODE)
     server.serve_forever()

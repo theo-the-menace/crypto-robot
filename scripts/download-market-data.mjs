@@ -1,4 +1,4 @@
-import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
@@ -14,7 +14,11 @@ const get = async (path) => {
 const save = async (path, text) => { const file = join(root, path); const temporary = `${file}.${randomUUID()}.tmp`; await mkdir(dirname(file), { recursive: true }); await writeFile(temporary, text); await rename(temporary, file); };
 const manifestPath = 'BTCUSD_PERP/1m/manifest.json';
 const manifestText = await get(manifestPath); const manifest = JSON.parse(manifestText);
-for (const month of manifest.months || []) { await save(`BTCUSD_PERP/1m/${month}.json`, await get(`BTCUSD_PERP/1m/${month}.json`)); console.log(`downloaded ${month}`); }
+const local = JSON.parse(await readFile(join(root, manifestPath), 'utf8').catch(() => '{}')); const current = new Date().toISOString().slice(0, 7);
+for (const month of manifest.months || []) {
+  if (month !== current && local.months?.includes(month)) { console.log(`kept ${month}`); continue; }
+  await save(`BTCUSD_PERP/1m/${month}.json`, await get(`BTCUSD_PERP/1m/${month}.json`)); console.log(`downloaded ${month}`);
+}
 for (const interval of ['5m', '15m', '1h', '4h', '1d', '1w', '1M']) await save(`BTCUSD_PERP/derived/${interval}.json`, await get(`BTCUSD_PERP/derived/${interval}.json`));
 await save(manifestPath, manifestText);
 console.log(`market data ready: ${manifest.rows || 0} rows across ${(manifest.months || []).length} months`);

@@ -80,12 +80,16 @@ export class MarketStore {
     const grouped = new Map();
     for (const row of rows) { const month = monthKey(row[0]); grouped.set(month, [...(grouped.get(month) || []), row]); }
     for (const [month, incoming] of grouped) {
-      const merged = mergeKlines(await this.month(month), incoming);
+      const current = await this.month(month); const merged = mergeKlines(current, incoming);
       this.remember(month, merged);
       if (persist) {
         await mkdir(this.snapshotDirectory, { recursive: true });
         const file = this.snapshotFile(month); const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
         await writeFile(temporary, JSON.stringify(merged), 'utf8'); await rename(temporary, file);
+        const manifestFile = join(this.snapshotDirectory, 'manifest.json'); const manifest = await this.readJson(manifestFile) || { symbol: this.symbol, interval: '1m', rows: 0, months: [] };
+        manifest.rows = Number(manifest.rows || 0) + merged.length - current.length;
+        manifest.months = [...new Set([...(manifest.months || []), month])].sort(); manifest.firstTime ??= Number(merged[0]?.[0]); manifest.lastTime = Math.max(Number(manifest.lastTime || 0), Number(merged.at(-1)?.[0] || 0));
+        const manifestTemporary = `${manifestFile}.${process.pid}.${randomUUID()}.tmp`; await writeFile(manifestTemporary, JSON.stringify(manifest, null, 2)); await rename(manifestTemporary, manifestFile);
       }
     }
   }
