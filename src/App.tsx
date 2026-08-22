@@ -1103,17 +1103,21 @@ function useChartNavigation({
     if (!svg) return;
     let wheelPan = 0;
     const wheel = (event: WheelEvent) => {
-      if (event.ctrlKey && event.deltaY) {
+      if (event.ctrlKey) {
+        // Trackpad pinch events can carry horizontal delta without a vertical delta.
+        // Never let those events fall through to chart panning.
         event.preventDefault();
-        const bounds = svg.getBoundingClientRect();
-        const appliedSteps = event.deltaY < 0 ? -1 : 1;
-        applyZoomRef.current(
-          visibleCountRef.current + appliedSteps,
-          Math.min(
-            1,
-            Math.max(0, (event.clientX - bounds.left) / bounds.width),
-          ),
-        );
+        if (event.deltaY) {
+          const bounds = svg.getBoundingClientRect();
+          const appliedSteps = event.deltaY < 0 ? -1 : 1;
+          applyZoomRef.current(
+            visibleCountRef.current + appliedSteps,
+            Math.min(
+              1,
+              Math.max(0, (event.clientX - bounds.left) / bounds.width),
+            ),
+          );
+        }
         if (zoomSaveTimer.current !== null)
           window.clearTimeout(zoomSaveTimer.current);
         zoomSaveTimer.current = window.setTimeout(saveZoom, 180);

@@ -75,6 +75,7 @@ test('zooms around the gesture center without crossing history bounds', () => {
   assert.equal(zoomWindowOffset(240, 60, 120, 60), 90);
   assert.equal(zoomWindowOffset(240, 0, 120, 145), 0);
   assert.equal(zoomWindowOffset(240, 120, 120, 145), 95);
+  assert.equal(zoomWindowOffset(240, 111, 129, 129), 111);
 });
 
 test('treats gestures within sixty degrees of horizontal as panning', () => {
