@@ -64,17 +64,27 @@ export async function renewGmailWatch() {
   await writeJson(stateFile, { historyId: result.historyId, expiration: result.expiration, updatedAt: Date.now() });
   return result;
 }
-function parseMessage(message) {
+async function parseMessage(message) {
   const headers = Object.fromEntries((message.payload?.headers || []).map((h) => [h.name.toLowerCase(), h.value]));
-  const data = message.payload?.body?.data || message.payload?.parts?.find((part) => part.mimeType === 'text/plain')?.body?.data || '';
-  return { id: message.id, threadId: message.threadId, internalDate: message.internalDate, labelIds: message.labelIds, from: headers.from || '', to: headers.to || '', subject: headers.subject || '', text: decodeBase64Url(data) };
+  const parts = [];
+  const visit = (part) => { if (part?.parts) part.parts.forEach(visit); else if (part) parts.push(part); };
+  visit(message.payload);
+  const textPart = parts.find((part) => part.mimeType === 'text/plain') || parts.find((part) => part.mimeType === 'text/html');
+  const imagePart = parts.find((part) => String(part.mimeType || '').startsWith('image/'));
+  let image;
+  if (imagePart?.body?.data) image = `data:${imagePart.mimeType};base64,${Buffer.from(String(imagePart.body.data).replaceAll('-', '+').replaceAll('_', '/'), 'base64').toString('base64')}`;
+  else if (imagePart?.body?.attachmentId) {
+    const attachment = await gmail(`/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(imagePart.body.attachmentId)}`);
+    image = `data:${imagePart.mimeType};base64,${Buffer.from(String(attachment.data || '').replaceAll('-', '+').replaceAll('_', '/'), 'base64').toString('base64')}`;
+  }
+  return { id: message.id, threadId: message.threadId, internalDate: message.internalDate, labelIds: message.labelIds, from: headers.from || '', to: headers.to || '', subject: headers.subject || '', text: decodeBase64Url(textPart?.body?.data || ''), image };
 }
 export async function handleGmailPush(payload) {
   const data = JSON.parse(decodeBase64Url(payload?.message?.data || ''));
   const state = await readJson(stateFile, {}); const start = state.historyId || data.historyId;
   const history = await gmail(`/history?startHistoryId=${encodeURIComponent(start)}&historyTypes=messageAdded`);
   const ids = [...new Set((history.history || []).flatMap((item) => (item.messagesAdded || []).map((entry) => entry.message?.id)).filter(Boolean))];
-  const messages = (await Promise.all(ids.map((id) => gmail(`/messages/${encodeURIComponent(id)}?format=full`)))).map(parseMessage);
+  const messages = await Promise.all(ids.map(async (id) => parseMessage(await gmail(`/messages/${encodeURIComponent(id)}?format=full`))));
   const existing = await readJson(messagesFile, []); const known = new Set(existing.map((item) => item.id));
   await writeJson(messagesFile, [...existing, ...messages.filter((item) => !known.has(item.id))].slice(-1000));
   for (const message of messages.filter((item) => !known.has(item.id))) await messageHandler?.(message);
@@ -82,9 +92,9 @@ export async function handleGmailPush(payload) {
   return { received: messages.length, historyId: history.historyId || data.historyId };
 }
 export async function syncGmailHistory() {
-  const result = await gmail('/messages?q=from:(cmegroup.com)&maxResults=100');
+  const result = await gmail('/messages?q=from:(cmegroup.com)+OR+subject:(CME+GROUP)&maxResults=100');
   const ids = (result.messages || []).map((item) => item.id);
-  const messages = (await Promise.all(ids.map((id) => gmail(`/messages/${encodeURIComponent(id)}?format=full`)))).map(parseMessage);
+  const messages = await Promise.all(ids.map(async (id) => parseMessage(await gmail(`/messages/${encodeURIComponent(id)}?format=full`))));
   const existing = await readJson(messagesFile, []); const known = new Set(existing.map((item) => item.id));
   await writeJson(messagesFile, [...existing, ...messages.filter((item) => !known.has(item.id))].slice(-1000));
   for (const message of messages.filter((item) => !known.has(item.id))) await messageHandler?.(message);
