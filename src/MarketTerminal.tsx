@@ -187,11 +187,12 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       if (!range || (event.deltaX === 0 && event.deltaY === 0)) return;
       event.preventDefault();
       event.stopPropagation();
-      if (isHorizontalGesture(event.deltaX, event.deltaY)) {
+      if (!event.ctrlKey && isHorizontalGesture(event.deltaX, event.deltaY)) {
         const offset = event.deltaX * (range.to - range.from) / Math.max(element.clientWidth, 1);
         chart.current.timeScale().setVisibleLogicalRange({ from: range.from + offset, to: range.to + offset });
         return;
       }
+      if (event.ctrlKey && !event.deltaY) return;
       const visible = range.to - range.from;
       const minimumVisible = Math.min(candles.length, 2);
       if (event.deltaY < 0 && visible <= minimumVisible) return;
