@@ -130,6 +130,7 @@ type NewsItem = {
   confidence?: number;
   chart?: { symbol?: string | null; interval?: string | null; levels?: Array<{ price: number; label: string }> } | null;
   createdAt: number;
+  publishedAt?: number;
   original?: { subject?: string; from?: string; internalDate?: string };
 };
 type EmergencyState = {
@@ -334,24 +335,14 @@ function MarketPanel({ items, onSelect }: { items: NewsItem[]; onSelect: (item: 
 }
 
 function MarketArticle({ item, onBack }: { item: NewsItem; onBack: () => void }) {
-  const levels = item.chart?.levels || [];
-  const prices = levels.map((level) => Number(level.price)).filter(Number.isFinite);
-  const low = prices.length ? Math.min(...prices) : 0;
-  const high = prices.length ? Math.max(...prices) : 1;
   return <article className="market-article">
     <header className="market-article-header">
       <button className="article-back" onClick={onBack} title="返回对话" aria-label="返回对话"><ArrowLeft size={17} /></button>
-      <div><span>{item.source}</span><time>{new Date(item.createdAt).toLocaleString("zh-CN")}</time></div>
+      <div><span>{item.source}</span><time>{new Date(item.publishedAt || item.createdAt).toLocaleString("zh-CN")}</time></div>
     </header>
     <div className="market-article-body">
       <h1>{item.title}</h1>
-      <div className="article-meta"><span>{item.impact || "neutral"}</span><span>置信度 {Math.round((item.confidence || 0) * 100)}%</span></div>
       <p className="article-summary">{item.summary}</p>
-      {levels.length > 0 && <section className="article-chart" aria-label="消息图表">
-        <div className="article-chart-heading"><strong>{item.chart?.symbol || "Market levels"}</strong><span>{item.chart?.interval || ""}</span></div>
-        <div className="article-chart-axis"><span>{high.toLocaleString()}</span><span>{low.toLocaleString()}</span></div>
-        <div className="article-chart-track">{levels.map((level) => <div className="article-chart-level" key={`${level.price}-${level.label}`} style={{ bottom: `${high === low ? 50 : ((Number(level.price) - low) / (high - low)) * 100}%` }}><i /><span>{level.label} {Number(level.price).toLocaleString()}</span></div>)}</div>
-      </section>}
       {item.analysis && <div className="article-analysis"><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.analysis}</ReactMarkdown></div>}
       {item.original?.subject && <footer className="article-source">原始邮件：{item.original.subject}</footer>}
     </div>
