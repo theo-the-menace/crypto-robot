@@ -196,8 +196,12 @@ export function MarketTerminal() {
 
   useEffect(() => {
     const stream = new EventSource(`${MARKET_BASE}/market/stream?symbol=BTCUSD_PERP`);
-    stream.addEventListener("kline", () => { void history(undefined, 20).then((rows) => setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) }))).catch(() => {}); });
-    return () => stream.close();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    stream.addEventListener("kline", (event) => {
+      if (interval === "1m" || interval === "time") { try { const candle = parseRow(JSON.parse((event as MessageEvent).data).row); setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], [candle]) })); } catch {} return; }
+      clearTimeout(timer); timer = setTimeout(() => { void history(undefined, 2).then((rows) => setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) }))).catch(() => {}); }, 1_000);
+    });
+    return () => { clearTimeout(timer); stream.close(); };
   }, [history, interval]);
 
   useEffect(() => {

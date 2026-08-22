@@ -34,7 +34,8 @@ export class MarketStore {
   }
 
   async manifest() {
-    const snapshot = await this.readJson(join(this.snapshotDirectory, 'manifest.json')) || { months: [] };
+    const snapshot = await this.readJson(join(this.snapshotDirectory, 'manifest.json'));
+    if (!snapshot?.months?.length) throw new Error('Local market data is missing. Run `npm run download:market-data`.');
     const current = monthKey(Date.now());
     const months = [...new Set([...(snapshot.months || []), current])].sort();
     const rows = [];
@@ -81,16 +82,18 @@ export class MarketStore {
     return mergeKlines(fixed, live).slice(-limit);
   }
 
-  async merge(rows) {
+  async merge(rows, { persist = true } = {}) {
     const grouped = new Map();
     for (const row of rows) { const month = monthKey(row[0]); grouped.set(month, [...(grouped.get(month) || []), row]); }
     for (const [month, incoming] of grouped) {
       const merged = mergeKlines(await this.month(month), incoming); const overlay = mergeKlines(this.overlays.get(month) || [], incoming);
       this.remember(month, merged);
       this.overlays.set(month, overlay);
-      await mkdir(this.runtimeDirectory, { recursive: true });
-      const file = this.runtimeFile(month); const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
-      await writeFile(temporary, JSON.stringify(overlay), 'utf8'); await rename(temporary, file);
+      if (persist) {
+        await mkdir(this.runtimeDirectory, { recursive: true });
+        const file = this.runtimeFile(month); const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
+        await writeFile(temporary, JSON.stringify(overlay), 'utf8'); await rename(temporary, file);
+      }
     }
   }
 }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import { aggregateMarketKlines } from './market-aggregate.mjs';
+import { coinMKlineRow } from './index.mjs';
 
 function post(port, path, payload) {
   return new Promise((resolve, reject) => {
@@ -33,6 +34,10 @@ test('keeps missing weekly candles out until source data is repaired', () => {
   ];
   const candles = aggregateMarketKlines(rows, '1w');
   assert.deepEqual(candles.map((row) => [row[0], row[1], row[4], row[5]]), [[Date.UTC(2023, 0, 2), '10', '11', '5'], [Date.UTC(2023, 0, 23), '12', '13', '7']]);
+});
+
+test('normalizes Binance COIN-M websocket klines without losing fields', () => {
+  assert.deepEqual(coinMKlineRow({ k: { s: 'BTCUSD_PERP', i: '1m', t: 1, o: '2', h: '3', l: '1', c: '2.5', v: '4', T: 59_999, q: '5', n: 6, V: '2', Q: '2.5' } }), [1, '2', '3', '1', '2.5', '4', 59_999, '5', 6, '2', '2.5', '0']);
 });
 
 test('an expiring server-side draft can only submit once', async () => {

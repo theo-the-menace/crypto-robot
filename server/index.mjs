@@ -241,10 +241,40 @@ async function refreshMarketTail(symbol = 'BTCUSD_PERP') {
       await marketStore.merge(page); latest = page.at(-1);
       const next = Number(latest?.[0]) + 60_000; if (!Number.isFinite(next) || next <= cursor) break; cursor = next;
     }
-    if (!latest) return;
-    const payload = `event: kline\ndata: ${JSON.stringify({ symbol, interval: '1m', row: latest })}\n\n`;
-    for (const response of marketStreams) response.write(payload);
+    if (latest) broadcastMarketRow(symbol, latest);
   } catch (error) { console.warn('COIN-M tail refresh unavailable', error instanceof Error ? error.message : error); }
+}
+
+function broadcastMarketRow(symbol, row) {
+  const payload = `event: kline\ndata: ${JSON.stringify({ symbol, interval: '1m', row })}\n\n`;
+  for (const response of marketStreams) response.write(payload);
+}
+
+function coinMKlineRow(event) {
+  const row = event?.k;
+  if (!row || row.s !== 'BTCUSD_PERP' || row.i !== '1m') return null;
+  return [row.t, row.o, row.h, row.l, row.c, row.v, row.T, row.q, row.n, row.V, row.Q, '0'];
+}
+
+function startMarketStream(symbol = 'BTCUSD_PERP') {
+  let socket; let retryMs = 1_000; let stopped = false;
+  const reconnect = () => { if (stopped) return; setTimeout(() => { void connect(); }, retryMs); retryMs = Math.min(retryMs * 2, 30_000); };
+  const connect = async () => {
+    if (stopped) return;
+    await refreshMarketTail(symbol);
+    try { socket = new WebSocket(`wss://dstream.binance.com/ws/${symbol.toLowerCase()}@kline_1m`); } catch { reconnect(); return; }
+    socket.addEventListener('open', () => { retryMs = 1_000; });
+    socket.addEventListener('message', (message) => {
+      try {
+        const event = JSON.parse(String(message.data)); const row = coinMKlineRow(event); if (!row) return;
+        void marketStore.merge([row], { persist: Boolean(event.k.x) }).then(() => broadcastMarketRow(symbol, row)).catch((error) => console.warn('COIN-M stream merge unavailable', error instanceof Error ? error.message : error));
+      } catch {}
+    });
+    socket.addEventListener('close', reconnect);
+    socket.addEventListener('error', () => { try { socket.close(); } catch {} });
+  };
+  void connect();
+  return () => { stopped = true; socket?.close(); };
 }
 
 async function orderBookContext(range) {
@@ -643,4 +673,10 @@ export function createCryptoServer() {
   });
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) createCryptoServer().listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void refreshMarketTail(); setInterval(() => { void refreshMarketTail(); }, 10_000); });
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+  const server = createCryptoServer(); let stopMarketStream;
+  server.listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); stopMarketStream = startMarketStream(); });
+  server.on('close', () => stopMarketStream?.());
+}
+
+export { coinMKlineRow };

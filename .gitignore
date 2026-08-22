@@ -8,3 +8,4 @@ reference-project/
 __pycache__/
 *.pyc
 .cache/
+data/
