@@ -64,6 +64,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
   const followLatest = useRef(true);
   const seriesKind = useRef<boolean | null>(null);
   const restoring = useRef(false);
+  const restoreTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastLoggedRange = useRef(0);
 
   useLayoutEffect(() => {
@@ -75,10 +76,10 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     volume.current.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
     const colors: Record<string, string> = { ma7: "#f6c945", ma25: "#58a6ff", ma60: "#c678dd", ma99: "#f08c46", ema200: "#f97316", ema21: "#22c55e", bbMiddle: "#aab6c5", bbUpper: "#64748b", bbLower: "#64748b" };
     for (const [name, color] of Object.entries(colors)) overlays.current[name] = chart.current.addSeries(LineSeries, { color, lineWidth: name.startsWith("bb") ? 1 : 2, lineStyle: name === "bbMiddle" ? 0 : 2, lastValueVisible: false, priceLineVisible: false });
-    return () => chart.current?.remove();
+    return () => { clearTimeout(restoreTimer.current); chart.current?.remove(); };
   }, []);
 
-  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; followLatest.current = !initialRange; chartTrace("period-change", { period, saved: initialRange || null }); }, [period]);
+  useLayoutEffect(() => { clearTimeout(restoreTimer.current); restoring.current = false; previous.current = []; restoredRange.current = initialRange; followLatest.current = !initialRange; chartTrace("period-change", { period, saved: initialRange || null }); }, [period]);
 
   useLayoutEffect(() => {
     if (!series.current) return;
@@ -113,11 +114,16 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
           chartTrace("restore-target", { period, saved: savedRange, target, candles: candles.length });
           restoring.current = true;
           chart.current.timeScale().setVisibleLogicalRange(target);
-          requestAnimationFrame(() => { restoring.current = false; chartTrace("restore-actual", { period, target, actual: chart.current.timeScale().getVisibleLogicalRange() }); });
+          clearTimeout(restoreTimer.current);
+          restoreTimer.current = setTimeout(() => { restoring.current = false; chartTrace("restore-actual", { period, target, actual: chart.current.timeScale().getVisibleLogicalRange() }); }, 250);
         }
         else {
           const visible = Math.min(defaultVisible[period] || 160, bars.length);
-          chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - visible), to: bars.length + 5 });
+          restoring.current = true;
+          const target = { from: Math.max(0, bars.length - visible), to: bars.length + 5 };
+          chart.current.timeScale().setVisibleLogicalRange(target);
+          clearTimeout(restoreTimer.current);
+          restoreTimer.current = setTimeout(() => { restoring.current = false; chartTrace("default-actual", { period, target, actual: chart.current.timeScale().getVisibleLogicalRange() }); }, 250);
         }
       }
       else if (prepend && range) chart.current.timeScale().setVisibleLogicalRange({ from: range.from + prepend, to: range.to + prepend });
