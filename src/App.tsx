@@ -298,8 +298,7 @@ function modelLabel(model: ModelId, prefix = "GPT-") {
   return `${prefix}${family[0].toUpperCase()}${family.slice(1)}`;
 }
 
-function MarketPanel({ items }: { items: NewsItem[] }) {
-  const [open, setOpen] = useState<string | null>(null);
+function MarketPanel({ items, onSelect }: { items: NewsItem[]; onSelect: (item: NewsItem) => void }) {
   return (
     <section className="market-panel" aria-label="市场动态">
       <div className="section-title">
@@ -309,9 +308,9 @@ function MarketPanel({ items }: { items: NewsItem[] }) {
         {items.length ? (
           items.map((item) => (
             <article
-              className={`market-event market-message${open === item.id ? " open" : ""}`}
+              className="market-event market-message"
               key={item.id}
-              onClick={() => setOpen(open === item.id ? null : item.id)}
+              onClick={() => onSelect(item)}
             >
               <div>
                 <span>{item.source}</span>
@@ -324,11 +323,6 @@ function MarketPanel({ items }: { items: NewsItem[] }) {
               </div>
               <strong>{item.title}</strong>
               <p>{item.summary}</p>
-              {open === item.id && <div className="market-message-detail">
-                {item.analysis && <ReactMarkdown>{item.analysis}</ReactMarkdown>}
-                {item.chart?.levels?.length ? <div className="market-message-levels">{item.chart.levels.map((level) => <span key={`${level.price}-${level.label}`}>{level.label}: {level.price}</span>)}</div> : null}
-                <small>{item.original?.subject || ""}</small>
-              </div>}
             </article>
           ))
         ) : (
@@ -337,6 +331,31 @@ function MarketPanel({ items }: { items: NewsItem[] }) {
       </div>
     </section>
   );
+}
+
+function MarketArticle({ item, onBack }: { item: NewsItem; onBack: () => void }) {
+  const levels = item.chart?.levels || [];
+  const prices = levels.map((level) => Number(level.price)).filter(Number.isFinite);
+  const low = prices.length ? Math.min(...prices) : 0;
+  const high = prices.length ? Math.max(...prices) : 1;
+  return <article className="market-article">
+    <header className="market-article-header">
+      <button className="article-back" onClick={onBack} title="返回对话" aria-label="返回对话"><ArrowLeft size={17} /></button>
+      <div><span>{item.source}</span><time>{new Date(item.createdAt).toLocaleString("zh-CN")}</time></div>
+    </header>
+    <div className="market-article-body">
+      <h1>{item.title}</h1>
+      <div className="article-meta"><span>{item.impact || "neutral"}</span><span>置信度 {Math.round((item.confidence || 0) * 100)}%</span></div>
+      <p className="article-summary">{item.summary}</p>
+      {levels.length > 0 && <section className="article-chart" aria-label="消息图表">
+        <div className="article-chart-heading"><strong>{item.chart?.symbol || "Market levels"}</strong><span>{item.chart?.interval || ""}</span></div>
+        <div className="article-chart-axis"><span>{high.toLocaleString()}</span><span>{low.toLocaleString()}</span></div>
+        <div className="article-chart-track">{levels.map((level) => <div className="article-chart-level" key={`${level.price}-${level.label}`} style={{ bottom: `${high === low ? 50 : ((Number(level.price) - low) / (high - low)) * 100}%` }}><i /><span>{level.label} {Number(level.price).toLocaleString()}</span></div>)}</div>
+      </section>}
+      {item.analysis && <div className="article-analysis"><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.analysis}</ReactMarkdown></div>}
+      {item.original?.subject && <footer className="article-source">原始邮件：{item.original.subject}</footer>}
+    </div>
+  </article>;
 }
 
 function EmergencyPanel({
@@ -3100,6 +3119,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   useEffect(() => {
     let active = true;
     fetch("/api/market/messages?limit=100", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((body) => { if (active && body?.messages) setNews(body.messages); }).catch(() => {});
@@ -3266,6 +3286,7 @@ export function App() {
     setInput("");
     setAttachment(null);
     setError("");
+    setSelectedNews(null);
   }
   function openSession(session: ChatSession) {
     setActiveSessionId(session.id);
@@ -3430,7 +3451,7 @@ export function App() {
               )}
             </div>
           </nav>
-          <MarketPanel items={news} />
+          <MarketPanel items={news} onSelect={setSelectedNews} />
         </div>
         <button
           className="settings-entry"
@@ -3460,7 +3481,7 @@ export function App() {
         </button>
       )}
       <section className="conversation">
-        <div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
+        {selectedNews ? <MarketArticle item={selectedNews} onBack={() => setSelectedNews(null)} /> : <><div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
           {!messages.length && (
             <div className="empty">
               <Bot size={32} />
@@ -3670,7 +3691,7 @@ export function App() {
               <SendHorizontal size={19} />
             </button>
           </div>
-        </div>
+        </div></>}
       </section>
       <aside className="market-rail">
         <button

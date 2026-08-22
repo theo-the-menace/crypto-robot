@@ -1,4 +1,17 @@
 import { execFileSync, spawn } from 'node:child_process';
+import { loadEnvFile } from 'node:process';
+
+try { loadEnvFile('.env'); } catch {}
+
+const apiUrl = (process.env.CRYPTO_AGENT_API_URL || '').replace(/\/$/, '');
+if (apiUrl) {
+  try {
+    const response = await fetch(`${apiUrl}/api/status`, { signal: AbortSignal.timeout(5_000) });
+    console.log(`Remote CryptoAgent API: ${response.ok ? 'healthy' : `HTTP ${response.status}`}`);
+  } catch (error) {
+    console.warn(`Remote CryptoAgent API unavailable: ${error instanceof Error ? error.message : 'request failed'}`);
+  }
+}
 
 for (const port of [8888, 8889]) {
   try {
