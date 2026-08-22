@@ -111,6 +111,20 @@ type Message = {
   draft?: Draft;
   order?: Record<string, unknown>;
 };
+const terminalCommandReply = (value: string) => {
+  const command = value.trim().toLowerCase();
+  if (!/^[a-z-]+$/.test(command)) return null;
+  if (command === "help") return "chart-log\nhelp";
+  if (command !== "chart-log") return null;
+  try {
+    return JSON.parse(localStorage.getItem("crypto-robot-chart-switch-log-v1") || "[]")
+      .slice(-30)
+      .map((item: unknown) => JSON.stringify(item))
+      .join("\n") || "no chart logs";
+  } catch {
+    return "chart log unavailable";
+  }
+};
 type ChatSession = {
   id: string;
   title: string;
@@ -3320,6 +3334,17 @@ export function App() {
     setMessages(baseMessages);
     setInput("");
     setAttachment(null);
+    const commandReply = !sentAttachment ? terminalCommandReply(content) : null;
+    if (commandReply !== null) {
+      const assistant: Message = { id: crypto.randomUUID(), role: "assistant", content: commandReply };
+      const nextMessages = [...baseMessages, assistant];
+      setMessages(nextMessages);
+      setSessions((existing) => [
+        { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
+        ...existing.filter((item) => item.id !== sessionId),
+      ]);
+      return;
+    }
     setBusy(true);
     setError("");
     try {

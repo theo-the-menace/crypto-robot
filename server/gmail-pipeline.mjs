@@ -11,7 +11,15 @@ function prompt(message) { return `你是一位资深的加密货币与衍生品
 export async function analyzeGmailMessage(message) {
   const content = message.image && validImageDataUrl(message.image) ? [{ type: 'text', text: prompt(message) }, { type: 'image_url', image_url: { url: message.image } }] : prompt(message);
   const raw = String(process.env.GMAIL_LLM_DIRECT === 'true' ? await completeWithOverseasStrategy({ content }) : await fetch(`${baseUrl}/v1/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ model, reasoning_effort: 'medium', messages: [{ role: 'system', content }], temperature: 0 }), signal: AbortSignal.timeout(45_000) }).then(async (response) => { const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error?.message || `LLM gateway failed (${response.status}).`); return body.choices?.[0]?.message?.content || ''; })).replace(/^```json\s*|\s*```$/g, '').trim();
-  const result = JSON.parse(raw);
+  let result;
+  try { result = JSON.parse(raw); } catch {
+    const start = raw.indexOf('{'); const end = raw.lastIndexOf('}');
+    if (start < 0 || end <= start) result = { relevant: true, title: message.subject || 'CME Group market update', summary: raw.slice(0, 800), analysis: raw, impact: 'neutral', confidence: 0 };
+    else {
+      try { result = JSON.parse(raw.slice(start, end + 1)); }
+      catch { result = { relevant: true, title: message.subject || 'CME Group market update', summary: raw.slice(0, 800), analysis: raw, impact: 'neutral', confidence: 0 }; }
+    }
+  }
   if (typeof result.relevant !== 'boolean') throw new Error('LLM returned an invalid market-message result.');
   return result;
 }
