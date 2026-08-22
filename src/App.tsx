@@ -58,7 +58,6 @@ import {
   type KlineRow,
 } from "./chart-data";
 import { aggregateAssetBalances } from "./asset-summary";
-import { ChatSidebar } from "./chat-ui";
 import { MarketTerminal as MarketChart } from "./MarketTerminal";
 
 type ModelId = "gpt-5.6-luna" | "gpt-5.6-sol" | "gpt-5.6-terra";
@@ -108,21 +107,6 @@ type Message = {
   product?: "spot" | "margin" | "futures";
   draft?: Draft;
   order?: Record<string, unknown>;
-};
-
-const terminalCommandReply = (value: string) => {
-  const command = value.trim().toLowerCase();
-  if (!/^[a-z-]+$/.test(command)) return null;
-  if (command === "help") return "chart-log\nhelp";
-  if (command !== "chart-log") return null;
-  try {
-    return JSON.parse(localStorage.getItem("crypto-robot-chart-switch-log-v1") || "[]")
-      .slice(-30)
-      .map((item: unknown) => JSON.stringify(item))
-      .join("\n") || "no chart logs";
-  } catch {
-    return "chart log unavailable";
-  }
 };
 type ChatSession = {
   id: string;
@@ -2674,8 +2658,7 @@ function AssetWorkspace({
   onMarketContext: (context: MarketContext) => void;
 }) {
   return <MarketChart />;
-  /* The reference asset workspace is intentionally disabled: the right rail is
-     now owned by the project's market chart. */
+  /* The reference crypto-agent asset UI remains below for the non-chart surfaces. */
   const [bottomTab, setBottomTab] = useState("assets");
   const [assetTab, setAssetTab] = useState<AssetTab>("overview");
   const [overviewTab, setOverviewTab] = useState<"all" | "accounts">("all");
@@ -3059,9 +3042,6 @@ export function App() {
   const modelPickerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const messagesRef = useRef<HTMLDivElement | null>(null);
-  const followingMessages = useRef(true);
-  const [showLatest, setShowLatest] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
       return JSON.parse(
@@ -3085,20 +3065,10 @@ export function App() {
     textarea.style.height = `${height}px`;
     textarea.style.overflowY = textarea.scrollHeight > 144 ? "auto" : "hidden";
   }, [input]);
-  useLayoutEffect(() => {
-    if (followingMessages.current && messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [messages]);
-  const onMessagesScroll = () => {
-    const node = messagesRef.current;
-    if (!node) return;
-    followingMessages.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
-    setShowLatest(!followingMessages.current);
-  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const news: NewsItem[] = [];
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [deleteSession, setDeleteSession] = useState<ChatSession | null>(null);
   const [leftWidth, setLeftWidth] = useState(() =>
     Math.min(
       window.innerWidth * 0.2,
@@ -3254,13 +3224,6 @@ export function App() {
     setAttachment(null);
     setError("");
   }
-  function confirmDeleteSession() {
-    if (!deleteSession) return;
-    const id = deleteSession.id;
-    setSessions((current) => current.filter((session) => session.id !== id));
-    if (activeSessionId === id) newChat();
-    setDeleteSession(null);
-  }
 
   async function send() {
     const content = input.trim() || (attachment ? "请分析这张图片。" : "");
@@ -3279,17 +3242,6 @@ export function App() {
     setMessages(baseMessages);
     setInput("");
     setAttachment(null);
-    const commandReply = !sentAttachment ? terminalCommandReply(content) : null;
-    if (commandReply !== null) {
-      const assistant: Message = { id: crypto.randomUUID(), role: "assistant", content: commandReply };
-      const nextMessages = [...baseMessages, assistant];
-      setMessages(nextMessages);
-      setSessions((existing) => [
-        { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
-        ...existing.filter((item) => item.id !== sessionId),
-      ]);
-      return;
-    }
     setBusy(true);
     setError("");
     try {
@@ -3364,7 +3316,66 @@ export function App() {
       className={`terminal-shell ${leftCollapsed ? "left-collapsed" : ""} ${rightCollapsed ? "right-collapsed" : ""} ${resizing ? "is-resizing" : ""}`}
       style={shellStyle}
     >
-      {!leftCollapsed && <ChatSidebar brand="CryptoAgent" brandIcon={<CircleDollarSign size={21} />} sessions={sessions as never} activeSessionId={activeSessionId} width={leftWidth} onWidthChange={setLeftWidth} onCollapse={() => setLeftCollapsed(true)} onNewChat={newChat} onSelectSession={(id) => { const session = sessions.find((item) => item.id === id); if (session) openSession(session); }} onSettings={() => setSettingsOpen(true)} onDelete={(session) => setDeleteSession(sessions.find((item) => item.id === session.id) || session as never)} />}
+      <aside className="portfolio">
+        <header>
+          <CircleDollarSign size={23} />
+          <div>
+            <strong>CryptoAgent</strong>
+          </div>
+          <button
+            className="sidebar-toggle left-panel-toggle"
+            title="隐藏左侧栏"
+            aria-label="隐藏左侧栏"
+            onClick={() => setLeftCollapsed(true)}
+          >
+            <PanelLeftClose size={17} />
+          </button>
+        </header>
+        <button className="new-chat" onClick={newChat}>
+          <Plus size={17} />
+          New chat
+        </button>
+        <div className="sidebar-lists">
+          <nav className="recents" aria-label="最近对话">
+            <div className="section-title">
+              <span>Recents</span>
+            </div>
+            <div className="recents-list">
+              {sessions.length ? (
+                sessions.map((session) => (
+                  <button
+                    className={activeSessionId === session.id ? "active" : ""}
+                    key={session.id}
+                    onClick={() => openSession(session)}
+                  >
+                    <MessageSquare size={14} />
+                    <span>{session.title}</span>
+                  </button>
+                ))
+              ) : (
+                <p>暂无最近对话</p>
+              )}
+            </div>
+          </nav>
+          <MarketPanel items={news} />
+        </div>
+        <button
+          className="settings-entry"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <Settings2 size={16} />
+          设置与外观
+        </button>
+        <button
+          className="resize-handle left-resize"
+          title="调整左侧栏宽度"
+          aria-label="调整左侧栏宽度"
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setResizing("left");
+          }}
+        />
+      </aside>
       {leftCollapsed && (
         <button
           className="sidebar-reopen left-reopen"
@@ -3376,7 +3387,21 @@ export function App() {
         </button>
       )}
       <section className="conversation">
-        <div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
+        <div className="conversation-top">
+          <div>
+            <Bot size={18} />
+            <strong>
+              {activeSessionId
+                ? sessions.find((item) => item.id === activeSessionId)?.title ||
+                  "交易对话"
+                : "新对话"}
+            </strong>
+          </div>
+          <div className="top-actions">
+            <span>{status?.environment === "live" ? "LIVE" : "TESTNET"}</span>
+          </div>
+        </div>
+        <div className="messages">
           {!messages.length && (
             <div className="empty">
               <Bot size={32} />
@@ -3434,7 +3459,6 @@ export function App() {
             </article>
           )}
           {error && <div className="global-error">{error}</div>}
-          <button className={showLatest ? "scroll-down visible" : "scroll-down"} title="回到底部" aria-label="回到底部" onClick={() => { followingMessages.current = true; messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" }); setShowLatest(false); }}><ChevronDown size={18} /></button>
         </div>
         <div className="composer-wrap">
           <div className="composer">
@@ -3663,19 +3687,6 @@ export function App() {
                   {label}
                 </button>
               ))}
-            </div>
-          </section>
-        </div>
-      )}
-      {deleteSession && (
-        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setDeleteSession(null); }}>
-          <section className="settings-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-session-title">
-            <button className="dialog-close" title="关闭" aria-label="关闭" onClick={() => setDeleteSession(null)}><X size={18} /></button>
-            <h2 id="delete-session-title">删除对话</h2>
-            <p>确定删除“{deleteSession.title}”吗？此操作无法撤销。</p>
-            <div className="delete-actions">
-              <button onClick={() => setDeleteSession(null)}>取消</button>
-              <button className="delete-confirm" onClick={confirmDeleteSession}>删除</button>
             </div>
           </section>
         </div>
