@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AreaSeries, CandlestickSeries, ColorType, createChart, HistogramSeries, LineSeries, TickMarkType } from "lightweight-charts";
-import { bollinger, carryForward, ema, sma, type IndicatorPoint } from "./chart-data";
+import { bollinger, carryForward, ema, isHorizontalGesture, sma, type IndicatorPoint } from "./chart-data";
 import { readMarketWindow, writeMarketWindow } from "./market-db";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
@@ -187,8 +187,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       if (!range || (event.deltaX === 0 && event.deltaY === 0)) return;
       event.preventDefault();
       event.stopPropagation();
-      const horizontalDominant = Math.abs(event.deltaX) > Math.abs(event.deltaY);
-      if (!event.ctrlKey && horizontalDominant) {
+      if (!event.ctrlKey && isHorizontalGesture(event.deltaX, event.deltaY)) {
         const offset = event.deltaX * (range.to - range.from) / Math.max(element.clientWidth, 1);
         chart.current.timeScale().setVisibleLogicalRange({ from: range.from + offset, to: range.to + offset });
         return;
