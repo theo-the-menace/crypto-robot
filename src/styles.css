@@ -33,9 +33,12 @@ button { cursor: pointer; }
 .recents { display: grid; min-height: 0; grid-template-rows: auto minmax(0, 1fr); margin: 0; padding: 0 6px 10px; }
 .recents .section-title { padding: 0 5px; }
 .recents-list { min-height: 0; overflow: auto; }
-.recents-list > button { display: flex; width: 100%; align-items: center; gap: 9px; border: 0; border-radius: 5px; padding: 9px 8px; color: var(--muted); background: transparent; font-size: 12px; text-align: left; }
-.recents-list > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recents-list > button:hover, .recents-list > button.active { color: var(--ink); background: var(--panel-muted); }
+.recent-row { display: flex; width: 100%; align-items: center; border-radius: 5px; color: var(--muted); }
+.recent-row:hover, .recent-row.active { color: var(--ink); background: var(--panel-muted); }
+.recent-open { display: flex; min-width: 0; flex: 1; align-items: center; gap: 9px; border: 0; padding: 9px 8px; color: inherit; background: transparent; font-size: 12px; text-align: left; }
+.recent-open span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-menu { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 4px; color: var(--muted); background: transparent; }
+.recent-menu:hover { color: var(--ink); background: var(--border); }
 .recents-list > p { padding: 0 6px; color: var(--muted); font-size: 11px; }
 .connection { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 12px 4px; font-size: 12px; }
 .connection > div { display: flex; align-items: center; gap: 7px; font-weight: 650; }
@@ -136,6 +139,11 @@ button { cursor: pointer; }
 .settings-dialog label { display: block; margin-bottom: 9px; color: var(--muted); font-size: 12px; font-weight: 650; }
 .dialog-close { position: absolute; top: 18px; right: 18px; display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 5px; padding: 0; color: var(--muted); background: transparent; }
 .dialog-close:hover { color: var(--ink); background: var(--panel-muted); }
+.delete-dialog p { margin: 0 0 22px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.delete-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.delete-actions button { min-width: 72px; border: 1px solid var(--border); border-radius: 5px; padding: 8px 12px; color: var(--ink); background: var(--panel); }
+.delete-actions button:hover { background: var(--panel-muted); }
+.delete-actions .delete-confirm { border-color: #b64b45; color: #fff; background: #b64b45; }
 .theme-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .theme-options button { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--border); border-radius: 5px; padding: 9px 7px; color: var(--ink); background: var(--panel); font-size: 12px; }
 .theme-options button:hover, .theme-options button.selected { border-color: var(--action); color: var(--action-ink); background: var(--action); }

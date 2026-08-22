@@ -3085,6 +3085,7 @@ export function App() {
   const [error, setError] = useState("");
   const news: NewsItem[] = [];
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteSession, setDeleteSession] = useState<ChatSession | null>(null);
   const [leftWidth, setLeftWidth] = useState(() =>
     Math.min(
       window.innerWidth * 0.2,
@@ -3240,6 +3241,13 @@ export function App() {
     setAttachment(null);
     setError("");
   }
+  function confirmDeleteSession() {
+    if (!deleteSession) return;
+    const id = deleteSession.id;
+    setSessions((current) => current.filter((session) => session.id !== id));
+    if (activeSessionId === id) newChat();
+    setDeleteSession(null);
+  }
 
   async function send() {
     const content = input.trim() || (attachment ? "请分析这张图片。" : "");
@@ -3370,14 +3378,15 @@ export function App() {
             <div className="recents-list">
               {sessions.length ? (
                 sessions.map((session) => (
-                  <button
-                    className={activeSessionId === session.id ? "active" : ""}
-                    key={session.id}
-                    onClick={() => openSession(session)}
-                  >
-                    <MessageSquare size={14} />
-                    <span>{session.title}</span>
-                  </button>
+                  <div className={`recent-row ${activeSessionId === session.id ? "active" : ""}`} key={session.id}>
+                    <button className="recent-open" onClick={() => openSession(session)}>
+                      <MessageSquare size={14} />
+                      <span>{session.title}</span>
+                    </button>
+                    <button className="recent-menu" title="更多操作" aria-label={`删除会话 ${session.title}`} onClick={(event) => { event.stopPropagation(); setDeleteSession(session); }}>
+                      <MoreHorizontal size={16} />
+                    </button>
+                  </div>
                 ))
               ) : (
                 <p>暂无最近对话</p>
@@ -3700,6 +3709,19 @@ export function App() {
                   {label}
                 </button>
               ))}
+            </div>
+          </section>
+        </div>
+      )}
+      {deleteSession && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setDeleteSession(null); }}>
+          <section className="settings-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-session-title">
+            <button className="dialog-close" title="关闭" aria-label="关闭" onClick={() => setDeleteSession(null)}><X size={18} /></button>
+            <h2 id="delete-session-title">删除对话</h2>
+            <p>确定删除“{deleteSession.title}”吗？此操作无法撤销。</p>
+            <div className="delete-actions">
+              <button onClick={() => setDeleteSession(null)}>取消</button>
+              <button className="delete-confirm" onClick={confirmDeleteSession}>删除</button>
             </div>
           </section>
         </div>
