@@ -102,9 +102,13 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     chartTrace("data-update", { period, old: old.length, next: candles.length, first: candles[0]?.time, last: candles.at(-1)?.time });
     const prepend = old.length && candles[0].time < old[0].time ? candles.findIndex((item) => item.time === old[0].time) : 0;
     const sameWindow = old.length === candles.length && old[0]?.time === candles[0].time && old.at(-2)?.time === candles.at(-2)?.time;
-    if (sameWindow) { series.current.update(bars.at(-1)); volume.current.update(volumes.at(-1)); }
+    const range = chart.current.timeScale().getVisibleLogicalRange();
+    if (sameWindow) {
+      if (range) restoring.current = true;
+      series.current.update(bars.at(-1)); volume.current.update(volumes.at(-1));
+      if (range) { chart.current.timeScale().setVisibleLogicalRange(range); clearTimeout(restoreTimer.current); restoreTimer.current = setTimeout(() => { restoring.current = false; }, 50); }
+    }
     else {
-      const range = chart.current.timeScale().getVisibleLogicalRange();
       if (!old.length) restoring.current = true;
       series.current.setData(bars); volume.current.setData(volumes);
       if (!old.length) {
