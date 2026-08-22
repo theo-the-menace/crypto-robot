@@ -333,8 +333,8 @@ export function MarketTerminal() {
   const run = () => runCommand(command);
   useEffect(() => {
     const receive = (event: Event) => runCommand(String((event as CustomEvent).detail || ""));
-    window.addEventListener("crypto-terminal-command", receive);
-    return () => window.removeEventListener("crypto-terminal-command", receive);
+    globalThis.addEventListener("crypto-terminal-command", receive);
+    return () => globalThis.removeEventListener("crypto-terminal-command", receive);
   });
 
   const fundingRate = Number(funding?.lastFundingRate);
