@@ -3093,6 +3093,16 @@ export function App() {
   const news: NewsItem[] = [];
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sessionMenu) return;
+    const closeMenu = (event: PointerEvent) => {
+      if (!(event.target as Element).closest?.(".chat-session-more")) {
+        setSessionMenu(null);
+      }
+    };
+    document.addEventListener("pointerdown", closeMenu);
+    return () => document.removeEventListener("pointerdown", closeMenu);
+  }, [sessionMenu]);
   const [leftWidth, setLeftWidth] = useState(() =>
     Math.min(
       window.innerWidth * 0.2,
