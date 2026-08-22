@@ -21,6 +21,7 @@ const zoomLimits: Record<string, { min: number; max: number }> = {
   time: { min: 30, max: 2_000 }, "1m": { min: 30, max: 2_000 }, "5m": { min: 30, max: 2_000 }, "15m": { min: 30, max: 2_000 },
   "1h": { min: 24, max: 1_500 }, "4h": { min: 20, max: 1_200 }, "1d": { min: 20, max: 1_000 }, "1w": { min: 12, max: 520 }, "1M": { min: 6, max: 120 },
 };
+const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80, "1M": 60 };
 const uiKey = "crypto-robot-terminal-ui-v4";
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
@@ -44,7 +45,7 @@ const formatChinaTick = (time: number, type: TickMarkType) => {
   if (type === TickMarkType.DayOfMonth) return `${Number(parts.month)}-${Number(parts.day)}`;
   return `${parts.hour}:${parts.minute}`;
 };
-function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRange, onRangeChange, period }: { candles: Candle[]; loadOlder: () => Promise<void>; resetViewport: boolean; line: boolean; indicators: Record<string, IndicatorPoint[]>; initialRange?: TimeRange; onRangeChange: (range: TimeRange) => void; period: string }) {
+function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChange, period }: { candles: Candle[]; loadOlder: () => Promise<void>; line: boolean; indicators: Record<string, IndicatorPoint[]>; initialRange?: TimeRange; onRangeChange: (range: TimeRange) => void; period: string }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<any>(null);
   const series = useRef<any>(null);
@@ -52,7 +53,6 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
   const overlays = useRef<Record<string, any>>({});
   const previous = useRef<Candle[]>([]);
   const loading = useRef(false);
-  const resetApplied = useRef(false);
   const restoredRange = useRef(initialRange);
   const clampingRange = useRef(false);
 
@@ -67,7 +67,7 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
     return () => chart.current?.remove();
   }, []);
 
-  useLayoutEffect(() => { previous.current = []; resetApplied.current = false; restoredRange.current = initialRange; }, [period]);
+  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; }, [period, initialRange]);
 
   useLayoutEffect(() => {
     if (!series.current || !candles.length) return;
@@ -80,16 +80,18 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
     else {
       const range = chart.current.timeScale().getVisibleLogicalRange();
       series.current.setData(bars); volume.current.setData(volumes);
-      if (!old.length || (resetViewport && !resetApplied.current)) {
+      if (!old.length) {
         const savedRange = restoredRange.current;
         if (savedRange) chart.current.timeScale().setVisibleRange({ from: savedRange.from / 1000, to: savedRange.to / 1000 });
-        else chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 5 });
-        resetApplied.current = resetViewport;
+        else {
+          const visible = Math.min(defaultVisible[period] || 160, bars.length);
+          chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - visible), to: bars.length + 5 });
+        }
       }
       else if (prepend && range) chart.current.timeScale().setVisibleLogicalRange({ from: range.from + prepend, to: range.to + prepend });
     }
     previous.current = candles;
-  }, [candles, resetViewport, line, initialRange]);
+  }, [candles, line, initialRange, period]);
 
   useLayoutEffect(() => {
     for (const [name, series] of Object.entries(overlays.current)) series.setData((indicators[name] || []).map((point) => ({ time: Math.floor(point.time / 1000) as any, value: point.value })));
@@ -163,7 +165,6 @@ export function MarketTerminal() {
   const [interval, setIntervalValue] = useState(initialUi.interval);
   const [candleSets, setCandleSets] = useState<Record<string, Candle[]>>({});
   const [funding, setFunding] = useState<Funding | null>(null);
-  const [loadedInterval, setLoadedInterval] = useState<string | null>(null);
   const [daily, setDaily] = useState<Candle[]>([]);
   const [weekly, setWeekly] = useState<Candle[]>([]);
   const [enabled, setEnabled] = useState<Record<IndicatorName, boolean>>(initialUi.enabled);
@@ -206,14 +207,13 @@ export function MarketTerminal() {
   }, [history, interval]);
 
   useEffect(() => {
-    setLoadedInterval(null);
     let active = true;
     void (async () => {
       try {
         const saved = rangesRef.current[interval]; const span = saved ? saved.to - saved.from : intervalMs[interval] * 500;
         const rows = saved ? await window(Math.max(0, saved.from - span), saved.to + span) : await history(undefined, 1_000);
         if (!active) return;
-        setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) })); setLoadedInterval(interval);
+        setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) }));
       } catch (error) { setLines((current) => [...current, { kind: "error", text: error instanceof Error ? error.message : "history unavailable" }]); }
     })();
     return () => { active = false; };
@@ -279,6 +279,6 @@ export function MarketTerminal() {
   const indicators: Record<string, IndicatorPoint[]> = { ma7: enabled.ma7 ? sma(rows(candles), 7) : [], ma25: enabled.ma25 ? sma(rows(candles), 25) : [], ma60: enabled.ma60 ? sma(rows(candles), 60) : [], ma99: enabled.ma99 ? sma(rows(candles), 99) : [], ema200: enabled.ema200 ? carryForward(ema(rows(daily), 200), candles.map((item) => item.time)) : [], ema21: enabled.ema21 ? carryForward(ema(rows(weekly), 21), candles.map((item) => item.time)) : [], bbMiddle: enabled.bb ? bb.middle : [], bbUpper: enabled.bb ? bb.upper : [], bbLower: enabled.bb ? bb.lower : [] };
   const toggle = (name: IndicatorName) => setEnabled((current) => ({ ...current, [name]: !current[name] }));
   const onRangeChange = (range: TimeRange) => { rangesRef.current[interval] = range; localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); };
-  const selectInterval = (next: string) => { if (rangesRef.current[interval]) rangesRef.current[next] = rangesRef.current[interval]; setIntervalValue(next); };
-  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav><Chart key={interval === "time" ? "time" : "candles"} candles={candles} loadOlder={loadOlder} resetViewport={loadedInterval === interval} line={interval === "time"} indicators={indicators} initialRange={rangesRef.current[interval]} onRangeChange={onRangeChange} period={interval} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()} onPointerDown={(event) => event.stopPropagation()}><div className="output" ref={output}>{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => event.stopPropagation()} autoComplete="off" spellCheck={false} /></form></section></main>;
+  const selectInterval = (next: string) => setIntervalValue(next);
+  return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav><Chart candles={candles} loadOlder={loadOlder} line={interval === "time"} indicators={indicators} initialRange={rangesRef.current[interval]} onRangeChange={onRangeChange} period={interval} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()} onPointerDown={(event) => event.stopPropagation()}><div className="output" ref={output}>{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => event.stopPropagation()} autoComplete="off" spellCheck={false} /></form></section></main>;
 }
