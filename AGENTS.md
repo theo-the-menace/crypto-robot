@@ -27,6 +27,18 @@ Rules:
 - Pick the edge-case-correct option when two stdlib approaches are the same size, lazy means less code, not the flimsier algorithm.
 - Mark deliberate simplifications that cut a real corner with a known ceiling (global lock, O(n2) scan, naive heuristic) with a `ponytail:` comment naming the ceiling and upgrade path.
 
+External request budget:
+
+- Treat every external API request as rate-limited, even when the provider does not publish a limit. Prefer local files, local state, and cached responses.
+- One server process owns each upstream WebSocket. Browsers and other clients consume the server's local API/SSE; they do not open duplicate upstream connections.
+- Use WebSocket events for live state. Do not simulate realtime data with REST polling when an upstream stream exists.
+- Never issue external REST requests from rendering, scrolling, zooming, interval changes, browser refresh loops, or WebSocket reconnect loops.
+- Before adding a timer or retry, document its trigger and worst-case request rate. Deduplicate concurrent calls, use exponential backoff with jitter, and stop retrying on rate-limit or ban responses until the provider's retry time.
+- Reconnects must resume from local state. Any REST reconciliation is explicit, bounded, cached, and infrequent; it must not run before every reconnect.
+- Fan out one fetched result to all local consumers. Do not let each browser tab, component, or caller independently query the same upstream resource.
+- Tests and development tools must not contact live provider APIs by default. Use fixtures or mocked fetches unless a command explicitly declares itself as a live sync/download operation.
+- Any code review involving `fetch`, WebSocket clients, polling, retries, or sync scripts must trace every caller and verify the aggregate worst-case upstream request rate.
+
 Not lazy about: understanding the problem (read it fully and trace the real flow before picking a rung, a small diff you don't understand is just laziness dressed up as efficiency), input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
 
 (Yes, this file also applies to agents working on the ponytail repo itself. Especially to them.)
