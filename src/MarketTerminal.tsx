@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AreaSeries, CandlestickSeries, ColorType, createChart, HistogramSeries, LineSeries, TickMarkType } from "lightweight-charts";
-import { bollinger, carryForward, ema, isHorizontalGesture, sma, type IndicatorPoint } from "./chart-data";
+import { bollinger, carryForward, clampVisibleLogicalRange, ema, isHorizontalGesture, sma, type IndicatorPoint } from "./chart-data";
 import { readMarketWindow, writeMarketWindow } from "./market-db";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number; quoteVolume: number };
@@ -17,6 +17,10 @@ const MARKET_BASE = "/api";
 const TOKEN = __DASHBOARD_TOKEN__;
 const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" }, { value: "5m", label: "5m" }, { value: "15m", label: "15m" }, { value: "1h", label: "1h" }, { value: "4h", label: "4h" }, { value: "1d", label: "1d" }, { value: "1w", label: "1W" }, { value: "1M", label: "1M" }];
 const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000, "1M": 2_678_400_000 };
+const zoomLimits: Record<string, { min: number; max: number }> = {
+  time: { min: 30, max: 2_000 }, "1m": { min: 30, max: 2_000 }, "5m": { min: 30, max: 2_000 }, "15m": { min: 30, max: 2_000 },
+  "1h": { min: 24, max: 1_500 }, "4h": { min: 20, max: 1_200 }, "1d": { min: 20, max: 1_000 }, "1w": { min: 12, max: 520 }, "1M": { min: 6, max: 120 },
+};
 const uiKey = "crypto-robot-terminal-ui-v4";
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
@@ -50,6 +54,7 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
   const loading = useRef(false);
   const resetApplied = useRef(false);
   const restoredRange = useRef(initialRange);
+  const clampingRange = useRef(false);
 
   useLayoutEffect(() => {
     if (!host.current) return;
@@ -93,14 +98,26 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
   useEffect(() => {
     const scale = chart.current?.timeScale();
     if (!scale) return;
-    const check = async (range: { from: number } | null) => {
+    const limits = zoomLimits[period] || zoomLimits["1m"];
+    const clamp = (range: { from: number; to: number } | null) => {
+      if (!range || clampingRange.current || candles.length < 1) return;
+      const min = Math.min(limits.min, candles.length);
+      const max = Math.min(limits.max, candles.length);
+      const clamped = clampVisibleLogicalRange(range, candles.length, min, max);
+      if (clamped.from === range.from && clamped.to === range.to) return;
+      clampingRange.current = true;
+      scale.setVisibleLogicalRange(clamped);
+      clampingRange.current = false;
+    };
+    const check = async (range: { from: number; to: number } | null) => {
+      clamp(range);
       if (!range || range.from > 250 || loading.current) return;
       loading.current = true;
       try { await loadOlder(); } finally { loading.current = false; }
     };
     scale.subscribeVisibleLogicalRangeChange(check);
     return () => scale.unsubscribeVisibleLogicalRangeChange(check);
-  }, [loadOlder]);
+  }, [candles.length, loadOlder, period]);
 
   useEffect(() => {
     const scale = chart.current?.timeScale();
