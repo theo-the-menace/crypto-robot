@@ -1,5 +1,5 @@
 // Local copy of the custom-api-gateway "overseas" chain.
-const routes = [{ protocol: 'openai', base: 'OPENAI_PRIMARY_BASE_URL', key: 'OPENAI_PRIMARY_API_KEY', models: 'OPENAI_PRIMARY_MODELS' }];
+const routes = [{ protocol: 'openai', base: 'DEEPSEEK_VIP_BASE_URL', key: 'DEEPSEEK_VIP_API_KEY', models: 'OPENAI_PRIMARY_MODELS' }];
 const value = (name) => process.env[name] || '';
 const modelList = (name) => value(name).split(',').map((item) => item.trim()).filter(Boolean);
 async function callGemini(route, model, key, content, timeoutMs) {
