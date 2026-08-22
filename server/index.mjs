@@ -9,7 +9,9 @@ import { analysisMessages, isTradeCommand, validImageDataUrl } from './market-co
 import { requestedOrderBookRange } from './order-book-context.mjs';
 import { MarketStore } from './market-store.mjs';
 import { aggregateMarketKlines, marketIntervals } from './market-aggregate.mjs';
-import { checkGmailPushToken, gmailOAuthCallback, gmailOAuthStart, gmailStatus, handleGmailPush, renewGmailWatch } from './gmail.mjs';
+import { checkGmailPushToken, gmailOAuthCallback, gmailOAuthStart, gmailStatus, handleGmailPush, renewGmailWatch, setGmailMessageHandler } from './gmail.mjs';
+import { processGmailMessage } from './gmail-pipeline.mjs';
+import { MarketMessageStore } from './market-message-store.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -30,6 +32,12 @@ const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING
 const marketStore = new MarketStore({ directory: resolve(process.cwd(), 'data', 'market') });
 let fundingCache = { value: null, updatedAt: 0 };
 const marketStreams = new Set();
+const marketMessages = new MarketMessageStore();
+setGmailMessageHandler(async (message) => {
+  const result = await processGmailMessage(message, marketMessages);
+  if (result.error) console.error('Gmail market-message processing failed', result.error);
+  return result;
+});
 
 function parseModelJson(value) {
   const text = String(value || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
@@ -419,6 +427,12 @@ export function createCryptoServer() {
         return sendJson(response, 200, { configured, environment, liveTradingEnabled, allowedSymbols, maxOrderUsdt, futures: { configured, maxLeverage: 125, confirmationRequired: true }, margin: { configured, confirmationRequired: true, borrowRepayEnabled: false }, model: { provider: gatewayProvider, models: modelOptions, reasoning: reasoningOptions, defaultModel, defaultReasoning } });
       }
       if (request.method === 'GET' && request.url === '/api/gmail/status') return sendJson(response, 200, await gmailStatus());
+      if (request.method === 'GET' && request.url === '/api/market/messages/stream') {
+        response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+        for (const item of await marketMessages.list(100)) response.write(`event: market-message\ndata: ${JSON.stringify(item)}\n\n`);
+        const unsubscribe = marketMessages.subscribe(response); request.on('close', unsubscribe); return;
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/messages')) return sendJson(response, 200, { messages: await marketMessages.list(Number(new URL(request.url, 'http://localhost').searchParams.get('limit') || 100)) });
       if (request.method === 'GET' && request.url === '/api/gmail/oauth/start') {
         const location = gmailOAuthStart(); response.writeHead(302, { Location: location }); return response.end();
       }

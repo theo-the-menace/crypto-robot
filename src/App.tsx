@@ -123,11 +123,14 @@ type Theme = "light" | "dark" | "system";
 type NewsItem = {
   id: string;
   title: string;
-  url: string;
   source: string;
   summary: string;
-  publishedAt: string;
-  urgency: "normal" | "breaking";
+  analysis?: string;
+  impact?: "bullish" | "bearish" | "mixed" | "neutral";
+  confidence?: number;
+  chart?: { symbol?: string | null; interval?: string | null; levels?: Array<{ price: number; label: string }> } | null;
+  createdAt: number;
+  original?: { subject?: string; from?: string; internalDate?: string };
 };
 type EmergencyState = {
   pending?: { id: string; title: string; budget: number };
@@ -296,6 +299,7 @@ function modelLabel(model: ModelId, prefix = "GPT-") {
 }
 
 function MarketPanel({ items }: { items: NewsItem[] }) {
+  const [open, setOpen] = useState<string | null>(null);
   return (
     <section className="market-panel" aria-label="市场动态">
       <div className="section-title">
@@ -305,21 +309,26 @@ function MarketPanel({ items }: { items: NewsItem[] }) {
         {items.length ? (
           items.map((item) => (
             <article
-              className={`market-event${item.urgency === "breaking" ? " breaking" : ""}`}
+              className={`market-event market-message${open === item.id ? " open" : ""}`}
               key={item.id}
+              onClick={() => setOpen(open === item.id ? null : item.id)}
             >
               <div>
                 <span>{item.source}</span>
                 <time>
-                  {new Date(item.publishedAt).toLocaleTimeString([], {
+                  {new Date(item.createdAt).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
                 </time>
               </div>
-              <a href={item.url} target="_blank" rel="noreferrer">
-                {item.title}
-              </a>
+              <strong>{item.title}</strong>
+              <p>{item.summary}</p>
+              {open === item.id && <div className="market-message-detail">
+                {item.analysis && <ReactMarkdown>{item.analysis}</ReactMarkdown>}
+                {item.chart?.levels?.length ? <div className="market-message-levels">{item.chart.levels.map((level) => <span key={`${level.price}-${level.label}`}>{level.label}: {level.price}</span>)}</div> : null}
+                <small>{item.original?.subject || ""}</small>
+              </div>}
             </article>
           ))
         ) : (
@@ -3090,7 +3099,14 @@ export function App() {
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const news: NewsItem[] = [];
+  const [news, setNews] = useState<NewsItem[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/market/messages?limit=100", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((body) => { if (active && body?.messages) setNews(body.messages); }).catch(() => {});
+    const stream = new EventSource("/api/market/messages/stream");
+    stream.addEventListener("market-message", (event) => { try { const item = JSON.parse((event as MessageEvent).data) as NewsItem; setNews((current) => [item, ...current.filter((entry) => entry.id !== item.id)].slice(0, 100)); } catch {} });
+    return () => { active = false; stream.close(); };
+  }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);
   useEffect(() => {

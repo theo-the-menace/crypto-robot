@@ -16,6 +16,7 @@ const config = {
 };
 const oauthStates = new Set();
 const scope = 'https://www.googleapis.com/auth/gmail.readonly';
+let messageHandler = null;
 
 const readJson = async (file, fallback) => { try { return JSON.parse(await readFile(file, 'utf8')); } catch { return fallback; } };
 const writeJson = async (file, value) => { await mkdir(root, { recursive: true }); await writeFile(file, JSON.stringify(value, null, 2), { mode: 0o600 }); };
@@ -55,6 +56,7 @@ export async function gmailOAuthCallback({ code, state }) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error_description || `Gmail OAuth failed (${response.status}).`);
   await writeJson(tokenFile, { ...body, expires_at: Date.now() + Number(body.expires_in || 3600) * 1000 });
+  await syncGmailHistory();
   return renewGmailWatch();
 }
 export async function renewGmailWatch() {
@@ -75,8 +77,19 @@ export async function handleGmailPush(payload) {
   const messages = (await Promise.all(ids.map((id) => gmail(`/messages/${encodeURIComponent(id)}?format=full`)))).map(parseMessage);
   const existing = await readJson(messagesFile, []); const known = new Set(existing.map((item) => item.id));
   await writeJson(messagesFile, [...existing, ...messages.filter((item) => !known.has(item.id))].slice(-1000));
+  for (const message of messages.filter((item) => !known.has(item.id))) await messageHandler?.(message);
   await writeJson(stateFile, { ...state, historyId: history.historyId || data.historyId, lastPushAt: Date.now() });
   return { received: messages.length, historyId: history.historyId || data.historyId };
 }
+export async function syncGmailHistory() {
+  const result = await gmail('/messages?q=from:(cmegroup.com)&maxResults=100');
+  const ids = (result.messages || []).map((item) => item.id);
+  const messages = (await Promise.all(ids.map((id) => gmail(`/messages/${encodeURIComponent(id)}?format=full`)))).map(parseMessage);
+  const existing = await readJson(messagesFile, []); const known = new Set(existing.map((item) => item.id));
+  await writeJson(messagesFile, [...existing, ...messages.filter((item) => !known.has(item.id))].slice(-1000));
+  for (const message of messages.filter((item) => !known.has(item.id))) await messageHandler?.(message);
+  return { fetched: messages.length };
+}
+export function setGmailMessageHandler(handler) { messageHandler = handler; }
 export function checkGmailPushToken(value) { return Boolean(config.pushToken) && sameSecret(value, config.pushToken); }
 export async function gmailStatus() { return { configured: configured(), authorized: Boolean((await readJson(tokenFile, null))?.refresh_token), watch: await readJson(stateFile, null) }; }
