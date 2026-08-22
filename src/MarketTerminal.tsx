@@ -19,7 +19,7 @@ const intervals = [{ value: "time", label: "Time" }, { value: "1m", label: "1m" 
 const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000, "1w": 604_800_000 };
 const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80 };
 const intervalValues = new Set(intervals.map((item) => item.value));
-const uiKey = "crypto-robot-terminal-ui-v5";
+const uiKey = "crypto-robot-terminal-ui-v6";
 const chartDebugEnabled = () => { try { return localStorage.getItem("crypto-robot-chart-debug") === "1" || new URLSearchParams(location.search).has("chartDebug"); } catch { return false; } };
 const chartDebug = (event: string, details: Record<string, unknown> = {}) => { if (chartDebugEnabled()) console.debug(`[chart] ${event}`, { at: new Date().toISOString(), ...details }); };
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
@@ -29,7 +29,7 @@ const defaultEnabled: Record<IndicatorName, boolean> = { ma7: true, ma25: true, 
 const savedUi = (): TerminalUi => {
   try {
     const value = JSON.parse(localStorage.getItem(uiKey) || "{}");
-    return { interval: intervalValues.has(value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => intervalValues.has(key) && Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from && range.from > -1_000_000 && range.to < 10_000_000 && (!range.fromTime || Number.isFinite(range.fromTime)) && (!range.toTime || Number.isFinite(range.toTime)) ? [[key, range]] : [])) };
+    return { interval: intervalValues.has(value.interval) ? value.interval : "5m", enabled: { ...defaultEnabled, ...(value.enabled || {}) }, ranges: Object.fromEntries(Object.entries(value.ranges || {}).flatMap(([key, range]: [string, any]) => intervalValues.has(key) && Number.isFinite(range?.from) && Number.isFinite(range?.to) && range.to > range.from && range.from > -1_000_000 && range.to < 10_000_000 && Number.isFinite(range.fromTime) && Number.isFinite(range.toTime) && range.toTime > range.fromTime ? [[key, range]] : [])) };
   } catch { return { interval: "5m", enabled: defaultEnabled, ranges: {} }; }
 };
 const rows = (candles: Candle[]) => candles.map((item) => [item.time, item.open, item.high, item.low, item.close, item.volume, item.time + 59_999, item.quoteVolume]);
