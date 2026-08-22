@@ -108,6 +108,21 @@ type Message = {
   draft?: Draft;
   order?: Record<string, unknown>;
 };
+
+const terminalCommandReply = (value: string) => {
+  const command = value.trim().toLowerCase();
+  if (!/^[a-z-]+$/.test(command)) return null;
+  if (command === "help") return "chart-log\nhelp";
+  if (command !== "chart-log") return null;
+  try {
+    return JSON.parse(localStorage.getItem("crypto-robot-chart-switch-log-v1") || "[]")
+      .slice(-30)
+      .map((item: unknown) => JSON.stringify(item))
+      .join("\n") || "no chart logs";
+  } catch {
+    return "chart log unavailable";
+  }
+};
 type ChatSession = {
   id: string;
   title: string;
@@ -2658,7 +2673,8 @@ function AssetWorkspace({
   onMarketContext: (context: MarketContext) => void;
 }) {
   return <MarketChart />;
-  /* Reference-project asset views remain available in source, but the live right rail uses the K-line terminal. */
+  /* The reference asset workspace is intentionally disabled: the right rail is
+     now owned by the project's market chart. */
   const [bottomTab, setBottomTab] = useState("assets");
   const [assetTab, setAssetTab] = useState<AssetTab>("overview");
   const [overviewTab, setOverviewTab] = useState<"all" | "accounts">("all");
@@ -3069,6 +3085,7 @@ export function App() {
   const [error, setError] = useState("");
   const news: NewsItem[] = [];
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteSession, setDeleteSession] = useState<ChatSession | null>(null);
   const [leftWidth, setLeftWidth] = useState(() =>
     Math.min(
       window.innerWidth * 0.2,
@@ -3224,6 +3241,13 @@ export function App() {
     setAttachment(null);
     setError("");
   }
+  function confirmDeleteSession() {
+    if (!deleteSession) return;
+    const id = deleteSession.id;
+    setSessions((current) => current.filter((session) => session.id !== id));
+    if (activeSessionId === id) newChat();
+    setDeleteSession(null);
+  }
 
   async function send() {
     const content = input.trim() || (attachment ? "请分析这张图片。" : "");
@@ -3242,6 +3266,17 @@ export function App() {
     setMessages(baseMessages);
     setInput("");
     setAttachment(null);
+    const commandReply = !sentAttachment ? terminalCommandReply(content) : null;
+    if (commandReply !== null) {
+      const assistant: Message = { id: crypto.randomUUID(), role: "assistant", content: commandReply };
+      const nextMessages = [...baseMessages, assistant];
+      setMessages(nextMessages);
+      setSessions((existing) => [
+        { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
+        ...existing.filter((item) => item.id !== sessionId),
+      ]);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -3343,14 +3378,15 @@ export function App() {
             <div className="recents-list">
               {sessions.length ? (
                 sessions.map((session) => (
-                  <button
-                    className={activeSessionId === session.id ? "active" : ""}
-                    key={session.id}
-                    onClick={() => openSession(session)}
-                  >
-                    <MessageSquare size={14} />
-                    <span>{session.title}</span>
-                  </button>
+                  <div className={`recent-row ${activeSessionId === session.id ? "active" : ""}`} key={session.id}>
+                    <button className="recent-open" onClick={() => openSession(session)}>
+                      <MessageSquare size={14} />
+                      <span>{session.title}</span>
+                    </button>
+                    <button className="recent-menu" title="更多操作" aria-label={`删除会话 ${session.title}`} onClick={(event) => { event.stopPropagation(); setDeleteSession(session); }}>
+                      <MoreHorizontal size={16} />
+                    </button>
+                  </div>
                 ))
               ) : (
                 <p>暂无最近对话</p>
@@ -3387,20 +3423,6 @@ export function App() {
         </button>
       )}
       <section className="conversation">
-        <div className="conversation-top">
-          <div>
-            <Bot size={18} />
-            <strong>
-              {activeSessionId
-                ? sessions.find((item) => item.id === activeSessionId)?.title ||
-                  "交易对话"
-                : "新对话"}
-            </strong>
-          </div>
-          <div className="top-actions">
-            <span>{status?.environment === "live" ? "LIVE" : "TESTNET"}</span>
-          </div>
-        </div>
         <div className="messages">
           {!messages.length && (
             <div className="empty">
@@ -3687,6 +3709,19 @@ export function App() {
                   {label}
                 </button>
               ))}
+            </div>
+          </section>
+        </div>
+      )}
+      {deleteSession && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setDeleteSession(null); }}>
+          <section className="settings-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-session-title">
+            <button className="dialog-close" title="关闭" aria-label="关闭" onClick={() => setDeleteSession(null)}><X size={18} /></button>
+            <h2 id="delete-session-title">删除对话</h2>
+            <p>确定删除“{deleteSession.title}”吗？此操作无法撤销。</p>
+            <div className="delete-actions">
+              <button onClick={() => setDeleteSession(null)}>取消</button>
+              <button className="delete-confirm" onClick={confirmDeleteSession}>删除</button>
             </div>
           </section>
         </div>
