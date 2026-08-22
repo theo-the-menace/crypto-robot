@@ -90,7 +90,23 @@ export class MarketStore {
         manifest.rows = Number(manifest.rows || 0) + merged.length - current.length;
         manifest.months = [...new Set([...(manifest.months || []), month])].sort(); manifest.firstTime ??= Number(merged[0]?.[0]); manifest.lastTime = Math.max(Number(manifest.lastTime || 0), Number(merged.at(-1)?.[0] || 0));
         const manifestTemporary = `${manifestFile}.${process.pid}.${randomUUID()}.tmp`; await writeFile(manifestTemporary, JSON.stringify(manifest, null, 2)); await rename(manifestTemporary, manifestFile);
+        await this.refreshDerived(month);
       }
+    }
+  }
+
+  async refreshDerived(month) {
+    const [from, to] = monthRange(month);
+    for (const interval of ['5m', '15m', '1h', '4h', '1d', '1w']) {
+      const file = join(this.derivedDirectory, `${interval}.json`);
+      const existing = await this.readJson(file) || [];
+      const start = interval === '1w' ? Date.UTC(new Date(from).getUTCFullYear(), new Date(from).getUTCMonth(), new Date(from).getUTCDate() - (new Date(from).getUTCDay() + 6) % 7) : from;
+      const derived = aggregateMarketKlines(await this.window(start, to), interval);
+      const merged = mergeKlines(existing.filter((row) => Number(row[0]) < start), derived);
+      await mkdir(this.derivedDirectory, { recursive: true });
+      const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
+      await writeFile(temporary, JSON.stringify(merged), 'utf8'); await rename(temporary, file);
+      this.derived.set(interval, merged);
     }
   }
 }

@@ -51,11 +51,14 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
   const previous = useRef<Candle[]>([]);
   const loading = useRef(false);
   const restoredRange = useRef(initialRange);
+  const followLatest = useRef(true);
+  const seriesKind = useRef<boolean | null>(null);
 
   useLayoutEffect(() => {
     if (!host.current) return;
     chart.current = createChart(host.current, { autoSize: true, localization: { locale: "en-CA", timeFormatter: (time: unknown) => formatChinaTime(Number(time)) }, layout: { background: { type: ColorType.Solid, color: "#10151c" }, textColor: "#8290a0" }, grid: { vertLines: { color: "#27313d" }, horzLines: { color: "#27313d" } }, rightPriceScale: { borderColor: "#33404d" }, timeScale: { borderColor: "#33404d", timeVisible: true, secondsVisible: false, rightOffset: 5, tickMarkFormatter: (time: unknown, type: TickMarkType) => formatChinaTick(Number(time), type) }, crosshair: { mode: 0 } });
     series.current = line ? chart.current.addSeries(AreaSeries, { lineColor: "#f6c945", topColor: "#f6c94566", bottomColor: "#f6c94500", lineWidth: 2 }) : chart.current.addSeries(CandlestickSeries, { upColor: "#39c58a", downColor: "#ef6672", borderVisible: false, wickUpColor: "#39c58a", wickDownColor: "#ef6672" });
+    seriesKind.current = line;
     volume.current = chart.current.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "" });
     volume.current.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
     const colors: Record<string, string> = { ma7: "#f6c945", ma25: "#58a6ff", ma60: "#c678dd", ma99: "#f08c46", ema200: "#f97316", ema21: "#22c55e", bbMiddle: "#aab6c5", bbUpper: "#64748b", bbLower: "#64748b" };
@@ -66,7 +69,14 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
   useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; }, [period, initialRange]);
 
   useLayoutEffect(() => {
-    if (!series.current || !candles.length) return;
+    if (!series.current) return;
+    if (seriesKind.current !== line) {
+      chart.current.removeSeries(series.current);
+      series.current = line ? chart.current.addSeries(AreaSeries, { lineColor: "#f6c945", topColor: "#f6c94566", bottomColor: "#f6c94500", lineWidth: 2 }) : chart.current.addSeries(CandlestickSeries, { upColor: "#39c58a", downColor: "#ef6672", borderVisible: false, wickUpColor: "#39c58a", wickDownColor: "#ef6672" });
+      seriesKind.current = line;
+      previous.current = [];
+    }
+    if (!candles.length) return;
     const bars = candles.map((item) => line ? { time: Math.floor(item.time / 1000) as any, value: item.close } : { time: Math.floor(item.time / 1000) as any, open: item.open, high: item.high, low: item.low, close: item.close });
     const volumes = candles.map((item) => ({ time: Math.floor(item.time / 1000) as any, value: item.volume, color: item.close >= item.open ? "#39c58a66" : "#ef667266" }));
     const old = previous.current;
@@ -78,6 +88,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       series.current.setData(bars); volume.current.setData(volumes);
       if (!old.length) {
         const savedRange = restoredRange.current;
+        followLatest.current = !savedRange || savedRange.to >= (candles.at(-1)?.time || 0);
         if (savedRange) chart.current.timeScale().setVisibleRange({ from: savedRange.from / 1000, to: savedRange.to / 1000 });
         else {
           const visible = Math.min(defaultVisible[period] || 160, bars.length);
@@ -85,6 +96,10 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
         }
       }
       else if (prepend && range) chart.current.timeScale().setVisibleLogicalRange({ from: range.from + prepend, to: range.to + prepend });
+      else if (old.length && range && followLatest.current && candles.length > old.length) {
+        const added = candles.length - old.length;
+        chart.current.timeScale().setVisibleLogicalRange({ from: range.from + added, to: range.to + added });
+      }
     }
     previous.current = candles;
   }, [candles, line, initialRange, period]);
@@ -109,13 +124,15 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     const scale = chart.current?.timeScale();
     if (!scale) return;
     const save = () => {
+      const logical = scale.getVisibleLogicalRange();
+      if (logical && candles.length) followLatest.current = logical.to >= candles.length - 2;
       const range = scale.getVisibleRange();
       const from = Number(range?.from) * 1000; const to = Number(range?.to) * 1000;
       if (Number.isFinite(from) && Number.isFinite(to) && to > from) onRangeChange({ from, to });
     };
     scale.subscribeVisibleLogicalRangeChange(save);
     return () => scale.unsubscribeVisibleLogicalRangeChange(save);
-  }, [candles, onRangeChange]);
+  }, [candles.length, onRangeChange]);
 
   useEffect(() => {
     const element = host.current;

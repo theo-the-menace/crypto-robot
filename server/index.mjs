@@ -248,10 +248,24 @@ function coinMFunding(event) {
 }
 
 function startMarketStream(symbol = 'BTCUSD_PERP') {
-  let socket; let retryMs = 1_000; let stopped = false; let merge = Promise.resolve();
+  let socket; let retryMs = 1_000; let stopped = false; let merge = Promise.resolve(); let lastReconcileAt = 0; let reconcile = Promise.resolve();
+  const reconcileGap = () => {
+    if (Date.now() - lastReconcileAt < 60_000) return reconcile;
+    lastReconcileAt = Date.now();
+    reconcile = reconcile.then(async () => {
+      const manifest = await marketStore.manifest();
+      let cursor = Number(manifest.lastTime || 0) + 60_000;
+      const now = Math.floor(Date.now() / 60_000) * 60_000;
+      if (!cursor || cursor > now || now - cursor > 1_500 * 60_000) return;
+      const page = await coinMMarket(symbol, '1m', now + 59_999, 1_500, cursor);
+      if (page.klines?.length) await marketStore.merge(page.klines, { persist: true });
+    }).catch((error) => console.warn('COIN-M gap reconciliation unavailable', error instanceof Error ? error.message : error));
+    return reconcile;
+  };
   const reconnect = () => { if (stopped) return; setTimeout(() => { void connect(); }, retryMs); retryMs = Math.min(retryMs * 2, 30_000); };
   const connect = async () => {
     if (stopped) return;
+    await reconcileGap();
     const stream = symbol.toLowerCase();
     try { socket = new WebSocket(`wss://dstream.binance.com/stream?streams=${stream}@kline_1m/${stream}@markPrice@1s`); } catch { reconnect(); return; }
     socket.addEventListener('open', () => { retryMs = 1_000; });
