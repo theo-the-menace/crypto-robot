@@ -39,8 +39,8 @@ html, body, #root { height: 100%; }
 @media (max-width: 900px) { .assistant-shell, .assistant-shell.left-closed, .assistant-shell.right-closed, .assistant-shell.left-closed.right-closed { grid-template-columns: 1fr; } .assistant-sidebar { position: absolute; z-index: 20; width: 230px; height: 100%; } .assistant-shell.left-open .assistant-sidebar { display: flex; } .assistant-shell.left-closed .assistant-sidebar { display: none; } .assistant-chart-slot { position: absolute; z-index: 15; inset: 0; } .assistant-shell.right-closed .assistant-chart-slot { display: none; } .right-rail { position: absolute; z-index: 16; top: 8px; right: 8px; width: 34px; height: 34px; border: 1px solid #304052; background: #111a23; } }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: #080b0f; }
 button, input { font: inherit; }
-.market-terminal { display: grid; width: 100%; height: 100%; grid-template-rows: minmax(0, 70%) minmax(180px, 30%); color: #d7dde5; background: #080b0f; font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace; }
-.chart-pane { position: relative; min-height: 0; border-bottom: 1px solid #25303c; background: #10151c; }
+.market-terminal { display: grid; width: 100%; height: 100%; min-width: 0; min-height: 0; grid-template-rows: minmax(0, 70%) minmax(180px, 30%); color: #d7dde5; background: #080b0f; font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace; }
+.chart-pane { position: relative; width: 100%; min-width: 0; min-height: 0; border-bottom: 1px solid #25303c; background: #10151c; }
 .chart-toolbar { position: absolute; z-index: 5; top: 0; right: 58px; left: 0; }
 .chart-pane nav { display: flex; gap: 3px; overflow-x: auto; padding: 6px; scrollbar-width: none; }
 .chart-pane nav::-webkit-scrollbar { display: none; }
