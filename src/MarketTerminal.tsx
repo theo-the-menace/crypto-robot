@@ -193,9 +193,12 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
         return;
       }
       const visible = range.to - range.from;
+      const minimumVisible = Math.min(candles.length, 2);
+      if (event.deltaY < 0 && visible <= minimumVisible) return;
       const target = visible * Math.exp(event.deltaY / 500);
       const center = (range.from + range.to) / 2;
-      chart.current.timeScale().setVisibleLogicalRange({ from: center - target / 2, to: center + target / 2 });
+      const boundedTarget = Math.max(minimumVisible, target);
+      chart.current.timeScale().setVisibleLogicalRange({ from: center - boundedTarget / 2, to: center + boundedTarget / 2 });
     };
     element.addEventListener("wheel", pan, { capture: true, passive: false });
     return () => element.removeEventListener("wheel", pan, true);
