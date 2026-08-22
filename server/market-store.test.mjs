@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MarketStore } from './market-store.mjs';
 
-test('reads immutable month snapshots and atomically overlays runtime rows', async () => {
+test('reads and atomically updates the canonical monthly rows', async () => {
   const root = await mkdtemp(join(tmpdir(), 'market-store-')); const snapshot = join(root, 'data');
   try {
     const directory = join(snapshot, 'BTCUSD_PERP', '1m'); await mkdir(directory, { recursive: true });

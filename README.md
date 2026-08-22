@@ -26,7 +26,7 @@ The local frontend uses the server dashboard API at `http://43.163.91.179:8888`.
 
 For local development, the React/Vite frontend listens on `127.0.0.1:8888` and the local Node API listens on `127.0.0.1:8889`; Vite proxies `/api` to the Node API.
 
-Market datasets live under the ignored `data/` directory and are never stored in Git. On a new host, configure `MARKET_DATA_DOWNLOAD_URL` and run `npm run download:market-data` before starting the API. The download mirrors immutable monthly 1-minute files and pre-aggregated display intervals; missing local data is reported as an error instead of silently showing an incomplete chart.
+Market datasets live under the ignored `data/` directory and are never stored in Git. On a new host, run `npm run sync:market-history`; it resumes month by month from Binance Vision, writes local 1-minute files, and rebuilds the display intervals. `npm run download:market-data` remains available for mirroring from a private data server. Missing local data is reported as an error instead of silently showing an incomplete chart.
 
 At startup the API repairs the gap from the last local candle with Binance REST, then subscribes to the Binance COIN-M 1-minute K-line WebSocket. Every open-candle update is merged into the current month's runtime overlay and relayed to browsers over SSE. A reconnect runs REST repair again before resuming the stream.
 

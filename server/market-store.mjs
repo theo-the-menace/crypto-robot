@@ -32,7 +32,7 @@ export class MarketStore {
 
   async manifest() {
     const snapshot = await this.readJson(join(this.snapshotDirectory, 'manifest.json'));
-    if (!snapshot?.months?.length) throw new Error('Local market data is missing. Run `npm run download:market-data`.');
+    if (!snapshot?.months?.length) throw new Error('Local market data is missing. Run `npm run sync:market-history`.');
     const current = monthKey(Date.now());
     const months = [...new Set([...(snapshot.months || []), current])].sort();
     const rows = [];

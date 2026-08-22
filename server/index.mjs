@@ -234,6 +234,8 @@ async function storedMarketKlines(interval, { from, to = Date.now(), limit = 1_0
 async function refreshMarketTail(symbol = 'BTCUSD_PERP') {
   try {
     const manifest = await marketStore.manifest(); let cursor = Number(manifest.lastTime || Date.now() - 5 * 60_000); let latest = null;
+    const now = new Date(); const currentMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    if (cursor < currentMonth - 60_000) throw new Error('Local history is more than one month behind. Run `npm run sync:market-history` before starting live updates.');
     while (cursor <= Date.now()) {
       const endTime = Math.min(Date.now(), cursor + 1_499 * 60_000);
       const page = (await coinMMarket(symbol, '1m', endTime, 1_500, cursor)).klines || [];
@@ -257,7 +259,7 @@ function coinMKlineRow(event) {
 }
 
 function startMarketStream(symbol = 'BTCUSD_PERP') {
-  let socket; let retryMs = 1_000; let stopped = false;
+  let socket; let retryMs = 1_000; let stopped = false; let merge = Promise.resolve();
   const reconnect = () => { if (stopped) return; setTimeout(() => { void connect(); }, retryMs); retryMs = Math.min(retryMs * 2, 30_000); };
   const connect = async () => {
     if (stopped) return;
@@ -267,7 +269,7 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
     socket.addEventListener('message', (message) => {
       try {
         const event = JSON.parse(String(message.data)); const row = coinMKlineRow(event); if (!row) return;
-        void marketStore.merge([row], { persist: Boolean(event.k.x) }).then(() => broadcastMarketRow(symbol, row)).catch((error) => console.warn('COIN-M stream merge unavailable', error instanceof Error ? error.message : error));
+        merge = merge.then(() => marketStore.merge([row], { persist: Boolean(event.k.x) })).then(() => broadcastMarketRow(symbol, row)).catch((error) => console.warn('COIN-M stream merge unavailable', error instanceof Error ? error.message : error));
       } catch {}
     });
     socket.addEventListener('close', reconnect);
