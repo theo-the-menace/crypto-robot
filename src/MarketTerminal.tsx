@@ -135,17 +135,25 @@ function Chart({ candles, loadOlder, resetViewport, line, indicators, initialRan
     const element = host.current;
     if (!element) return;
     const pan = (event: WheelEvent) => {
-      if (!isHorizontalGesture(event.deltaX, event.deltaY)) return;
       const range = chart.current?.timeScale().getVisibleLogicalRange();
-      if (!range) return;
+      if (!range || (event.deltaX === 0 && event.deltaY === 0)) return;
       event.preventDefault();
       event.stopPropagation();
-      const offset = event.deltaX * (range.to - range.from) / Math.max(element.clientWidth, 1);
-      chart.current.timeScale().setVisibleLogicalRange({ from: range.from + offset, to: range.to + offset });
+      if (isHorizontalGesture(event.deltaX, event.deltaY)) {
+        const offset = event.deltaX * (range.to - range.from) / Math.max(element.clientWidth, 1);
+        chart.current.timeScale().setVisibleLogicalRange({ from: range.from + offset, to: range.to + offset });
+        return;
+      }
+      const limits = zoomLimits[period] || zoomLimits["1m"];
+      const next = clampVisibleLogicalRange({ from: range.from, to: range.to }, candles.length, limits.min, limits.max);
+      const visible = next.to - next.from;
+      const target = visible * Math.exp(event.deltaY / 500);
+      const center = (next.from + next.to) / 2;
+      chart.current.timeScale().setVisibleLogicalRange(clampVisibleLogicalRange({ from: center - target / 2, to: center + target / 2 }, candles.length, limits.min, limits.max));
     };
     element.addEventListener("wheel", pan, { capture: true, passive: false });
     return () => element.removeEventListener("wheel", pan, true);
-  }, []);
+  }, [candles.length, period]);
 
   return <div className="market-chart" ref={host} />;
 }
