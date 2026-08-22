@@ -3046,6 +3046,9 @@ export function App() {
   const modelPickerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const followingMessages = useRef(true);
+  const [showLatest, setShowLatest] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
       return JSON.parse(
@@ -3069,6 +3072,22 @@ export function App() {
     textarea.style.height = `${height}px`;
     textarea.style.overflowY = textarea.scrollHeight > 144 ? "auto" : "hidden";
   }, [input]);
+  useLayoutEffect(() => {
+    if (followingMessages.current && messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }
+  }, [messages]);
+  const onMessagesScroll = () => {
+    const node = messagesRef.current;
+    if (!node) return;
+    followingMessages.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
+    setShowLatest(!followingMessages.current);
+  };
+  const scrollMessagesToBottom = () => {
+    followingMessages.current = true;
+    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
+    setShowLatest(false);
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const news: NewsItem[] = [];
@@ -3429,7 +3448,7 @@ export function App() {
             <span>{status?.environment === "live" ? "LIVE" : "TESTNET"}</span>
           </div>
         </div>
-        <div className="messages">
+        <div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
           {!messages.length && (
             <div className="empty">
               <Bot size={32} />
@@ -3487,6 +3506,7 @@ export function App() {
             </article>
           )}
           {error && <div className="global-error">{error}</div>}
+          <button className={`scroll-down ${showLatest ? "visible" : ""}`} title="回到底部" aria-label="回到底部" onClick={scrollMessagesToBottom}><ChevronDown size={18} /></button>
         </div>
         <div className="composer-wrap">
           <div className="composer">
