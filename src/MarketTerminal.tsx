@@ -24,6 +24,7 @@ const chartDebugEnabled = () => { try { return localStorage.getItem("crypto-robo
 const chartDebug = (event: string, details: Record<string, unknown> = {}) => { if (chartDebugEnabled()) console.debug(`[chart] ${event}`, { at: new Date().toISOString(), ...details }); };
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
+const nearestIndex = (candles: Candle[], time: number, fallback: number) => { if (!candles.length || !Number.isFinite(time)) return fallback; let low = 0; let high = candles.length; while (low < high) { const middle = Math.floor((low + high) / 2); if (candles[middle].time < time) low = middle + 1; else high = middle; } return Math.min(candles.length - 1, low); };
 const defaultEnabled: Record<IndicatorName, boolean> = { ma7: true, ma25: true, ma60: false, ma99: false, ema200: true, ema21: true, bb: false };
 const savedUi = (): TerminalUi => {
   try {
@@ -95,12 +96,15 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
         const savedRange = restoredRange.current;
         followLatest.current = !savedRange || savedRange.to >= candles.length - 2;
         if (savedRange) {
-          const fromIndex = savedRange.fromTime ? Math.max(0, candles.findIndex((item) => item.time >= savedRange.fromTime!)) : savedRange.from;
-          const toIndex = savedRange.toTime ? Math.max(fromIndex + 1, candles.findIndex((item) => item.time >= savedRange.toTime!)) : savedRange.to;
-          const width = Math.max(2, savedRange.to - savedRange.from);
+          const hasAnchors = Number.isFinite(savedRange.fromTime) && Number.isFinite(savedRange.toTime);
+          const fromIndex = hasAnchors ? nearestIndex(candles, savedRange.fromTime!, Math.max(0, candles.length - defaultVisible[period])) : savedRange.from;
+          const toIndex = hasAnchors ? nearestIndex(candles, savedRange.toTime!, candles.length - 1) : savedRange.to;
+          const width = Math.max(2, Math.min(candles.length, savedRange.to - savedRange.from));
+          const safeFrom = Math.min(Math.max(0, fromIndex), Math.max(0, candles.length - 1));
+          const safeTo = Math.min(Math.max(safeFrom + 1, toIndex), candles.length + 5);
           restoring.current = true;
-          chartDebug("restore", { period, saved: savedRange, mapped: { from: fromIndex, to: Math.max(fromIndex + width, toIndex) }, candles: candles.length });
-          chart.current.timeScale().setVisibleLogicalRange({ from: fromIndex, to: Math.max(fromIndex + width, toIndex) });
+          chartDebug("restore", { period, saved: savedRange, mapped: { from: safeFrom, to: safeTo }, candles: candles.length });
+          chart.current.timeScale().setVisibleLogicalRange({ from: safeFrom, to: Math.min(candles.length + 5, Math.max(safeTo, safeFrom + width)) });
           requestAnimationFrame(() => { restoring.current = false; });
         }
         else {
@@ -224,8 +228,10 @@ export function MarketTerminal() {
     let active = true;
     void (async () => {
       try {
-        const saved = rangesRef.current[interval]; const span = saved ? saved.to - saved.from : intervalMs[interval] * 500;
-        const rows = saved ? await window(Math.max(0, saved.from - span), saved.to + span) : await history(undefined, 1_000);
+        const saved = rangesRef.current[interval];
+        const savedFrom = Number(saved?.fromTime); const savedTo = Number(saved?.toTime);
+        const span = Number.isFinite(savedFrom) && Number.isFinite(savedTo) ? Math.max(savedTo - savedFrom, intervalMs[interval] * 100) : intervalMs[interval] * 500;
+        const rows = Number.isFinite(savedFrom) && Number.isFinite(savedTo) ? await window(Math.max(0, savedFrom - span), savedTo + span) : await history(undefined, 1_000);
         if (!active) return;
         setCandleSets((current) => ({ ...current, [interval]: merge(current[interval] || [], rows) }));
       } catch (error) { setLines((current) => [...current, { kind: "error", text: error instanceof Error ? error.message : "history unavailable" }]); }
