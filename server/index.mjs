@@ -7,7 +7,7 @@ import { fallbackIntent, inferProduct, multiProductTradePrompt, normalizeOrderIn
 import { EmergencyPolicy } from '../src/emergency-policy.mjs';
 import { analysisMessages, isTradeCommand, validImageDataUrl } from './market-context.mjs';
 import { requestedOrderBookRange } from './order-book-context.mjs';
-import { mergeKlines, readMarketCache, writeMarketCache } from './market-cache.mjs';
+import { mergeKlines, readFundingCache, readMarketCache, writeFundingCache, writeMarketCache } from './market-cache.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -28,6 +28,7 @@ const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING
 const marketCacheDirectory = process.env.MARKET_CACHE_DIR || resolve(process.cwd(), '.cache', 'market');
 const marketCache = new Map();
 const marketBackfill = { running: false, complete: false, rows: 0, oldestTime: null, error: null };
+const fundingHistoryCache = new Map();
 let fundingCache = { value: null, updatedAt: 0 };
 const marketIntervals = { '1m': 60_000, '5m': 300_000, '15m': 900_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000, '1w': 'week', '1M': 'month' };
 
@@ -171,6 +172,28 @@ async function coinMMarket(symbol, interval, endTime, limit = 240, startTime) {
     get('/dapi/v1/premiumIndex', { symbol }),
   ]);
   return { symbol, interval, klines, depth, premium: Array.isArray(premium) ? premium[0] : premium };
+}
+
+async function coinMFundingHistory(symbol, startTime, endTime, limit = 1_000) {
+  const base = environment === 'testnet' ? 'https://testnet.binancefuture.com' : 'https://dapi.binance.com';
+  const params = { symbol, limit: String(limit), ...(startTime ? { startTime: String(startTime) } : {}), ...(endTime ? { endTime: String(endTime) } : {}) };
+  const response = await fetch(`${base}/dapi/v1/fundingRate?${new URLSearchParams(params)}`, { signal: AbortSignal.timeout(10_000) });
+  const result = await response.json();
+  if (!response.ok) throw new BinanceApiError(result.msg || `Binance funding history failed (${response.status}).`, { status: response.status, code: result.code });
+  return Array.isArray(result) ? result : [];
+}
+
+async function cachedFundingHistory(symbol, limit = 1_000) {
+  const state = fundingHistoryCache.get(symbol) || { rows: null, updatedAt: 0 };
+  fundingHistoryCache.set(symbol, state);
+  if (!state.rows) state.rows = await readFundingCache(marketCacheDirectory, symbol);
+  if (Date.now() - state.updatedAt >= 10 * 60_000) {
+    const latest = await coinMFundingHistory(symbol, undefined, undefined, 1_000);
+    state.rows = [...new Map([...state.rows, ...latest].map((row) => [Number(row.fundingTime), row])).values()].sort((a, b) => Number(a.fundingTime) - Number(b.fundingTime));
+    state.updatedAt = Date.now();
+    await writeFundingCache(marketCacheDirectory, symbol, state.rows);
+  }
+  return state.rows.slice(-limit);
 }
 
 async function usdMMarket(symbol, interval, endTime) {
@@ -596,6 +619,13 @@ export function createCryptoServer() {
           fundingCache = { value: market.premium || {}, updatedAt: Date.now() };
         }
         return sendJson(response, 200, { symbol, premium: fundingCache.value });
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/funding-history?')) {
+        const query = new URL(request.url, 'http://localhost').searchParams;
+        const symbol = query.get('symbol')?.toUpperCase() || 'BTCUSD_PERP';
+        const limit = Math.min(1_000, Math.max(1, Number(query.get('limit') || 1_000)));
+        if (symbol !== 'BTCUSD_PERP') return sendJson(response, 400, { error: 'Only BTCUSD_PERP is available in this first COIN-M view.' });
+        return sendJson(response, 200, { symbol, rows: await cachedFundingHistory(symbol, limit) });
       }
       if (request.method === 'GET' && request.url === '/api/market/backfill') return sendJson(response, 200, marketBackfill);
       if (request.method === 'GET' && request.url?.startsWith('/api/coinm-market?')) {
