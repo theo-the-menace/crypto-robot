@@ -20,8 +20,15 @@ const intervalMs: Record<string, number> = { time: 60_000, "1m": 60_000, "5m": 3
 const defaultVisible: Record<string, number> = { time: 180, "1m": 180, "5m": 180, "15m": 160, "1h": 140, "4h": 120, "1d": 120, "1w": 80 };
 const intervalValues = new Set(intervals.map((item) => item.value));
 const uiKey = "crypto-robot-terminal-ui-v6";
-const chartDebugEnabled = () => { try { return localStorage.getItem("crypto-robot-chart-debug") === "1" || new URLSearchParams(location.search).has("chartDebug"); } catch { return false; } };
-const chartDebug = (event: string, details: Record<string, unknown> = {}) => { if (chartDebugEnabled()) console.debug(`[chart] ${event}`, { at: new Date().toISOString(), ...details }); };
+const chartLogKey = "crypto-robot-chart-switch-log-v1";
+const chartTrace = (event: string, details: Record<string, unknown> = {}) => {
+  const entry = { at: new Date().toISOString(), event, ...details };
+  try {
+    const current = JSON.parse(localStorage.getItem(chartLogKey) || "[]");
+    localStorage.setItem(chartLogKey, JSON.stringify([...current.slice(-199), entry]));
+  } catch {}
+  console.info("[chart]", entry);
+};
 const parseRow = (row: Array<string | number>): Candle => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]), quoteVolume: Number(row[7]) });
 const merge = (left: Candle[], right: Candle[]) => [...new Map([...left, ...right].map((item) => [item.time, item])).values()].sort((a, b) => a.time - b.time);
 const nearestIndex = (candles: Candle[], time: number, fallback: number) => { if (!candles.length || !Number.isFinite(time)) return fallback; let low = 0; let high = candles.length; while (low < high) { const middle = Math.floor((low + high) / 2); if (candles[middle].time < time) low = middle + 1; else high = middle; } return Math.min(candles.length - 1, low); };
@@ -71,7 +78,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     return () => chart.current?.remove();
   }, []);
 
-  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; followLatest.current = !initialRange; chartDebug("period-change", { period, saved: initialRange || null }); }, [period]);
+  useLayoutEffect(() => { previous.current = []; restoredRange.current = initialRange; followLatest.current = !initialRange; chartTrace("period-change", { period, saved: initialRange || null }); }, [period]);
 
   useLayoutEffect(() => {
     if (!series.current) return;
@@ -85,7 +92,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
     const bars = candles.map((item) => line ? { time: Math.floor(item.time / 1000) as any, value: item.close } : { time: Math.floor(item.time / 1000) as any, open: item.open, high: item.high, low: item.low, close: item.close });
     const volumes = candles.map((item) => ({ time: Math.floor(item.time / 1000) as any, value: item.volume, color: item.close >= item.open ? "#39c58a66" : "#ef667266" }));
     const old = previous.current;
-    chartDebug("data-update", { period, old: old.length, next: candles.length, first: candles[0]?.time, last: candles.at(-1)?.time });
+    chartTrace("data-update", { period, old: old.length, next: candles.length, first: candles[0]?.time, last: candles.at(-1)?.time });
     const prepend = old.length && candles[0].time < old[0].time ? candles.findIndex((item) => item.time === old[0].time) : 0;
     const sameWindow = old.length === candles.length && old[0]?.time === candles[0].time && old.at(-2)?.time === candles.at(-2)?.time;
     if (sameWindow) { series.current.update(bars.at(-1)); volume.current.update(volumes.at(-1)); }
@@ -102,10 +109,11 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
           const width = Math.max(2, Math.min(candles.length, savedRange.to - savedRange.from));
           const safeFrom = Math.min(Math.max(0, fromIndex), Math.max(0, candles.length - 1));
           const safeTo = Math.min(Math.max(safeFrom + 1, toIndex), candles.length + 5);
+          const target = { from: safeFrom, to: Math.min(candles.length + 5, Math.max(safeTo, safeFrom + width)) };
+          chartTrace("restore-target", { period, saved: savedRange, target, candles: candles.length });
           restoring.current = true;
-          chartDebug("restore", { period, saved: savedRange, mapped: { from: safeFrom, to: safeTo }, candles: candles.length });
-          chart.current.timeScale().setVisibleLogicalRange({ from: safeFrom, to: Math.min(candles.length + 5, Math.max(safeTo, safeFrom + width)) });
-          requestAnimationFrame(() => { restoring.current = false; });
+          chart.current.timeScale().setVisibleLogicalRange(target);
+          requestAnimationFrame(() => { restoring.current = false; chartTrace("restore-actual", { period, target, actual: chart.current.timeScale().getVisibleLogicalRange() }); });
         }
         else {
           const visible = Math.min(defaultVisible[period] || 160, bars.length);
@@ -144,7 +152,7 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
       const logical = scale.getVisibleLogicalRange();
       if (restoring.current) return;
       if (logical && candles.length) followLatest.current = logical.to >= candles.length - 2;
-      if (logical && Date.now() - lastLoggedRange.current > 500) { lastLoggedRange.current = Date.now(); chartDebug("range-change", { period, logical, followLatest: followLatest.current }); }
+      if (logical && Date.now() - lastLoggedRange.current > 500) { lastLoggedRange.current = Date.now(); chartTrace("range-change", { period, logical, followLatest: followLatest.current }); }
       const range = scale.getVisibleLogicalRange();
       const visible = scale.getVisibleRange();
       if (range && visible && Number.isFinite(range.from) && Number.isFinite(range.to) && range.to > range.from) onRangeChange({ from: range.from, to: range.to, fromTime: Number(visible.from) * 1000, toTime: Number(visible.to) * 1000 });
@@ -272,7 +280,8 @@ export function MarketTerminal() {
     const value = command.trim(); if (!value) return;
     const next: Line[] = [...lines, { kind: "input", text: `$ ${value}` }]; const [name, arg] = value.toLowerCase().split(/\s+/);
     if (name === "clear") next.splice(0);
-    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w>\nclear" });
+    else if (name === "help") next.push({ kind: "output", text: "status\norders\nrisk\nstrategies\ncoinm | positions\ntrades\nfees\ntoday-fees\ncoinm-orders\nchart-log\nsync\ninterval <time|1m|5m|15m|1h|4h|1d|1w>\nclear" });
+    else if (name === "chart-log") { try { next.push({ kind: "output", text: JSON.parse(localStorage.getItem(chartLogKey) || "[]").slice(-30).map((item: any) => JSON.stringify(item)).join("\n") || "no chart logs" }); } catch { next.push({ kind: "error", text: "chart log unavailable" }); } }
     else if (name === "sync") { next.push({ kind: "output", text: "syncing COIN-M..." }); void refreshCoinm().then((ok) => setLines((current) => [...current, { kind: (ok ? "output" : "error") as Line["kind"], text: ok ? "COIN-M synced" : "COIN-M sync failed" }].slice(-100))); }
     else if (name === "today-fees") {
       next.push({ kind: "output", text: "loading today's COIN-M fees..." });
@@ -298,6 +307,6 @@ export function MarketTerminal() {
   const indicators: Record<string, IndicatorPoint[]> = { ma7: enabled.ma7 ? sma(rows(candles), 7) : [], ma25: enabled.ma25 ? sma(rows(candles), 25) : [], ma60: enabled.ma60 ? sma(rows(candles), 60) : [], ma99: enabled.ma99 ? sma(rows(candles), 99) : [], ema200: enabled.ema200 ? carryForward(ema(rows(daily), 200), candles.map((item) => item.time)) : [], ema21: enabled.ema21 ? carryForward(ema(rows(weekly), 21), candles.map((item) => item.time)) : [], bbMiddle: enabled.bb ? bb.middle : [], bbUpper: enabled.bb ? bb.upper : [], bbLower: enabled.bb ? bb.lower : [] };
   const toggle = (name: IndicatorName) => setEnabled((current) => ({ ...current, [name]: !current[name] }));
   const onRangeChange = (range: TimeRange) => { rangesRef.current[interval] = range; localStorage.setItem(uiKey, JSON.stringify({ interval, enabled, ranges: rangesRef.current })); };
-  const selectInterval = (next: string) => setIntervalValue(next);
+  const selectInterval = (next: string) => { if (next === interval) return; chartTrace("switch-request", { from: interval, to: next, leavingRange: rangesRef.current[interval] || null, enteringRange: rangesRef.current[next] || null, currentCandles: candles.length, currentLast: candles.at(-1)?.time }); setIntervalValue(next); };
   return <main className="market-terminal"><section className="chart-pane"><nav>{intervals.map((item) => <button className={item.value === interval ? "active" : ""} key={item.value} onClick={() => selectInterval(item.value)}>{item.label}</button>)}<span className="indicator-controls">{([['ma7', 'MA7'], ['ma25', 'MA25'], ['ma60', 'MA60'], ['ma99', 'MA99'], ['ema200', 'EMA200D'], ['ema21', 'EMA21W'], ['bb', 'BB']] as Array<[IndicatorName, string]>).map(([name, label]) => <button className={enabled[name] ? "active" : ""} key={name} onClick={() => toggle(name)}>{label}</button>)}</span></nav><Chart candles={candles} loadOlder={loadOlder} line={interval === "time"} indicators={indicators} initialRange={rangesRef.current[interval]} onRangeChange={onRangeChange} period={interval} /><div className="funding-strip"><span>Funding</span><strong className={fundingRate >= 0 ? "positive" : "negative"}>{Number.isFinite(fundingRate) ? `${(fundingRate * 100).toFixed(4)}%` : "--"}</strong><span>Mark {funding?.markPrice ? Number(funding.markPrice).toFixed(2) : "--"}</span><span>Index {funding?.indexPrice ? Number(funding.indexPrice).toFixed(2) : "--"}</span><span>Next {nextFunding}</span></div></section><section className="console" onClick={() => input.current?.focus()} onPointerDown={(event) => event.stopPropagation()}><div className="output" ref={output}>{lines.map((line, index) => <pre className={line.kind} key={index}>{line.text}</pre>)}</div><form onSubmit={(event) => { event.preventDefault(); run(); }}><span>$</span><input ref={input} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => event.stopPropagation()} autoComplete="off" spellCheck={false} /></form></section></main>;
 }
