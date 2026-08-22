@@ -3,6 +3,8 @@ dist/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
 .DS_Store
 reference-project/
 __pycache__/

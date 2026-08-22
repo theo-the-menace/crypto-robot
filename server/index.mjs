@@ -9,6 +9,7 @@ import { analysisMessages, isTradeCommand, validImageDataUrl } from './market-co
 import { requestedOrderBookRange } from './order-book-context.mjs';
 import { MarketStore } from './market-store.mjs';
 import { aggregateMarketKlines, marketIntervals } from './market-aggregate.mjs';
+import { checkGmailPushToken, gmailOAuthCallback, gmailOAuthStart, gmailStatus, handleGmailPush, renewGmailWatch } from './gmail.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -417,6 +418,20 @@ export function createCryptoServer() {
       if (request.method === 'GET' && request.url === '/api/status') {
         return sendJson(response, 200, { configured, environment, liveTradingEnabled, allowedSymbols, maxOrderUsdt, futures: { configured, maxLeverage: 125, confirmationRequired: true }, margin: { configured, confirmationRequired: true, borrowRepayEnabled: false }, model: { provider: gatewayProvider, models: modelOptions, reasoning: reasoningOptions, defaultModel, defaultReasoning } });
       }
+      if (request.method === 'GET' && request.url === '/api/gmail/status') return sendJson(response, 200, await gmailStatus());
+      if (request.method === 'GET' && request.url === '/api/gmail/oauth/start') {
+        const location = gmailOAuthStart(); response.writeHead(302, { Location: location }); return response.end();
+      }
+      if (request.method === 'GET' && request.url?.startsWith('/api/gmail/oauth/callback')) {
+        const query = new URL(request.url, 'http://localhost').searchParams;
+        const result = await gmailOAuthCallback({ code: query.get('code') || '', state: query.get('state') || '' });
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return response.end(`<h1>Gmail connected</h1><pre>${JSON.stringify(result, null, 2)}</pre>`);
+      }
+      if (request.method === 'POST' && request.url?.startsWith('/api/gmail/pubsub')) {
+        const query = new URL(request.url, 'http://localhost').searchParams;
+        if (!checkGmailPushToken(query.get('token') || request.headers['x-gmail-pubsub-token'])) return sendJson(response, 401, { error: 'Invalid Gmail Pub/Sub token.' });
+        const payload = await body(request, 100_000); const result = await handleGmailPush(payload); return sendJson(response, 200, result);
+      }
       if (request.method === 'GET' && request.url === '/api/emergency/status') return sendJson(response, 200, emergency.status());
       if (request.method === 'POST' && request.url === '/api/emergency/confirm') {
         const payload = await body(request);
@@ -681,9 +696,12 @@ export function createCryptoServer() {
 }
 
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
-  const server = createCryptoServer(); let stopMarketStream;
-  server.listen(port, '127.0.0.1', () => { console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); stopMarketStream = startMarketStream(); });
-  server.on('close', () => stopMarketStream?.());
+  const server = createCryptoServer(); let stopMarketStream; let gmailRenewTimer;
+  server.listen(port, '127.0.0.1', async () => {
+    console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); stopMarketStream = startMarketStream();
+    try { const status = await gmailStatus(); if (status.configured && status.authorized) { await renewGmailWatch(); gmailRenewTimer = setInterval(() => renewGmailWatch().catch((error) => console.error('Gmail watch renewal failed', error.message)), 24 * 60 * 60_000); } } catch (error) { console.error('Gmail startup sync unavailable', error.message); }
+  });
+  server.on('close', () => { stopMarketStream?.(); if (gmailRenewTimer) clearInterval(gmailRenewTimer); });
 }
 
 export { coinMFunding, coinMKlineRow };
