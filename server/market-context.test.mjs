@@ -21,8 +21,13 @@ test('builds a multimodal user message from a validated pasted image', () => {
   const messages = analysisMessages({ message: '分析图片', history: [{ role: 'assistant', content: '前文' }], marketContext: null, image });
   assert.equal(messages.at(-1).content[1].image_url.url, image);
   assert.equal(messages[1].content, '前文');
-  assert.match(messages[0].content, /K-line\/technical structure 40%/);
-  assert.match(messages[0].content, /aggressive-risk profile of 70\/100/);
+  assert.match(messages[0].content, /K-line\/technical structure about 40%/);
+  assert.match(messages[0].content, /aggressive-risk profile of 75\/100/);
+});
+
+test('includes the compacted earlier conversation summary', () => {
+  const messages = analysisMessages({ message: 'What changed?', history: [], conversationSummary: 'User prefers conservative entries and is waiting for 76,000.', marketContext: null });
+  assert.match(messages[0].content, /User prefers conservative entries/);
 });
 
 test('compacts multiscale market context and reports bounded token cost', () => {

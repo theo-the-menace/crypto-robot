@@ -120,8 +120,11 @@ type ChatSession = {
   messages: Message[];
   updatedAt: number;
   pinned?: boolean;
+  conversationSummary?: string;
+  summarizedMessageCount?: number;
 };
 type PendingChat = { requestId: string; sessionId: string; assistantId: string };
+type ChatResult = Partial<Message> & { conversationSummary?: string; summarizedMessageCount?: number };
 type ChartPoint = { time: number; close: number };
 type Theme = "light" | "dark" | "system";
 type NewsItem = {
@@ -3134,6 +3137,7 @@ export function App() {
   const activeSessionIdRef = useRef<string | null>(null);
   const [input, setInput] = useState(() => window.localStorage.getItem(CHAT_DRAFT_KEY) || "");
   const [composerExpanded, setComposerExpanded] = useState(false);
+  const composerLogTimer = useRef<number | null>(null);
   const [materials, setMaterials] = useState<MaterialSettings>(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || "{}");
@@ -3161,6 +3165,35 @@ export function App() {
   useEffect(() => {
     if (input) window.localStorage.setItem(CHAT_DRAFT_KEY, input);
   }, [input]);
+  useEffect(() => {
+    if (!input) return;
+    if (composerLogTimer.current !== null) window.clearTimeout(composerLogTimer.current);
+    composerLogTimer.current = window.setTimeout(() => {
+      const textarea = document.querySelector<HTMLTextAreaElement>(".composer textarea");
+      const composer = textarea?.closest<HTMLElement>(".composer");
+      const model = composer?.querySelector<HTMLElement>(".model-picker");
+      if (!textarea || !composer) return;
+      const style = window.getComputedStyle(textarea);
+      void fetch("/api/composer-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputLength: input.length,
+          expanded: composerExpanded,
+          viewportWidth: window.innerWidth,
+          composerWidth: Math.round(composer.getBoundingClientRect().width),
+          textareaClientWidth: textarea.clientWidth,
+          textareaScrollWidth: textarea.scrollWidth,
+          textareaClientHeight: textarea.clientHeight,
+          textareaScrollHeight: textarea.scrollHeight,
+          lineHeight: style.lineHeight,
+          modelWidth: Math.round(model?.getBoundingClientRect().width || 0),
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    }, 250);
+    return () => { if (composerLogTimer.current !== null) window.clearTimeout(composerLogTimer.current); };
+  }, [input, composerExpanded]);
   useEffect(() => { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(materials)); }, [materials]);
   useEffect(() => {
     if (!materialsOpen) return;
@@ -3357,6 +3390,8 @@ export function App() {
           content,
           product,
         })),
+        conversationSummary: session.conversationSummary,
+        summarizedMessageCount: session.summarizedMessageCount,
       }));
     window.localStorage.setItem(
       "crypto-agent-recents",
@@ -3448,12 +3483,13 @@ export function App() {
     setSessionMenu(null);
   }
 
-  async function finishChat(sessionId: string, title: string, messages: Message[], assistantId: string, reply: string, result: Partial<Message> = {}) {
-    const nextMessages = messages.map((message) => message.id === assistantId ? { ...message, content: reply, ...result } : message);
+  async function finishChat(sessionId: string, title: string, messages: Message[], assistantId: string, reply: string, result: ChatResult = {}) {
+    const { conversationSummary, summarizedMessageCount, ...messageResult } = result;
+    const nextMessages = messages.map((message) => message.id === assistantId ? { ...message, content: reply, ...messageResult } : message);
     setMessages(nextMessages.slice(-MESSAGE_PAGE_SIZE));
     setHasOlderMessages(nextMessages.length > MESSAGE_PAGE_SIZE);
     setSessions((existing) => [
-      { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
+      { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now(), conversationSummary: conversationSummary || existing.find((item) => item.id === sessionId)?.conversationSummary, summarizedMessageCount: summarizedMessageCount ?? existing.find((item) => item.id === sessionId)?.summarizedMessageCount },
       ...existing.filter((item) => item.id !== sessionId),
     ]);
     window.localStorage.removeItem(PENDING_CHAT_KEY);
@@ -3516,9 +3552,14 @@ export function App() {
     const content = (contentOverride ?? input).trim() || (attachment ? "请分析这张图片。" : "");
     if (!content || busy) return;
     const sentAttachment = attachment;
-    const currentMessages = sessions.find((item) => item.id === activeSessionId)?.messages || messages;
+    const currentSession = sessions.find((item) => item.id === activeSessionId);
+    const currentMessages = currentSession?.messages || messages;
     const editIndex = replaceFromMessageId ? currentMessages.findIndex((message) => message.id === replaceFromMessageId) : -1;
     const sourceMessages = editIndex >= 0 ? currentMessages.slice(0, editIndex) : currentMessages;
+    const summaryStart = editIndex >= 0 ? 0 : currentSession?.summarizedMessageCount || 0;
+    const summarizedMessageCount = Math.max(summaryStart, Math.max(0, sourceMessages.length - 12));
+    const summaryUpdates = sourceMessages.slice(summaryStart, summarizedMessageCount);
+    const conversationSummary = summaryStart ? currentSession?.conversationSummary : "";
     const user: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -3545,12 +3586,11 @@ export function App() {
     activeRequestId.current = requestId;
     window.localStorage.setItem(PENDING_CHAT_KEY, JSON.stringify({ requestId, sessionId, assistantId: assistant.id }));
     setSessions((existing) => [
-      { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: baseMessages, updatedAt: Date.now() },
+      { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: baseMessages, updatedAt: Date.now(), conversationSummary, summarizedMessageCount: summaryStart },
       ...existing.filter((item) => item.id !== sessionId),
     ]);
     try {
-      const history = sourceMessages
-        .slice(-12)
+      const history = sourceMessages.slice(-12)
         .map(({ role, content }) => ({ role, content }));
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -3562,6 +3602,9 @@ export function App() {
           model: modelId,
           reasoning_effort: reasoningEffort,
           history,
+          conversationSummary,
+          summaryUpdates,
+          summarizedMessageCount,
           marketContext: marketContext.current,
           materials,
           ...(sentAttachment ? { image: sentAttachment.dataUrl } : {}),

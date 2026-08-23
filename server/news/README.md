@@ -24,12 +24,12 @@ This directory contains server-side news collectors. Collectors run on the remot
 
 Recommended public sources for a dedicated crypto layer:
 
-- CoinDesk RSS: broad crypto breaking news and policy coverage.
-- Cointelegraph RSS: a second editorial source for industry coverage.
-- Bitcoin Optech newsletter: Bitcoin protocol and infrastructure research.
+- CoinDesk RSS: broad crypto breaking news and policy coverage. **Implemented.**
+- Cointelegraph RSS: a second editorial source for industry coverage. **Implemented.**
+- Bitcoin Optech newsletter: Bitcoin protocol and infrastructure research. **Implemented.**
 - Official SEC crypto-assets and CFTC digital-assets pages: primary regulatory material should outrank media summaries.
 
-Crypto media should be scored strictly. Rumors, price commentary, and exchange promotions should not enter Market without a primary link or corroborating official source.
+Crypto media should be scored strictly. Rumors, price commentary, and exchange promotions should not enter Market without a primary link or corroborating official source. RSS items are cached in `data/news/crypto-rss.json` and use the same 75-point Luna/Terra pipeline.
 
 ## Scoring Levels
 

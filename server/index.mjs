@@ -16,6 +16,7 @@ import { processGmailMessage } from './gmail-pipeline.mjs';
 import { MarketMessageStore } from './market-message-store.mjs';
 import { sendTelegramNews } from './telegram-notifier.mjs';
 import { collectWhiteHouse } from './news/whitehouse-source.mjs';
+import { collectCryptoRss } from './news/rss-source.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -570,6 +571,25 @@ async function tradeContext(message, account = null) {
   } catch { return null; }
 }
 
+async function performanceContext(message) {
+  const match = String(message || '').match(/(?:最近|过去|这)\s*(\d+)\s*天/u);
+  if (!match && !/(三天|3天|盈亏|手续费|未实现盈亏|已实现盈亏)/u.test(String(message || ''))) return null;
+  const days = Math.min(30, Math.max(1, Number(match?.[1] || 3)));
+  const endTime = Date.now();
+  const startTime = endTime - days * 86_400_000;
+  try {
+    const [income, positions, premium] = await Promise.all([
+      coinm.income({ startTime, endTime, limit: 1000 }),
+      coinm.positionRisk(),
+      coinm.premiumIndex('BTCUSD_PERP'),
+    ]);
+    const rows = (Array.isArray(income) ? income : []).filter((row) => ['REALIZED_PNL', 'COMMISSION', 'FUNDING_FEE'].includes(row.incomeType));
+    const byType = Object.fromEntries(['REALIZED_PNL', 'COMMISSION', 'FUNDING_FEE'].map((type) => [type, rows.filter((row) => row.incomeType === type).reduce((sum, row) => sum + Number(row.income || 0), 0)]));
+    const openPositions = (Array.isArray(positions) ? positions : []).filter((row) => Number(row.positionAmt || 0) !== 0).map((row) => ({ symbol: row.symbol, positionSide: row.positionSide, positionAmt: row.positionAmt, entryPrice: row.entryPrice, markPrice: row.markPrice, unrealizedProfit: row.unRealizedProfit, marginType: row.marginType, leverage: row.leverage }));
+    return { periodDays: days, startTime, endTime, incomeAssetNote: 'Income values are grouped by native asset; do not sum BTC and USD directly.', byType, income: rows.slice(-200), unrealized: openPositions, openPositionCount: openPositions.length, markPrice: Array.isArray(premium) ? premium[0]?.markPrice : premium?.markPrice };
+  } catch (error) { return { periodDays: days, startTime, endTime, error: error instanceof Error ? error.message : 'Performance data unavailable' }; }
+}
+
 async function pipeServerCoinMStream(request, response, interval) {
   if (!marketDataBase || !marketDataKey) return false;
   const controller = new AbortController();
@@ -937,7 +957,7 @@ export function createCryptoServer() {
           mark('orderBookMs', stageStartedAt);
           const marketContext = bookWindow ? { ...(payload.marketContext || {}), orderBookWindow: { ...bookWindow, requestedRange: range } } : payload.marketContext;
           stageStartedAt = Date.now();
-          const [historicalMarket, accountContext] = await Promise.all([historicalMarketContext(message), automaticAccountContext()]);
+          const [historicalMarket, accountContext, performance] = await Promise.all([historicalMarketContext(message), automaticAccountContext(), performanceContext(message)]);
           mark('historicalAndAccountMs', stageStartedAt);
           stageStartedAt = Date.now();
           const tradeHistory = await tradeContext(message, accountContext);
@@ -946,7 +966,7 @@ export function createCryptoServer() {
           mark('tradeMarketNewsMs', stageStartedAt);
           stageStartedAt = Date.now();
           const conversationSummary = await updateConversationSummary(payload.conversationSummary, payload.summaryUpdates, { model, reasoningEffort });
-          const prompt = analysisMessages({ message: message || '请分析这张图片。', history: payload.history, conversationSummary, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image });
+          const prompt = analysisMessages({ message: message || '请分析这张图片。', history: payload.history, conversationSummary, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext || performance ? { tradeHistory, accountContext, performance } : null, autoMarket, newsContext, image });
           if (payload.stream === true) {
             const job = { id: chatRequestId, reply: '', status: 'streaming', subscribers: new Set(), result: { conversationSummary, summarizedMessageCount: Number(payload.summarizedMessageCount) || 0 }, error: '' };
             chatRequests.set(chatRequestId, job);
@@ -1022,6 +1042,7 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
     console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void syncMarketMessages().catch((error) => console.warn('Initial market message sync unavailable', error.message)); stopMarketStream = startMarketStream();
     try { const status = await gmailStatus(); if (status.configured && status.authorized) { await renewGmailWatch(); gmailRenewTimer = setInterval(() => renewGmailWatch().catch((error) => console.error('Gmail watch renewal failed', error.message)), 24 * 60 * 60_000); } } catch (error) { console.error('Gmail startup sync unavailable', error.message); }
     collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)); whiteHouseTimer = setInterval(() => collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)), 10 * 60_000);
+    collectCryptoRss({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Crypto RSS collection failed', error.message)); setInterval(() => collectCryptoRss({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Crypto RSS collection failed', error.message)), 10 * 60_000);
   });
   server.on('close', () => { stopMarketStream?.(); if (gmailRenewTimer) clearInterval(gmailRenewTimer); if (whiteHouseTimer) clearInterval(whiteHouseTimer); });
 }
