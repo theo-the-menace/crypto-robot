@@ -85,6 +85,14 @@ const emergency = new EmergencyPolicy({ budgetFraction: Number(process.env.EMERG
 
 function sendJson(response, status, body) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(body)); }
 const chartLogDirectory = resolve(process.cwd(), '.cache', 'chart-log');
+const chatLogDirectory = resolve(process.cwd(), '.cache', 'chat-log');
+async function saveChatLog(entry) {
+  const today = new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10);
+  await mkdir(chatLogDirectory, { recursive: true });
+  const files = await readdir(chatLogDirectory).catch(() => []);
+  await Promise.all(files.filter((file) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(file) && file.slice(0, 10) < today).map((file) => unlink(resolve(chatLogDirectory, file)).catch(() => {})));
+  await appendFile(resolve(chatLogDirectory, `${today}.jsonl`), `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+}
 async function saveChartLogs(entries) {
   const today = new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10);
   await mkdir(chartLogDirectory, { recursive: true });
@@ -506,6 +514,8 @@ function createMarginDraft(raw) {
 
 export function createCryptoServer() {
   return createServer(async (request, response) => {
+    const requestId = randomUUID();
+    const requestStartedAt = Date.now();
     try {
       if (request.method === 'GET' && request.url === '/api/status') {
         return sendJson(response, 200, { configured, environment, liveTradingEnabled, allowedSymbols, maxOrderUsdt, futures: { configured, maxLeverage: 125, confirmationRequired: true }, margin: { configured, confirmationRequired: true, borrowRepayEnabled: false }, model: { provider: gatewayProvider, models: modelOptions, reasoning: reasoningOptions, defaultModel, defaultReasoning } });
@@ -750,6 +760,8 @@ export function createCryptoServer() {
         return sendJson(response, 503, { error: 'Server market relay unavailable.' });
       }
       if (request.method === 'POST' && request.url === '/api/chat') {
+        const timings = {};
+        const mark = (name, startedAt) => { timings[name] = Date.now() - startedAt; };
         const payload = await body(request, 6_000_000);
         const message = String(payload.message || '').trim();
         const image = payload.image;
@@ -760,14 +772,25 @@ export function createCryptoServer() {
         const reasoningEffort = reasoningOptions.includes(payload.reasoning_effort) ? payload.reasoning_effort : defaultReasoning;
         if (!isTradeCommand(message)) {
           if (!gateway) return sendJson(response, 503, { error: 'Configure a model gateway before asking for market analysis.' });
+          let stageStartedAt = Date.now();
           const range = requestedOrderBookRange(message);
           const bookWindow = await orderBookContext(range);
+          mark('orderBookMs', stageStartedAt);
           const marketContext = bookWindow ? { ...(payload.marketContext || {}), orderBookWindow: { ...bookWindow, requestedRange: range } } : payload.marketContext;
+          stageStartedAt = Date.now();
           const [historicalMarket, accountContext] = await Promise.all([historicalMarketContext(message), automaticAccountContext()]);
+          mark('historicalAndAccountMs', stageStartedAt);
+          stageStartedAt = Date.now();
           const tradeHistory = await tradeContext(message, accountContext);
           const autoMarket = await automaticMarketContext(payload.accountContext || accountContext);
-          const newsContext = (await marketMessages.list(20)).map(({ id, receivedAt, subject, summary, source }) => ({ id, receivedAt, subject, summary, source }));
+          const newsContext = (await marketMessages.list(20)).map(({ id, publishedAt, title, content, source }) => ({ id, publishedAt, title, content: String(content || '').slice(0, 8_000), source }));
+          mark('tradeMarketNewsMs', stageStartedAt);
+          stageStartedAt = Date.now();
           const reply = await gateway.complete(analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image }), { model, reasoningEffort });
+          mark('vipapiMs', stageStartedAt);
+          const timingLog = { event: 'chat_timing', requestId, messageChars: message.length, model, reasoningEffort, newsCount: newsContext.length, hasAccountContext: Boolean(accountContext), autoMarketTokens: autoMarket?.estimatedTokens || 0, timings: { ...timings, totalMs: Date.now() - requestStartedAt } };
+          console.log(JSON.stringify(timingLog));
+          void saveChatLog(timingLog).catch((error) => console.error(JSON.stringify({ event: 'chat_log_error', requestId, error: error.message })));
           return sendJson(response, 200, { reply });
         }
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before preparing an order.' });
@@ -799,6 +822,9 @@ export function createCryptoServer() {
       }
       return sendJson(response, 404, { error: 'Not found.' });
     } catch (error) {
+      const errorLog = { event: 'request_error', requestId, method: request.method, url: request.url, totalMs: Date.now() - requestStartedAt, error: error instanceof Error ? error.message : String(error) };
+      console.error(JSON.stringify(errorLog));
+      void saveChatLog(errorLog).catch(() => {});
       const result = publicError(error);
       return sendJson(response, result.status, { error: result.message });
     }
