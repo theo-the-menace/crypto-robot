@@ -57,6 +57,17 @@ export class MarketStore {
     return rows.slice(-limit);
   }
 
+  async gaps(from, to) {
+    const rows = await this.window(from, to);
+    const gaps = [];
+    for (let index = 1; index < rows.length; index += 1) {
+      const previous = Number(rows[index - 1][0]);
+      const next = Number(rows[index][0]);
+      if (next - previous > 60_000) gaps.push({ from: previous + 60_000, to: next - 60_000, minutes: (next - previous) / 60_000 - 1 });
+    }
+    return gaps;
+  }
+
   async tail(limit = 1_000, endTime = Date.now()) {
     const manifest = await this.manifest(); const rows = [];
     for (const { month } of [...manifest.months].reverse()) {

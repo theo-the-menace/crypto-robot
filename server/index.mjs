@@ -274,13 +274,18 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
     lastReconcileAt = Date.now();
     reconcile = reconcile.then(async () => {
       const manifest = await marketStore.manifest();
-      let cursor = Number(manifest.lastTime || 0) + 60_000;
       const now = Math.floor(Date.now() / 60_000) * 60_000;
-      if (!cursor || cursor > now || now - cursor > 1_500 * 60_000) { console.log(JSON.stringify({ event: 'coinm_gap_skip', cursor, now, gapMinutes: cursor ? Math.max(0, (now - cursor) / 60_000) : null })); return; }
-      console.log(JSON.stringify({ event: 'coinm_gap_reconcile', from: cursor, to: now, gapMinutes: (now - cursor) / 60_000 }));
-      const page = await coinMMarket(symbol, '1m', now + 59_999, 1_500, cursor);
-      if (page.klines?.length) await marketStore.merge(page.klines, { persist: true });
-      console.log(JSON.stringify({ event: 'coinm_gap_reconciled', rows: page.klines?.length || 0 }));
+      const ranges = [];
+      const cursor = Number(manifest.lastTime || 0) + 60_000;
+      if (cursor && cursor <= now && now - cursor <= 1_500 * 60_000) ranges.push({ from: cursor, to: now });
+      ranges.push(...await marketStore.gaps(Math.max(0, now - 24 * 60 * 60_000), now));
+      for (const range of ranges.slice(0, 10)) {
+        console.log(JSON.stringify({ event: 'coinm_gap_reconcile', ...range }));
+        const limit = Math.min(1_500, Math.ceil((range.to - range.from + 60_000) / 60_000));
+        const page = await coinMMarket(symbol, '1m', range.to + 59_999, limit, range.from);
+        if (page.klines?.length) await marketStore.merge(page.klines, { persist: true });
+        console.log(JSON.stringify({ event: 'coinm_gap_reconciled', from: range.from, to: range.to, rows: page.klines?.length || 0 }));
+      }
     }).catch((error) => console.warn('COIN-M gap reconciliation unavailable', error instanceof Error ? error.message : error));
     return reconcile;
   };
