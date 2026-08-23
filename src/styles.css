@@ -128,8 +128,10 @@ button { cursor: pointer; }
 .chart-heading { display: flex; align-items: center; justify-content: space-between; color: var(--ink); font-size: 11px; }
 .chart-heading > div { display: flex; align-items: baseline; gap: 8px; }.chart-heading span { color: var(--subtle); font-size: 10px; }.chart-heading b { color: var(--green); font-size: 12px; font-variant-numeric: tabular-nums; }
 .price-chart svg { display: block; width: 100%; height: 110px; margin-top: 5px; }.chart-line { fill: none; stroke: var(--green); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }.chart-fill { fill: var(--green-soft); opacity: .75; }.chart-empty { display: grid; height: 110px; place-items: center; color: var(--muted); font-size: 11px; }
-.messages { position: relative; overflow-y: auto; padding: 28px max(24px, calc((100% - 760px) / 2)) 10px; scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
+.messages { position: relative; overflow-y: auto; padding: 28px max(24px, calc((100% - 760px) / 2)) 10px; scrollbar-width: none; -ms-overflow-style: none; }
 .messages::-webkit-scrollbar { display: none; }
+.history-loading { display: grid; height: 28px; place-items: center; }
+.history-loading i { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--muted); border-radius: 50%; animation: spin .8s linear infinite; }
 .scroll-down { position: sticky; bottom: 12px; display: grid; visibility: hidden; width: 34px; height: 34px; place-items: center; margin: 0 auto; border: 1px solid var(--border); border-radius: 50%; color: var(--ink); background: var(--panel); box-shadow: 0 3px 12px var(--shadow); opacity: 0; transition: opacity .16s ease, visibility .16s ease; }
 .scroll-down.visible { visibility: visible; opacity: 1; }
 .scroll-down:hover { background: var(--panel-muted); }

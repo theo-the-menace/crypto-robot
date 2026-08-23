@@ -254,6 +254,7 @@ const MIN_TIME_SHARE_POINTS = 9;
 const MAX_TIME_SHARE_POINTS = 145;
 const MIN_KLINE_POINTS = 9;
 const MAX_KLINE_POINTS = 129;
+const MESSAGE_PAGE_SIZE = 60;
 const CHAT_DRAFT_KEY = "crypto-agent-unsent-draft";
 const PENDING_CHAT_KEY = "crypto-agent-pending-chat";
 function readPendingChat(): PendingChat | null {
@@ -3084,6 +3085,9 @@ export function App() {
   const modelPickerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const historyLoadInFlight = useRef(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const followingMessages = useRef(true);
   const [showLatest, setShowLatest] = useState(false);
@@ -3125,6 +3129,7 @@ export function App() {
   const onMessagesScroll = () => {
     const node = messagesRef.current;
     if (!node) return;
+    if (node.scrollTop <= 24 && hasOlderMessages) void loadOlderMessages();
     followingMessages.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
     setShowLatest(!followingMessages.current);
   };
@@ -3313,7 +3318,8 @@ export function App() {
       return;
     }
     setActiveSessionId(session.id);
-    setMessages(session.messages);
+    setMessages(session.messages.slice(-MESSAGE_PAGE_SIZE));
+    setHasOlderMessages(session.messages.length > MESSAGE_PAGE_SIZE);
     setBusy(true);
     const controller = new AbortController();
     streamController.current = controller;
@@ -3335,6 +3341,7 @@ export function App() {
   function newChat() {
     setActiveSessionId(null);
     setMessages([]);
+    setHasOlderMessages(false);
     setInput("");
     setAttachment(null);
     setError("");
@@ -3343,10 +3350,31 @@ export function App() {
   }
   function openSession(session: ChatSession) {
     setActiveSessionId(session.id);
-    setMessages(session.messages);
+    setMessages(session.messages.slice(-MESSAGE_PAGE_SIZE));
+    setHasOlderMessages(session.messages.length > MESSAGE_PAGE_SIZE);
+    followingMessages.current = true;
     setInput("");
     setAttachment(null);
     setError("");
+  }
+  function loadOlderMessages() {
+    if (historyLoadInFlight.current || !activeSessionId) return;
+    const session = sessions.find((item) => item.id === activeSessionId);
+    const firstId = messages[0]?.id;
+    const firstIndex = session?.messages.findIndex((item) => item.id === firstId) ?? -1;
+    if (!session || firstIndex <= 0) return setHasOlderMessages(false);
+    historyLoadInFlight.current = true;
+    setLoadingHistory(true);
+    const node = messagesRef.current;
+    const height = node?.scrollHeight || 0;
+    const older = session.messages.slice(Math.max(0, firstIndex - MESSAGE_PAGE_SIZE), firstIndex);
+    setMessages((current) => [...older, ...current]);
+    window.requestAnimationFrame(() => {
+      if (node) node.scrollTop = node.scrollHeight - height;
+      setHasOlderMessages(firstIndex > MESSAGE_PAGE_SIZE);
+      setLoadingHistory(false);
+      historyLoadInFlight.current = false;
+    });
   }
   function togglePinned(session: ChatSession) {
     setSessions((current) => current.map((item) => item.id === session.id ? { ...item, pinned: !item.pinned } : item));
@@ -3367,7 +3395,8 @@ export function App() {
 
   async function finishChat(sessionId: string, title: string, messages: Message[], assistantId: string, reply: string, result: Partial<Message> = {}) {
     const nextMessages = messages.map((message) => message.id === assistantId ? { ...message, content: reply, ...result } : message);
-    setMessages(nextMessages);
+    setMessages(nextMessages.slice(-MESSAGE_PAGE_SIZE));
+    setHasOlderMessages(nextMessages.length > MESSAGE_PAGE_SIZE);
     setSessions((existing) => [
       { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
       ...existing.filter((item) => item.id !== sessionId),
@@ -3418,8 +3447,9 @@ export function App() {
     const content = (contentOverride ?? input).trim() || (attachment ? "请分析这张图片。" : "");
     if (!content || busy) return;
     const sentAttachment = attachment;
-    const editIndex = replaceFromMessageId ? messages.findIndex((message) => message.id === replaceFromMessageId) : -1;
-    const sourceMessages = editIndex >= 0 ? messages.slice(0, editIndex) : messages;
+    const currentMessages = sessions.find((item) => item.id === activeSessionId)?.messages || messages;
+    const editIndex = replaceFromMessageId ? currentMessages.findIndex((message) => message.id === replaceFromMessageId) : -1;
+    const sourceMessages = editIndex >= 0 ? currentMessages.slice(0, editIndex) : currentMessages;
     const user: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -3431,7 +3461,8 @@ export function App() {
     const assistant: Message = { id: crypto.randomUUID(), role: "assistant", content: "" };
     const baseMessages = [...sourceMessages, user, assistant];
     setActiveSessionId(sessionId);
-    setMessages(baseMessages);
+    setMessages(baseMessages.slice(-MESSAGE_PAGE_SIZE));
+    setHasOlderMessages(baseMessages.length > MESSAGE_PAGE_SIZE);
     setInput("");
     setAttachment(null);
     setEditingMessageId(null);
@@ -3584,6 +3615,7 @@ export function App() {
       )}
       <section className="conversation">
         {selectedNews ? <MarketArticle item={selectedNews} onBack={() => setSelectedNews(null)} /> : <><div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
+          {loadingHistory && <div className="history-loading" role="status" aria-label="正在加载更早消息"><i /></div>}
           {!messages.length && (
             <div className="empty">
               <Bot size={32} />

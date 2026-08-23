@@ -84,9 +84,9 @@ test('an expiring server-side draft can only submit once', async () => {
 
 test('market analysis sends chart context, history, and pasted images to the model gateway', async () => {
   const originalFetch = globalThis.fetch;
-  const originalEnv = { base: process.env.GATEWAY_BASE_URL, key: process.env.GATEWAY_API_KEY };
-  process.env.GATEWAY_BASE_URL = 'https://gateway.example';
-  process.env.GATEWAY_API_KEY = 'gateway-key';
+  const originalEnv = { base: process.env.OPENAI_VIP_BASE_URL, key: process.env.OPENAI_VIP_API_KEY };
+  process.env.OPENAI_VIP_BASE_URL = 'https://gateway.example';
+  process.env.OPENAI_VIP_API_KEY = 'gateway-key';
   let gatewayRequest;
   let marketRequest;
   globalThis.fetch = async (url, options = {}) => {
@@ -116,15 +116,15 @@ test('market analysis sends chart context, history, and pasted images to the mod
   } finally {
     await new Promise((resolve) => server.close(resolve));
     globalThis.fetch = originalFetch;
-    if (originalEnv.base === undefined) delete process.env.GATEWAY_BASE_URL; else process.env.GATEWAY_BASE_URL = originalEnv.base;
-    if (originalEnv.key === undefined) delete process.env.GATEWAY_API_KEY; else process.env.GATEWAY_API_KEY = originalEnv.key;
+    if (originalEnv.base === undefined) delete process.env.OPENAI_VIP_BASE_URL; else process.env.OPENAI_VIP_BASE_URL = originalEnv.base;
+    if (originalEnv.key === undefined) delete process.env.OPENAI_VIP_API_KEY; else process.env.OPENAI_VIP_API_KEY = originalEnv.key;
   }
 });
 
 test('historical crossing and private trades are compiled with a chart image', async () => {
   const originalFetch = globalThis.fetch;
-  const originalEnv = { base: process.env.GATEWAY_BASE_URL, gatewayKey: process.env.GATEWAY_API_KEY, binanceKey: process.env.BINANCE_API_KEY, secret: process.env.BINANCE_SECRET_KEY, mode: process.env.BINANCE_ENV };
-  process.env.GATEWAY_BASE_URL = 'https://gateway.example'; process.env.GATEWAY_API_KEY = 'gateway-key';
+  const originalEnv = { base: process.env.OPENAI_VIP_BASE_URL, gatewayKey: process.env.OPENAI_VIP_API_KEY, binanceKey: process.env.BINANCE_API_KEY, secret: process.env.BINANCE_SECRET_KEY, mode: process.env.BINANCE_ENV };
+  process.env.OPENAI_VIP_BASE_URL = 'https://gateway.example'; process.env.OPENAI_VIP_API_KEY = 'gateway-key';
   process.env.BINANCE_API_KEY = 'binance-key'; process.env.BINANCE_SECRET_KEY = 'binance-secret'; process.env.BINANCE_ENV = 'live';
   let gatewayRequest; let historyRequested = false; let tradesRequested = false;
   globalThis.fetch = async (url, options = {}) => {
@@ -148,6 +148,6 @@ test('historical crossing and private trades are compiled with a chart image', a
     assert.equal(gatewayRequest.messages.at(-1).content[1].image_url.url, 'data:image/png;base64,aGVsbG8=');
   } finally {
     await new Promise((resolve) => server.close(resolve)); globalThis.fetch = originalFetch;
-    for (const [name, value] of Object.entries({ GATEWAY_BASE_URL: originalEnv.base, GATEWAY_API_KEY: originalEnv.gatewayKey, BINANCE_API_KEY: originalEnv.binanceKey, BINANCE_SECRET_KEY: originalEnv.secret, BINANCE_ENV: originalEnv.mode })) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+    for (const [name, value] of Object.entries({ OPENAI_VIP_BASE_URL: originalEnv.base, OPENAI_VIP_API_KEY: originalEnv.gatewayKey, BINANCE_API_KEY: originalEnv.binanceKey, BINANCE_SECRET_KEY: originalEnv.secret, BINANCE_ENV: originalEnv.mode })) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
   }
 });
