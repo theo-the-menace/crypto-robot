@@ -48,11 +48,53 @@ const defaultModel = modelOptions.includes(process.env.OPENAI_VIP_MODEL) ? proce
 const defaultReasoning = reasoningOptions.includes(process.env.OPENAI_VIP_REASONING_EFFORT) ? process.env.OPENAI_VIP_REASONING_EFFORT : 'medium';
 const marketStore = new MarketStore({ directory: resolve(process.cwd(), 'data', 'market') });
 let fundingCache = { value: null, updatedAt: 0 };
+let liveQuoteCache = { value: null, updatedAt: 0, inflight: null };
 let accountContextCache = { value: null, updatedAt: 0, inflight: null };
 let marketMessagesCache = { value: null, updatedAt: 0, inflight: null };
 const marketStreams = new Set();
 let marketReady = Promise.resolve();
 const marketMessages = new MarketMessageStore();
+
+async function liveQuoteContext() {
+  if (liveQuoteCache.inflight) return liveQuoteCache.inflight;
+  if (liveQuoteCache.value && Date.now() - liveQuoteCache.updatedAt < 3_000) return liveQuoteCache.value;
+  liveQuoteCache.inflight = (async () => {
+    const get = async (url) => {
+      const response = await fetch(url, { signal: AbortSignal.timeout(4_000) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(`quote request failed (${response.status})`);
+      return body;
+    };
+    const stamp = new Date().toISOString();
+    const safe = (promise) => promise.catch((error) => { console.warn('live quote leg unavailable', error instanceof Error ? error.message : error); return null; });
+    const [spot, usdm, coinm, coinmPremium, fx, usdtUsd] = await Promise.all([
+      safe(get('https://api.binance.com/api/v3/ticker/bookTicker?symbol=BTCUSDT')),
+      safe(get('https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=BTCUSDT')),
+      safe(get('https://dapi.binance.com/dapi/v1/ticker/bookTicker?symbol=BTCUSD_PERP')),
+      safe(get('https://dapi.binance.com/dapi/v1/premiumIndex?symbol=BTCUSD_PERP')),
+      safe(get(process.env.CNY_USDT_RATE_URL || 'https://api.frankfurter.app/latest?from=USD&to=CNY')),
+      safe(get('https://api.binance.com/api/v3/ticker/price?symbol=USDCUSDT')),
+    ]);
+    const usdCny = Number(fx?.rates?.CNY);
+    const usdtUsdValue = Number(usdtUsd?.price) || 1;
+    const value = {
+      observedAt: stamp,
+      timezone: 'Asia/Shanghai',
+      cnyPerUsdt: Number.isFinite(usdCny) ? usdCny * usdtUsdValue : null,
+      cnyUsdt: { value: Number.isFinite(usdCny) ? usdCny * usdtUsdValue : null, source: process.env.CNY_USDT_RATE_URL || 'frankfurter.app USD/CNY + Binance USDC/USDT', approximate: true, note: 'USDT按美元近似；非Binance人民币现货成交价' },
+      btcSpot: { symbol: 'BTCUSDT', last: Number(spot?.bidPrice || spot?.askPrice) || null, bid: Number(spot?.bidPrice) || null, ask: Number(spot?.askPrice) || null, source: 'Binance Spot' },
+      btcUsdm: { symbol: 'BTCUSDT', last: Number(usdm?.bidPrice || usdm?.askPrice) || null, bid: Number(usdm?.bidPrice) || null, ask: Number(usdm?.askPrice) || null, source: 'Binance USDⓈ-M' },
+      btcCoinm: { symbol: 'BTCUSD_PERP', last: Number(coinm?.bidPrice || coinm?.askPrice) || null, bid: Number(coinm?.bidPrice) || null, ask: Number(coinm?.askPrice) || null, mark: Number(coinmPremium?.markPrice) || null, index: Number(coinmPremium?.indexPrice) || null, source: 'Binance COIN-M' },
+    };
+    liveQuoteCache.value = value;
+    liveQuoteCache.updatedAt = Date.now();
+    return value;
+  })().catch((error) => {
+    console.warn('live quote snapshot unavailable', error instanceof Error ? error.message : error);
+    return liveQuoteCache.value;
+  }).finally(() => { liveQuoteCache.inflight = null; });
+  return liveQuoteCache.inflight;
+}
 setGmailMessageHandler(async (message) => {
   const result = await processGmailMessage(message, marketMessages);
   if (result.error) console.error('Gmail market-message processing failed', result.error);
@@ -421,7 +463,8 @@ async function automaticMarketContext(account, materials = {}) {
       if (rows.length) series[interval] = rows;
     } catch { /* local history is optional; the live snapshot still works */ }
   }
-  const context = compactMarketContext({ symbol: 'BTCUSD_PERP', generatedAt: now, series, market: { funding: fundingCache.value || null }, account });
+  const liveQuotes = await liveQuoteContext();
+  const context = compactMarketContext({ symbol: 'BTCUSD_PERP', generatedAt: now, series, market: { funding: fundingCache.value || null, liveQuotes }, account });
   return context;
 }
 
