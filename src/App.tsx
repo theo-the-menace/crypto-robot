@@ -234,7 +234,7 @@ type MarketContext = {
   orderBook24h?: Record<string, unknown> | null;
 };
 type MaterialDensity = "off" | "low" | "medium" | "high" | "max";
-type MaterialSettings = Record<"1m" | "5m" | "1h" | "4h" | "1d", MaterialDensity>;
+type MaterialSettings = Record<"1m" | "5m" | "1h" | "4h", MaterialDensity>;
 type ImageAttachment = { dataUrl: string; name: string; type: string };
 type FuturesTrade = {
   id: number;
@@ -258,10 +258,11 @@ const MIN_KLINE_POINTS = 9;
 const MAX_KLINE_POINTS = 129;
 const MESSAGE_PAGE_SIZE = 60;
 const MATERIALS_KEY = "crypto-agent-materials";
-const MATERIAL_DEFAULTS: MaterialSettings = { "1m": "high", "5m": "medium", "1h": "medium", "4h": "medium", "1d": "low" };
+const MATERIAL_DEFAULTS: MaterialSettings = { "1m": "high", "5m": "medium", "1h": "medium", "4h": "medium" };
+const MATERIAL_INTERVALS: Array<keyof MaterialSettings> = ["1m", "5m", "1h", "4h"];
 const MATERIAL_LEVELS: MaterialDensity[] = ["off", "low", "medium", "high", "max"];
-const MATERIAL_LABELS: Record<MaterialDensity, string> = { off: "不带", low: "低", medium: "中", high: "高", max: "极高" };
-const MATERIAL_POINTS: Record<MaterialDensity, number> = { off: 0, low: 30, medium: 90, high: 180, max: 300 };
+const MATERIAL_LABELS: Record<MaterialDensity, string> = { off: "Off", low: "Low", medium: "Medium", high: "High", max: "Very high" };
+const MATERIAL_POINTS: Record<MaterialDensity, number> = { off: 0, low: 30, medium: 90, high: 180, max: 2_000 };
 const CHAT_DRAFT_KEY = "crypto-agent-unsent-draft";
 const MODEL_KEY = "crypto-agent-model";
 const REASONING_KEY = "crypto-agent-reasoning";
@@ -3119,9 +3120,13 @@ export function App() {
   const activeSessionIdRef = useRef<string | null>(null);
   const [input, setInput] = useState(() => window.localStorage.getItem(CHAT_DRAFT_KEY) || "");
   const [materials, setMaterials] = useState<MaterialSettings>(() => {
-    try { return { ...MATERIAL_DEFAULTS, ...JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || "{}") }; } catch { return MATERIAL_DEFAULTS; }
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || "{}");
+      return Object.fromEntries(MATERIAL_INTERVALS.map((interval) => [interval, saved[interval] || MATERIAL_DEFAULTS[interval]])) as MaterialSettings;
+    } catch { return MATERIAL_DEFAULTS; }
   });
   const [materialsOpen, setMaterialsOpen] = useState(false);
+  const materialsPickerRef = useRef<HTMLDivElement | null>(null);
   const [attachment, setAttachment] = useState<ImageAttachment | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -3141,6 +3146,14 @@ export function App() {
     if (input) window.localStorage.setItem(CHAT_DRAFT_KEY, input);
   }, [input]);
   useEffect(() => { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(materials)); }, [materials]);
+  useEffect(() => {
+    if (!materialsOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!materialsPickerRef.current?.contains(event.target as Node)) setMaterialsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [materialsOpen]);
   useEffect(() => {
     window.localStorage.setItem(MODEL_KEY, modelId);
   }, [modelId]);
@@ -3738,15 +3751,16 @@ export function App() {
         </div>
         <div className="composer-wrap">
           <div className="composer">
-            <div className="materials-picker">
-              <button className={`materials-trigger ${materialsOpen ? "active" : ""}`} title="选择分析材料" aria-label="选择分析材料" aria-expanded={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)}><Plus size={18} /></button>
-              {materialsOpen && <div className="materials-menu" role="dialog" aria-label="分析材料">
-                <header><strong>分析材料</strong><span>预计约 {Math.ceil(Object.entries(materials).reduce((sum, [interval, density]) => sum + MATERIAL_POINTS[density] * ({ "1m": 1, "5m": 1, "1h": .8, "4h": 1, "1d": 1.2 } as Record<string, number>)[interval], 0) * 6 / 4)} tokens</span></header>
-                {(Object.keys(materials) as Array<keyof MaterialSettings>).map((interval) => {
+            <div className="materials-picker" ref={materialsPickerRef}>
+              <button className={`materials-trigger ${materialsOpen ? "active" : ""}`} title="Choose analysis materials" aria-label="Choose analysis materials" aria-expanded={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)}><Plus size={18} /></button>
+              {materialsOpen && <div className="materials-menu" role="dialog" aria-label="Analysis materials">
+                <header><strong>Analysis materials</strong><span>Estimated ~{Math.ceil((240 * 1.2 + Object.entries(materials).reduce((sum, [interval, density]) => sum + MATERIAL_POINTS[density] * ({ "1m": 1, "5m": 1, "1h": .8, "4h": 1 } as Record<string, number>)[interval], 0)) * 6 / 4)} tokens</span></header>
+                <p className="materials-baseline">A fixed long-term daily trend is always included.</p>
+                {MATERIAL_INTERVALS.map((interval) => {
                   const value = MATERIAL_LEVELS.indexOf(materials[interval]);
-                  return <label className="material-row" key={interval}><span>{interval}</span><input type="range" min="0" max="4" step="1" value={value} aria-label={`${interval} 图表密度`} onChange={(event) => setMaterials((current) => ({ ...current, [interval]: MATERIAL_LEVELS[Number(event.target.value)] }))} /><b>{MATERIAL_LABELS[materials[interval]]}</b></label>;
+                  return <label className="material-row" key={interval}><span>{interval}</span><input type="range" min="0" max="4" step="1" value={value} aria-label={`${interval} chart density`} onChange={(event) => setMaterials((current) => ({ ...current, [interval]: MATERIAL_LEVELS[Number(event.target.value)] }))} /><b>{MATERIAL_LABELS[materials[interval]]}</b></label>;
                 })}
-                <small>密度越高，带入的历史 K 线越多，预计 token 消耗也越高。</small>
+                <small>Higher density includes more historical candles and uses more tokens.</small>
               </div>}
             </div>
             <div className="composer-input">

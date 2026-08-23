@@ -361,11 +361,12 @@ function sampleRows(rows, limit) {
 
 async function automaticMarketContext(account, materials = {}) {
   const now = Date.now();
-  const densityPoints = { off: 0, low: 30, medium: 90, high: 180, max: 300 };
-  const ranges = Object.fromEntries(Object.entries({ '1m': 180, '5m': 144, '1h': 84, '4h': 180, '1d': 240 }).map(([interval, fallback]) => {
+  const densityPoints = { off: 0, low: 30, medium: 90, high: 180, max: 2_000 };
+  const ranges = Object.fromEntries(Object.entries({ '1m': 180, '5m': 144, '1h': 84, '4h': 180 }).map(([interval, fallback]) => {
     const density = ['off', 'low', 'medium', 'high', 'max'].includes(materials?.[interval]) ? materials[interval] : 'medium';
-    return [interval, density === 'off' ? 0 : Math.min(fallback, densityPoints[density])];
+    return [interval, density === 'off' ? 0 : densityPoints[density]];
   }).filter(([, limit]) => limit > 0));
+  ranges['1d'] = 240;
   const series = {};
   await marketReady.catch(() => {});
   for (const [interval, limit] of Object.entries(ranges)) {

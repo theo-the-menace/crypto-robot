@@ -206,6 +206,7 @@ button { cursor: pointer; }
 .materials-trigger:hover, .materials-trigger.active { color: var(--ink); background: var(--panel-muted); }
 .materials-menu { position: absolute; bottom: calc(100% + 10px); left: 0; z-index: 12; display: grid; width: min(330px, calc(100vw - 32px)); gap: 12px; border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: var(--panel); box-shadow: 0 14px 34px var(--shadow); }
 .materials-menu header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }.materials-menu header strong { font-size: 13px; }.materials-menu header span, .materials-menu small { color: var(--muted); font-size: 10px; }
+.materials-baseline { margin: -4px 0 0; color: var(--muted); font-size: 10px; }
 .material-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; gap: 9px; color: var(--muted); font-size: 11px; }.material-row input { width: 100%; accent-color: var(--green); }.material-row b { color: var(--ink); font-size: 10px; text-align: right; }
 .composer-input { display: grid; min-width: 0; flex: 1; gap: 7px; }
 .composer textarea { display: block; width: 100%; min-width: 0; min-height: 24px; max-height: 144px; flex: 1; resize: none; overflow: hidden; border: 0; outline: 0; padding: 1px 0; color: var(--ink); background: transparent; font-size: 14px; line-height: 22px; transition: height .18s ease; }
