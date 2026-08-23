@@ -68,12 +68,12 @@ async function liveQuoteContext() {
     const stamp = new Date().toISOString();
     const safe = (promise) => promise.catch((error) => { console.warn('live quote leg unavailable', error instanceof Error ? error.message : error); return null; });
     const [spot, usdm, coinm, coinmPremium, fx, usdtUsd] = await Promise.all([
-      safe(get('https://api.binance.com/api/v3/ticker/bookTicker?symbol=BTCUSDT')),
-      safe(get('https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=BTCUSDT')),
-      safe(get('https://dapi.binance.com/dapi/v1/ticker/bookTicker?symbol=BTCUSD_PERP')),
-      safe(get('https://dapi.binance.com/dapi/v1/premiumIndex?symbol=BTCUSD_PERP')),
+      safe(binance.ticker('BTCUSDT')),
+      safe(futures.ticker('BTCUSDT')),
+      safe(coinm.ticker('BTCUSD_PERP')),
+      safe(coinm.premiumIndex('BTCUSD_PERP')),
       safe(get(process.env.CNY_USDT_RATE_URL || 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=CNY')),
-      safe(get('https://api.binance.com/api/v3/ticker/price?symbol=USDCUSDT')),
+      safe(binance.ticker('USDCUSDT')),
     ]);
     const usdCny = Number(fx?.rates?.CNY);
     const usdtUsdValue = Number(usdtUsd?.price) || 1;
