@@ -31,6 +31,20 @@ Recommended public sources for a dedicated crypto layer:
 
 Crypto media should be scored strictly. Rumors, price commentary, and exchange promotions should not enter Market without a primary link or corroborating official source. RSS items are cached in `data/news/crypto-rss.json` and use the same 75-point Luna/Terra pipeline.
 
+### SocialData / X
+
+- Source: SocialData.tools public X data API.
+- Current queries: White House, Press Secretary, Donald Trump, and broad crypto keywords.
+- Cache: `data/news/socialdata-x.json`.
+- This is a third-party X data provider, not an official X API. It is pay-per-result, so queries are bounded to 10 results per query and one collection pass every 10 minutes.
+
+### Congress.gov
+
+- Source: official Congress.gov API.
+- Current filter: bills whose title or latest action mentions crypto, cryptocurrency, digital assets, stablecoins, blockchain, Bitcoin, Ethereum, virtual currency, or tokens.
+- Cache: `data/news/congress.json`.
+- Polling: every 30 minutes. The API key is stored as `CONGRESS_API_KEY`.
+
 ## Scoring Levels
 
 - 75-79: watch

@@ -17,6 +17,8 @@ import { MarketMessageStore } from './market-message-store.mjs';
 import { sendTelegramNews } from './telegram-notifier.mjs';
 import { collectWhiteHouse } from './news/whitehouse-source.mjs';
 import { collectCryptoRss } from './news/rss-source.mjs';
+import { collectSocialData } from './news/socialdata-source.mjs';
+import { collectCongress } from './news/congress-source.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -132,6 +134,7 @@ const chatRequests = new Map();
 const futuresDrafts = new Map();
 const marginDrafts = new Map();
 const marginActionDrafts = new Map();
+const assetDrafts = new Map();
 const coinmSnapshotCache = new Map();
 const coinmSnapshotInflight = new Map();
 const todayFeesCache = new Map();
@@ -679,6 +682,41 @@ function createMarginDraft(raw) {
   marginDrafts.set(draft.id, draft); return draft;
 }
 
+async function createAssetDraft(raw) {
+  const action = String(raw?.action || '').toUpperCase();
+  if (!['TRANSFER', 'CONVERT'].includes(action)) throw new Error('Asset action must be TRANSFER or CONVERT.');
+  const asset = String(raw?.asset || '').toUpperCase();
+  const amount = String(raw?.amount || '');
+  if (!asset || !/^\d+(?:\.\d+)?$/.test(amount) || Number(amount) <= 0) throw new Error('Asset and positive amount are required.');
+  let params;
+  let quote = null;
+  if (action === 'TRANSFER') {
+    const type = String(raw.type || '').toUpperCase();
+    if (!['MAIN_UMFUTURE', 'UMFUTURE_MAIN', 'MAIN_CMFUTURE', 'CMFUTURE_MAIN'].includes(type)) throw new Error('Unsupported internal transfer type.');
+    params = { type, asset, amount };
+  } else {
+    const toAsset = String(raw.toAsset || '').toUpperCase();
+    if (!toAsset || toAsset === asset) throw new Error('CONVERT requires a different toAsset.');
+    quote = await binance.convertQuote({ fromAsset: asset, toAsset, fromAmount: amount, validTime: '10s' });
+    if (!quote.quoteId) throw new Error('Binance did not return a Convert quote.');
+    params = { fromAsset: asset, toAsset, fromAmount: amount, quoteId: quote.quoteId, quoteExpiresAt: Date.now() + 10_000 };
+  }
+  const draft = { id: randomUUID(), confirmationToken: randomUUID(), action, params, quote, environment, createdAt: Date.now(), state: 'pending' };
+  assetDrafts.set(draft.id, draft); return draft;
+}
+
+async function executeAssetDraft(draft) {
+  if (draft.action === 'TRANSFER') return { transfer: await binance.universalTransfer(draft.params) };
+  let quoteId = draft.params.quoteId;
+  if (!quoteId || Number(draft.params.quoteExpiresAt || 0) <= Date.now()) {
+    const quote = await binance.convertQuote({ fromAsset: draft.params.fromAsset, toAsset: draft.params.toAsset, fromAmount: draft.params.fromAmount, validTime: '10s' });
+    quoteId = quote.quoteId;
+  }
+  const accepted = await binance.convertAcceptQuote({ quoteId });
+  const status = accepted.orderId ? await binance.convertOrderStatus(accepted.orderId).catch(() => null) : null;
+  return { accepted, status };
+}
+
 export function createCryptoServer() {
   return createServer(async (request, response) => {
     const requestId = randomUUID();
@@ -739,6 +777,22 @@ export function createCryptoServer() {
         return sendJson(response, 200, await accountSnapshot());
       }
       if (request.method === 'GET' && request.url === '/api/assets') return sendJson(response, 200, await assetSnapshot());
+      if (request.method === 'POST' && request.url === '/api/assets/drafts') {
+        if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before preparing an asset operation.' });
+        const draft = await createAssetDraft(await body(request));
+        return sendJson(response, 200, { draft });
+      }
+      const assetConfirm = request.url?.match(/^\/api\/assets\/drafts\/([^/]+)\/confirm$/);
+      if (request.method === 'POST' && assetConfirm) {
+        const payload = await body(request); const draft = assetDrafts.get(assetConfirm[1]);
+        if (!draft || Date.now() - draft.createdAt > 5 * 60_000) return sendJson(response, 404, { error: 'Asset operation draft expired or was not found.' });
+        if (draft.state !== 'pending') return sendJson(response, 409, { error: 'This asset operation draft was already handled.' });
+        if (payload.confirmation !== 'CONFIRM' || payload.confirmationToken !== draft.confirmationToken) return sendJson(response, 400, { error: 'Explicit confirmation for this exact asset operation is required.' });
+        if (!liveTradingEnabled) return sendJson(response, 403, { error: 'Live trading is locked; asset operations are disabled.' });
+        draft.state = 'submitting';
+        try { const result = await executeAssetDraft(draft); draft.state = 'submitted'; return sendJson(response, 200, { result }); }
+        catch (error) { draft.state = error instanceof BinanceApiError && error.executionUnknown ? 'unknown' : 'failed'; throw error; }
+      }
       if (request.method === 'GET' && request.url === '/api/futures/account') {
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before reading Futures.' });
         return sendJson(response, 200, await futures.account());
@@ -997,6 +1051,16 @@ export function createCryptoServer() {
         else parsed = { reply: '', intent: fallbackIntent(message) };
         if (!parsed?.intent) return sendJson(response, 200, { reply: parsed?.reply || '请明确交易方向、交易对和数量，例如“用 50 USDT 市价买入 BTC”。' });
         const resolvedProduct = parsed.product || product;
+        if (parsed.action) {
+          const draft = await createAssetDraft(parsed);
+          if (parsed.directExecute === true && directExecutionRequested(message)) {
+            if (!liveTradingEnabled) return sendJson(response, 403, { error: 'Live trading is locked; asset operations are disabled.' });
+            draft.state = 'submitting';
+            try { const result = await executeAssetDraft(draft); draft.state = 'submitted'; return sendJson(response, 200, { reply: parsed.reply || '资产操作已执行。', product: 'asset', result }); }
+            catch (error) { draft.state = error instanceof BinanceApiError && error.executionUnknown ? 'unknown' : 'failed'; throw error; }
+          }
+          return sendJson(response, 200, { reply: parsed.reply || '资产操作草案已准备好，请核对资产、数量和目标钱包后确认。', product: 'asset', draft });
+        }
         const draft = resolvedProduct === 'futures' ? createFuturesDraft(parsed.intent) : resolvedProduct === 'margin' ? createMarginDraft(parsed.intent) : await createDraft(parsed.intent);
         if (resolvedProduct === 'futures' && parsed.directExecute === true && directExecutionRequested(message)) {
           if (!liveTradingEnabled) return sendJson(response, 403, { error: 'Live trading is locked.' });
@@ -1043,6 +1107,8 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
     try { const status = await gmailStatus(); if (status.configured && status.authorized) { await renewGmailWatch(); gmailRenewTimer = setInterval(() => renewGmailWatch().catch((error) => console.error('Gmail watch renewal failed', error.message)), 24 * 60 * 60_000); } } catch (error) { console.error('Gmail startup sync unavailable', error.message); }
     collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)); whiteHouseTimer = setInterval(() => collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)), 10 * 60_000);
     collectCryptoRss({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Crypto RSS collection failed', error.message)); setInterval(() => collectCryptoRss({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Crypto RSS collection failed', error.message)), 10 * 60_000);
+    collectSocialData({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('SocialData collection failed', error.message)); setInterval(() => collectSocialData({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('SocialData collection failed', error.message)), 10 * 60_000);
+    collectCongress({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Congress collection failed', error.message)); setInterval(() => collectCongress({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Congress collection failed', error.message)), 30 * 60_000);
   });
   server.on('close', () => { stopMarketStream?.(); if (gmailRenewTimer) clearInterval(gmailRenewTimer); if (whiteHouseTimer) clearInterval(whiteHouseTimer); });
 }
