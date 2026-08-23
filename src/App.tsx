@@ -233,6 +233,8 @@ type MarketContext = {
   } | null;
   orderBook24h?: Record<string, unknown> | null;
 };
+type MaterialDensity = "off" | "low" | "medium" | "high" | "max";
+type MaterialSettings = Record<"1m" | "5m" | "1h" | "4h" | "1d", MaterialDensity>;
 type ImageAttachment = { dataUrl: string; name: string; type: string };
 type FuturesTrade = {
   id: number;
@@ -255,7 +257,14 @@ const MAX_TIME_SHARE_POINTS = 145;
 const MIN_KLINE_POINTS = 9;
 const MAX_KLINE_POINTS = 129;
 const MESSAGE_PAGE_SIZE = 60;
+const MATERIALS_KEY = "crypto-agent-materials";
+const MATERIAL_DEFAULTS: MaterialSettings = { "1m": "high", "5m": "medium", "1h": "medium", "4h": "medium", "1d": "low" };
+const MATERIAL_LEVELS: MaterialDensity[] = ["off", "low", "medium", "high", "max"];
+const MATERIAL_LABELS: Record<MaterialDensity, string> = { off: "不带", low: "低", medium: "中", high: "高", max: "极高" };
+const MATERIAL_POINTS: Record<MaterialDensity, number> = { off: 0, low: 30, medium: 90, high: 180, max: 300 };
 const CHAT_DRAFT_KEY = "crypto-agent-unsent-draft";
+const MODEL_KEY = "crypto-agent-model";
+const REASONING_KEY = "crypto-agent-reasoning";
 const PENDING_CHAT_KEY = "crypto-agent-pending-chat";
 function readPendingChat(): PendingChat | null {
   try {
@@ -3079,8 +3088,14 @@ export function App() {
       ? saved
       : "system";
   });
-  const [modelId, setModelId] = useState<ModelId>("gpt-5.6-luna");
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningId>("medium");
+  const [modelId, setModelId] = useState<ModelId>(() => {
+    const saved = window.localStorage.getItem(MODEL_KEY);
+    return saved === "gpt-5.6-luna" || saved === "gpt-5.6-sol" || saved === "gpt-5.6-terra" ? saved : "gpt-5.6-terra";
+  });
+  const [reasoningEffort, setReasoningEffort] = useState<ReasoningId>(() => {
+    const saved = window.localStorage.getItem(REASONING_KEY);
+    return saved === "low" || saved === "medium" || saved === "high" || saved === "xhigh" || saved === "max" ? saved : "medium";
+  });
   const [modelOpen, setModelOpen] = useState(false);
   const modelPickerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
@@ -3103,6 +3118,10 @@ export function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => readPendingChat()?.sessionId || null);
   const activeSessionIdRef = useRef<string | null>(null);
   const [input, setInput] = useState(() => window.localStorage.getItem(CHAT_DRAFT_KEY) || "");
+  const [materials, setMaterials] = useState<MaterialSettings>(() => {
+    try { return { ...MATERIAL_DEFAULTS, ...JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || "{}") }; } catch { return MATERIAL_DEFAULTS; }
+  });
+  const [materialsOpen, setMaterialsOpen] = useState(false);
   const [attachment, setAttachment] = useState<ImageAttachment | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -3121,6 +3140,13 @@ export function App() {
   useEffect(() => {
     if (input) window.localStorage.setItem(CHAT_DRAFT_KEY, input);
   }, [input]);
+  useEffect(() => { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(materials)); }, [materials]);
+  useEffect(() => {
+    window.localStorage.setItem(MODEL_KEY, modelId);
+  }, [modelId]);
+  useEffect(() => {
+    window.localStorage.setItem(REASONING_KEY, reasoningEffort);
+  }, [reasoningEffort]);
   useLayoutEffect(() => {
     if (followingMessages.current && messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
@@ -3419,6 +3445,15 @@ export function App() {
     const reader = response.body?.getReader();
     if (!reader) throw new Error("Chat stream was unavailable.");
     const decoder = new TextDecoder(); let buffer = ''; let reply = '';
+    let renderTimer: number | null = null;
+    const renderReply = () => {
+      renderTimer = null;
+      setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: reply } : message));
+    };
+    const scheduleRender = () => {
+      if (renderTimer !== null) return;
+      renderTimer = window.setTimeout(renderReply, 40);
+    };
     const handle = async (block: string) => {
       const event = block.match(/^event: (.+)$/m)?.[1];
       const line = block.match(/^data: (.+)$/m)?.[1];
@@ -3429,8 +3464,12 @@ export function App() {
         if (reply) setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: reply } : message));
       } else if (event === "delta") {
         reply += data.delta || "";
-        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: reply } : message));
+        scheduleRender();
       } else if (event === "done") {
+        if (renderTimer !== null) {
+          window.clearTimeout(renderTimer);
+          renderReply();
+        }
         await finishChat(sessionId, title, initialMessages, assistantId, data.reply || reply, data);
       } else if (event === "error") throw new Error(data.error || "Chat request failed.");
     };
@@ -3494,6 +3533,7 @@ export function App() {
           reasoning_effort: reasoningEffort,
           history,
           marketContext: marketContext.current,
+          materials,
           ...(sentAttachment ? { image: sentAttachment.dataUrl } : {}),
         }),
         signal: controller.signal,
@@ -3698,6 +3738,17 @@ export function App() {
         </div>
         <div className="composer-wrap">
           <div className="composer">
+            <div className="materials-picker">
+              <button className={`materials-trigger ${materialsOpen ? "active" : ""}`} title="选择分析材料" aria-label="选择分析材料" aria-expanded={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)}><Plus size={18} /></button>
+              {materialsOpen && <div className="materials-menu" role="dialog" aria-label="分析材料">
+                <header><strong>分析材料</strong><span>预计约 {Math.ceil(Object.entries(materials).reduce((sum, [interval, density]) => sum + MATERIAL_POINTS[density] * ({ "1m": 1, "5m": 1, "1h": .8, "4h": 1, "1d": 1.2 } as Record<string, number>)[interval], 0) * 6 / 4)} tokens</span></header>
+                {(Object.keys(materials) as Array<keyof MaterialSettings>).map((interval) => {
+                  const value = MATERIAL_LEVELS.indexOf(materials[interval]);
+                  return <label className="material-row" key={interval}><span>{interval}</span><input type="range" min="0" max="4" step="1" value={value} aria-label={`${interval} 图表密度`} onChange={(event) => setMaterials((current) => ({ ...current, [interval]: MATERIAL_LEVELS[Number(event.target.value)] }))} /><b>{MATERIAL_LABELS[materials[interval]]}</b></label>;
+                })}
+                <small>密度越高，带入的历史 K 线越多，预计 token 消耗也越高。</small>
+              </div>}
+            </div>
             <div className="composer-input">
               {attachment && (
                 <div className="composer-attachment">

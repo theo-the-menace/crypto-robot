@@ -359,9 +359,13 @@ function sampleRows(rows, limit) {
   return Array.from({ length: limit }, (_, index) => rows[Math.round(index * step)]);
 }
 
-async function automaticMarketContext(account) {
+async function automaticMarketContext(account, materials = {}) {
   const now = Date.now();
-  const ranges = { '1m': 180, '1h': 84, '4h': 180, '1d': 240 };
+  const densityPoints = { off: 0, low: 30, medium: 90, high: 180, max: 300 };
+  const ranges = Object.fromEntries(Object.entries({ '1m': 180, '5m': 144, '1h': 84, '4h': 180, '1d': 240 }).map(([interval, fallback]) => {
+    const density = ['off', 'low', 'medium', 'high', 'max'].includes(materials?.[interval]) ? materials[interval] : 'medium';
+    return [interval, density === 'off' ? 0 : Math.min(fallback, densityPoints[density])];
+  }).filter(([, limit]) => limit > 0));
   const series = {};
   await marketReady.catch(() => {});
   for (const [interval, limit] of Object.entries(ranges)) {
@@ -904,7 +908,7 @@ export function createCryptoServer() {
           mark('historicalAndAccountMs', stageStartedAt);
           stageStartedAt = Date.now();
           const tradeHistory = await tradeContext(message, accountContext);
-          const autoMarket = await automaticMarketContext(payload.accountContext || accountContext);
+          const autoMarket = await automaticMarketContext(payload.accountContext || accountContext, payload.materials);
           const newsContext = (await readCachedMarketMessages()).slice(0, 20).map(({ id, publishedAt, title, content, source }) => ({ id, publishedAt, title, content: String(content || '').slice(0, 8_000), source }));
           mark('tradeMarketNewsMs', stageStartedAt);
           stageStartedAt = Date.now();
