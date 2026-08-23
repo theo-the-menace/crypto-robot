@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { completeWithOverseasStrategy } from '../gmail-provider-router.mjs';
 
 const root = resolve(process.cwd(), 'data', 'news');
-const cacheFile = resolve(root, 'government.json');
+const cacheFile = resolve(root, 'government-v2.json');
 const sources = [
   ['White House', 'https://www.whitehouse.gov/remarks/'], ['White House', 'https://www.whitehouse.gov/briefing-room/'], ['White House', 'https://www.whitehouse.gov/presidential-actions/'], ['White House', 'https://www.whitehouse.gov/videos/'],
   ['U.S. Treasury', 'https://home.treasury.gov/news/press-releases'], ['SEC', 'https://www.sec.gov/news/press-releases'], ['CFTC', 'https://www.cftc.gov/PressRoom/PressReleases'], ['Federal Reserve', 'https://www.federalreserve.gov/newsevents/pressreleases.htm'], ['Federal Register', 'https://www.federalregister.gov/documents/search?conditions%5Bterm%5D=cryptocurrency'],
@@ -21,7 +21,7 @@ export async function collectWhiteHouse({ onRelevant } = {}) {
   const cache = await readCache(); let discovered = 0; let relevant = 0; let processed = 0;
   for (const [source, page] of sources) {
     let html; try { html = await fetchPage(page); } catch (error) { console.warn('White House source unavailable', page, error.message); continue; }
-    for (const url of [...new Set(linksFrom(html, page))].slice(0, 20)) {
+    for (const url of [...new Set(linksFrom(html, page).filter((url) => { const path = new URL(url).pathname; return !path.includes('/wp-content/') && !/\.(?:woff2?|css|js|png|jpe?g|webp|svg|gif|ico|xml|json)$/i.test(path); }))].slice(0, 20)) {
       if (processed >= 20) break;
       if (cache[url] && !cache[url].error) continue;
       discovered += 1;

@@ -16,7 +16,7 @@ This directory contains server-side news collectors. Collectors run on the remot
 - Collector: `whitehouse-source.mjs`.
 - Public pages: White House Remarks, Briefing Room, Presidential Actions, Videos; U.S. Treasury press releases; SEC press releases; CFTC press releases; Federal Reserve press releases; and Federal Register cryptocurrency search results.
 - Polling: once at startup and every 10 minutes. The first sync is capped at 20 new pages to keep request and token usage bounded.
-- Cache: `data/news/government.json`.
+- Cache: `data/news/government-v2.json`.
 - Flow: the page title and opening text are scored by Luna. A score below 75 is cached only. A score of 75 or higher is analyzed by Terra, stored in Market, and sent to Telegram with the original URL.
 - Cross-source deduplication is intentionally not enabled yet.
 

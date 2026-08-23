@@ -5,10 +5,9 @@ import { completeWithOverseasStrategy } from '../gmail-provider-router.mjs';
 const root = resolve(process.cwd(), 'data', 'news');
 const cacheFile = resolve(root, 'socialdata-x.json');
 const queries = [
-  ['White House', 'from:WhiteHouse -filter:replies'],
-  ['White House Press Secretary', 'from:PressSec -filter:replies'],
-  ['Donald Trump', 'from:realDonaldTrump -filter:replies'],
-  ['Crypto X', '(bitcoin OR cryptocurrency OR "digital assets" OR stablecoin) -filter:replies'],
+  ['White House', 'from:WhiteHouse (crypto OR cryptocurrency OR bitcoin OR stablecoin OR blockchain OR "digital assets") -filter:replies'],
+  ['White House Press Secretary', 'from:PressSec (crypto OR cryptocurrency OR bitcoin OR stablecoin OR blockchain OR "digital assets") -filter:replies'],
+  ['Donald Trump', 'from:realDonaldTrump (crypto OR cryptocurrency OR bitcoin OR stablecoin OR blockchain OR "digital assets") -filter:replies'],
 ];
 const readCache = async () => { try { return JSON.parse(await readFile(cacheFile, 'utf8')); } catch { return {}; } };
 const saveCache = async (cache) => { await mkdir(root, { recursive: true }); await writeFile(cacheFile, JSON.stringify(cache, null, 2), { mode: 0o600 }); };
