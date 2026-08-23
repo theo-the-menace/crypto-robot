@@ -21,3 +21,14 @@ test('reads and atomically updates the canonical monthly rows', async () => {
     const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'))); assert.equal(manifest.rows, 3); assert.equal(manifest.lastTime, Date.UTC(2026, 7, 1, 0, 2));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('detects missing one-minute rows in a stored window', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'market-store-gaps-')); const snapshot = join(root, 'data');
+  try {
+    const directory = join(snapshot, 'BTCUSD_PERP', '1m'); await mkdir(directory, { recursive: true });
+    const start = Date.UTC(2026, 7, 1); await writeFile(join(directory, '2026-08.json'), JSON.stringify([[start, 1], [start + 60_000, 1], [start + 180_000, 1]]));
+    await writeFile(join(directory, 'manifest.json'), JSON.stringify({ months: ['2026-08'] }));
+    const store = new MarketStore({ directory: snapshot });
+    assert.deepEqual(await store.gaps(start, start + 180_000), [{ from: start + 120_000, to: start + 120_000, minutes: 1 }]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
