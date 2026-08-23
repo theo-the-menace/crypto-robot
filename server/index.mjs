@@ -271,16 +271,13 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
   let socket; let retryMs = 1_000; let stopped = false; let merge = Promise.resolve(); let lastReconcileAt = 0; let reconcile = Promise.resolve(); let lastStreamKlineTime = 0;
   const reconcileGap = () => {
     if (Date.now() - lastReconcileAt < 60_000) return reconcile;
-    const initialReconcile = lastReconcileAt === 0;
     lastReconcileAt = Date.now();
     reconcile = reconcile.then(async () => {
-      const manifest = await marketStore.manifest();
       const now = Math.floor(Date.now() / 60_000) * 60_000;
       const ranges = [];
-      ranges.push({ from: Math.max(0, now - (initialReconcile ? 24 * 60 * 60_000 : 5 * 60_000)), to: now, reason: initialReconcile ? 'startup-refresh' : 'recent-refresh' });
-      const cursor = Number(manifest.lastTime || 0) + 60_000;
-      if (cursor && cursor <= now && now - cursor <= 1_500 * 60_000) ranges.push({ from: cursor, to: now });
-      ranges.push(...await marketStore.gaps(Math.max(0, now - 24 * 60 * 60_000), now));
+      ranges.push({ from: Math.max(0, now - 60_000), to: now, reason: 'recent-refresh' });
+      const gapRanges = await marketStore.gaps(Math.max(0, now - 24 * 60 * 60_000), now);
+      ranges.push(...gapRanges.filter((range) => range.to < now - 60_000));
       for (const range of ranges.slice(0, 10)) {
         console.log(JSON.stringify({ event: 'coinm_gap_reconcile', ...range }));
         const limit = Math.min(1_500, Math.ceil((range.to - range.from + 60_000) / 60_000));
