@@ -142,6 +142,7 @@ const symbolAllowed = (symbol) => !allowedSymbols || allowedSymbols.includes(sym
 const emergency = new EmergencyPolicy({ budgetFraction: Number(process.env.EMERGENCY_BUDGET_FRACTION || 0.2), grantMs: Number(process.env.EMERGENCY_GRANT_MS || 30 * 60_000), cooldownMs: Number(process.env.EMERGENCY_COOLDOWN_MS || 15 * 60_000) });
 
 function sendJson(response, status, body) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(body)); }
+const beijingNow = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', dateStyle: 'short', timeStyle: 'long', hour12: false }).format(new Date()).replace(' ', 'T') + '+08:00';
 function writeSse(response, event, value) { response.write(`event: ${event}\ndata: ${JSON.stringify(value)}\n\n`); }
 function subscribeChatRequest(request, response, job) {
   response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
@@ -171,6 +172,17 @@ async function saveChatLog(entry) {
   const files = await readdir(chatLogDirectory).catch(() => []);
   await Promise.all(files.filter((file) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(file) && file.slice(0, 10) < today).map((file) => unlink(resolve(chatLogDirectory, file)).catch(() => {})));
   await appendFile(resolve(chatLogDirectory, `${today}.jsonl`), `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+}
+async function freshestChatMarketContext(candidate) {
+  try {
+    const interval = String(candidate?.interval || '1m');
+    const latest = await storedMarketKlines(interval, { to: Date.now(), limit: 120 });
+    if (!latest.length) return candidate;
+    const candidateEnd = Number(candidate?.candles?.at?.(-1)?.time || 0);
+    const latestEnd = Number(latest.at(-1)?.[0] || 0);
+    if (!candidate || latestEnd > candidateEnd) return { ...(candidate || {}), symbol: 'BTCUSD_PERP', interval, candles: latest.map((row) => ({ time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]) })) };
+  } catch {}
+  return candidate;
 }
 async function saveChartLogs(entries) {
   const today = new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10);
@@ -427,15 +439,23 @@ async function automaticAccountContext() {
       const rows = await remoteAccountTrades({ limit: 120 }).catch(() => []);
       account = rows.length ? { trades: rows, count: rows.length } : null;
     }
-    if (!account && configured) {
+    if (configured) {
       const snapshot = await coinMSnapshot({ symbol: 'BTCUSD_PERP', limit: 100 }).catch(() => null);
+      const [spotAccount, usdAccount] = await Promise.all([binance.account().catch(() => null), futures.account().catch(() => null)]);
       const pick = (row, keys) => Object.fromEntries(keys.filter((key) => row?.[key] !== undefined).map((key) => [key, row[key]]));
-      if (snapshot) account = {
+      const risk = {
+        spot: spotAccount ? { balances: (spotAccount.balances || []).filter((row) => Number(row.free || 0) + Number(row.locked || 0) !== 0).map((row) => pick(row, ['asset', 'free', 'locked'])) } : null,
+        usdm: usdAccount ? pick(usdAccount, ['totalWalletBalance', 'totalUnrealizedProfit', 'totalMarginBalance', 'totalInitialMargin', 'totalMaintMargin', 'availableBalance', 'maxWithdrawAmount', 'totalOpenOrderInitialMargin']) : null,
+        coinm: snapshot?.account ? pick(snapshot.account, ['feeTier', 'canTrade', 'totalWalletBalance', 'totalUnrealizedProfit', 'totalMarginBalance', 'totalInitialMargin', 'totalMaintMargin', 'availableBalance', 'maxWithdrawAmount', 'totalOpenOrderInitialMargin']) : null,
+      };
+      if (snapshot || account || risk.spot || risk.usdm || risk.coinm) account = {
+        ...(account || {}),
         source: 'binance-coinm-read-only',
-        positions: (snapshot.positions || []).slice(0, 20).map((row) => pick(row, ['symbol', 'positionSide', 'positionAmt', 'entryPrice', 'markPrice', 'liquidationPrice', 'leverage', 'unRealizedProfit', 'updateTime'])),
-        openOrders: (snapshot.openOrders || []).slice(0, 50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),
-        orders: (snapshot.orders || []).slice(-50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),
-        trades: (snapshot.trades || []).slice(-100).map((row) => pick(row, ['id', 'orderId', 'symbol', 'side', 'price', 'qty', 'quoteQty', 'realizedPnl', 'commission', 'commissionAsset', 'time'])),
+        risk,
+        positions: (Array.isArray(snapshot?.positions) ? snapshot.positions : []).slice(0, 20).map((row) => pick(row, ['symbol', 'positionSide', 'positionAmt', 'entryPrice', 'markPrice', 'liquidationPrice', 'leverage', 'unRealizedProfit', 'updateTime'])),
+        openOrders: (Array.isArray(snapshot?.openOrders) ? snapshot.openOrders : []).slice(0, 50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),
+        orders: (Array.isArray(snapshot?.orders) ? snapshot.orders : []).slice(-50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),
+        trades: (Array.isArray(snapshot?.trades) ? snapshot.trades : []).slice(-100).map((row) => pick(row, ['id', 'orderId', 'symbol', 'side', 'price', 'qty', 'quoteQty', 'realizedPnl', 'commission', 'commissionAsset', 'time'])),
       };
     }
     accountContextCache.value = account;
@@ -561,7 +581,7 @@ async function remoteAccountTrades({ product = '', symbol = '', startTime = Date
 async function tradeContext(message, account = null) {
   if (!/(交易历史|历史交易|我的交易|成交记录|交易记录|盈亏|胜率)/u.test(String(message || ''))) return null;
   try {
-    const rows = Array.isArray(account?.trades) ? account.trades : await remoteAccountTrades({ limit: 1000 });
+    const rows = Array.isArray(account?.trades) && account.trades.length ? account.trades : await remoteAccountTrades({ limit: 1000 });
     const pnl = rows.reduce((sum, row) => sum + Number(row.realizedPnl || 0), 0);
     const commission = rows.reduce((sum, row) => sum + Number(row.commission || 0), 0);
     const cutoff = Date.now() - 7 * 24 * 60 * 60_000;
@@ -1009,7 +1029,9 @@ export function createCryptoServer() {
           const range = requestedOrderBookRange(message);
           const bookWindow = await orderBookContext(range);
           mark('orderBookMs', stageStartedAt);
-          const marketContext = bookWindow ? { ...(payload.marketContext || {}), orderBookWindow: { ...bookWindow, requestedRange: range } } : payload.marketContext;
+          const suppliedMarketContext = bookWindow ? { ...(payload.marketContext || {}), orderBookWindow: { ...bookWindow, requestedRange: range } } : payload.marketContext;
+          const marketContext = await freshestChatMarketContext(suppliedMarketContext);
+          void saveChatLog({ event: 'chat_request', requestId: chatRequestId, at: beijingNow(), timezone: 'Asia/Shanghai', message, history: Array.isArray(payload.history) ? payload.history.slice(-12) : [], marketContext: { suppliedEnd: Number(suppliedMarketContext?.candles?.at?.(-1)?.time || 0) || null, usedEnd: Number(marketContext?.candles?.at?.(-1)?.time || 0) || null, candleCount: marketContext?.candles?.length || 0, symbol: marketContext?.symbol || null, interval: marketContext?.interval || null }, model, reasoningEffort }).catch(() => {});
           stageStartedAt = Date.now();
           const [historicalMarket, accountContext, performance] = await Promise.all([historicalMarketContext(message), automaticAccountContext(), performanceContext(message)]);
           mark('historicalAndAccountMs', stageStartedAt);
@@ -1021,6 +1043,7 @@ export function createCryptoServer() {
           stageStartedAt = Date.now();
           const conversationSummary = await updateConversationSummary(payload.conversationSummary, payload.summaryUpdates, { model, reasoningEffort });
           const prompt = analysisMessages({ message: message || '请分析这张图片。', history: payload.history, conversationSummary, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext || performance ? { tradeHistory, accountContext, performance } : null, autoMarket, newsContext, image });
+          void saveChatLog({ event: 'chat_prompt', requestId: chatRequestId, at: beijingNow(), timezone: 'Asia/Shanghai', prompt: prompt.map((item) => ({ role: item.role, content: typeof item.content === 'string' ? item.content.slice(0, 16_000) : '[image]' })), marketEnd: Number(marketContext?.candles?.at?.(-1)?.time || 0) || null, marketAgeMs: marketContext?.candles?.at?.(-1)?.time ? Date.now() - Number(marketContext.candles.at(-1).time) : null }).catch(() => {});
           if (payload.stream === true) {
             const job = { id: chatRequestId, reply: '', status: 'streaming', subscribers: new Set(), result: { conversationSummary, summarizedMessageCount: Number(payload.summarizedMessageCount) || 0 }, error: '' };
             chatRequests.set(chatRequestId, job);
@@ -1031,8 +1054,10 @@ export function createCryptoServer() {
                   broadcastChatRequest(job, 'delta', { delta: chunk });
                 }
                 finishChatRequest(job, 'completed');
+                void saveChatLog({ event: 'chat_completed', requestId: chatRequestId, at: new Date().toISOString(), reply: job.reply.slice(0, 30_000) }).catch(() => {});
               } catch (error) {
                 finishChatRequest(job, 'failed', { error: error instanceof Error ? error.message : 'Model gateway failed.' });
+                void saveChatLog({ event: 'chat_failed', requestId: chatRequestId, at: new Date().toISOString(), error: error instanceof Error ? error.message : String(error) }).catch(() => {});
               }
             })();
             mark('vipapiMs', stageStartedAt);
@@ -1043,6 +1068,7 @@ export function createCryptoServer() {
           const timingLog = { event: 'chat_timing', requestId, messageChars: message.length, model, reasoningEffort, newsCount: newsContext.length, hasAccountContext: Boolean(accountContext), autoMarketTokens: autoMarket?.estimatedTokens || 0, timings: { ...timings, totalMs: Date.now() - requestStartedAt } };
           console.log(JSON.stringify(timingLog));
           void saveChatLog(timingLog).catch((error) => console.error(JSON.stringify({ event: 'chat_log_error', requestId, error: error.message })));
+          void saveChatLog({ event: 'chat_completed', requestId, at: new Date().toISOString(), reply }).catch(() => {});
           return sendJson(response, 200, { reply });
         }
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before preparing an order.' });
