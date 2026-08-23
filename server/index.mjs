@@ -6,7 +6,7 @@ import { BinanceApiError, createBinanceCoinMClient, createBinanceMarginClient, c
 import { auditBinancePermissions } from '../src/permissions.mjs';
 import { fallbackIntent, inferProduct, multiProductTradePrompt, normalizeOrderIntent, tradePrompt, validateOrder } from '../src/trading.mjs';
 import { EmergencyPolicy } from '../src/emergency-policy.mjs';
-import { analysisMessages, isTradeCommand, validImageDataUrl } from './market-context.mjs';
+import { analysisMessages, compactMarketContext, isTradeCommand, validImageDataUrl } from './market-context.mjs';
 import { requestedOrderBookRange } from './order-book-context.mjs';
 import { MarketStore } from './market-store.mjs';
 import { aggregateMarketKlines, marketIntervals } from './market-aggregate.mjs';
@@ -21,9 +21,9 @@ const symbolConfig = (process.env.BINANCE_SYMBOLS || 'BTCUSDT,ETHUSDT').trim();
 const allowedSymbols = symbolConfig === '*' ? null : symbolConfig.split(',').map((item) => item.trim().toUpperCase()).filter(Boolean);
 const maxOrderUsdt = Number(process.env.MAX_ORDER_USDT || 100);
 const configured = Boolean(process.env.BINANCE_API_KEY && process.env.BINANCE_SECRET_KEY);
-const gatewayProvider = process.env.GATEWAY_PROVIDER || 'openai';
-const gatewayBaseUrl = (process.env.GATEWAY_BASE_URL || '').replace(/\/$/, '');
-const gatewayApiKey = process.env.GATEWAY_API_KEY || '';
+const gatewayProvider = process.env.VIPAPI_PROVIDER || process.env.GATEWAY_PROVIDER || 'openai';
+const gatewayBaseUrl = (process.env.DEEPSEEK_VIP_BASE_URL || process.env.VIPAPI_BASE_URL || process.env.GATEWAY_BASE_URL || '').replace(/\/$/, '');
+const gatewayApiKey = process.env.DEEPSEEK_VIP_API_KEY || process.env.VIPAPI_API_KEY || process.env.GATEWAY_API_KEY || '';
 const marketDataBase = (process.env.MARKET_DATA_BASE_URL || gatewayBaseUrl).replace(/\/$/, '');
 const marketDataKey = process.env.MARKET_DATA_API_KEY || gatewayApiKey;
 const modelOptions = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'];
@@ -32,6 +32,7 @@ const defaultModel = modelOptions.includes(process.env.GATEWAY_MODEL) ? process.
 const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING_EFFORT) ? process.env.GATEWAY_REASONING_EFFORT : 'medium';
 const marketStore = new MarketStore({ directory: resolve(process.cwd(), 'data', 'market') });
 let fundingCache = { value: null, updatedAt: 0 };
+let accountContextCache = { value: null, updatedAt: 0, inflight: null };
 const marketStreams = new Set();
 let marketReady = Promise.resolve();
 const marketMessages = new MarketMessageStore();
@@ -251,6 +252,51 @@ async function storedMarketKlines(interval, { from, to = Date.now(), limit = 1_0
   return marketStore.interval(interval, start, to, limit);
 }
 
+function sampleRows(rows, limit) {
+  if (!Array.isArray(rows) || rows.length <= limit) return rows || [];
+  const step = (rows.length - 1) / (limit - 1);
+  return Array.from({ length: limit }, (_, index) => rows[Math.round(index * step)]);
+}
+
+async function automaticMarketContext(account) {
+  const now = Date.now();
+  const ranges = { '1m': 180, '1h': 84, '4h': 180, '1d': 240 };
+  const series = {};
+  await marketReady.catch(() => {});
+  for (const [interval, limit] of Object.entries(ranges)) {
+    try {
+      const source = interval === '1d'
+        ? await storedMarketKlines(interval, { from: Date.UTC(2020, 0, 1), to: now, limit: 2_000 })
+        : await storedMarketKlines(interval, { to: now, limit: limit * 2 });
+      const rows = sampleRows(source, limit);
+      if (rows.length) series[interval] = rows;
+    } catch { /* local history is optional; the live snapshot still works */ }
+  }
+  const context = compactMarketContext({ symbol: 'BTCUSD_PERP', generatedAt: now, series, market: { funding: fundingCache.value || null }, account });
+  return context;
+}
+
+async function automaticAccountContext() {
+  if (!marketDataBase || !marketDataKey) return null;
+  if (accountContextCache.inflight) return accountContextCache.inflight;
+  if (accountContextCache.value && Date.now() - accountContextCache.updatedAt < 15_000) return accountContextCache.value;
+  accountContextCache.inflight = (async () => {
+    let account = null;
+    try {
+      const response = await fetch(`${marketDataBase}/v1/account/context`, { headers: { Authorization: `Bearer ${marketDataKey}` }, signal: AbortSignal.timeout(10_000) });
+      if (response.ok) account = await response.json();
+    } catch {}
+    if (!account) {
+      const rows = await remoteAccountTrades({ limit: 120 }).catch(() => []);
+      account = rows.length ? { trades: rows, count: rows.length } : null;
+    }
+    accountContextCache.value = account;
+    accountContextCache.updatedAt = Date.now();
+    return account;
+  })().finally(() => { accountContextCache.inflight = null; });
+  return accountContextCache.inflight;
+}
+
 function broadcastMarketRow(symbol, row) {
   const payload = `event: kline\ndata: ${JSON.stringify({ symbol, interval: '1m', row })}\n\n`;
   for (const response of marketStreams) response.write(payload);
@@ -364,10 +410,10 @@ async function remoteAccountTrades({ product = '', symbol = '', startTime = Date
   return (await response.json()).rows || [];
 }
 
-async function tradeContext(message) {
+async function tradeContext(message, account = null) {
   if (!/(交易历史|历史交易|我的交易|成交记录|交易记录|盈亏|胜率)/u.test(String(message || ''))) return null;
   try {
-    const rows = await remoteAccountTrades({ limit: 1000 });
+    const rows = Array.isArray(account?.trades) ? account.trades : await remoteAccountTrades({ limit: 1000 });
     const pnl = rows.reduce((sum, row) => sum + Number(row.realizedPnl || 0), 0);
     const commission = rows.reduce((sum, row) => sum + Number(row.commission || 0), 0);
     const cutoff = Date.now() - 7 * 24 * 60 * 60_000;
@@ -698,8 +744,10 @@ export function createCryptoServer() {
           const range = requestedOrderBookRange(message);
           const bookWindow = await orderBookContext(range);
           const marketContext = bookWindow ? { ...(payload.marketContext || {}), orderBookWindow: { ...bookWindow, requestedRange: range } } : payload.marketContext;
-          const [historicalMarket, tradeHistory] = await Promise.all([historicalMarketContext(message), tradeContext(message)]);
-          const reply = await gateway.complete(analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory, image }), { model, reasoningEffort });
+          const [historicalMarket, accountContext] = await Promise.all([historicalMarketContext(message), automaticAccountContext()]);
+          const tradeHistory = await tradeContext(message, accountContext);
+          const autoMarket = await automaticMarketContext(payload.accountContext || accountContext);
+          const reply = await gateway.complete(analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, image }), { model, reasoningEffort });
           return sendJson(response, 200, { reply });
         }
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before preparing an order.' });

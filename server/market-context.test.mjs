@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analysisMessages, buildMarketContext, isTradeCommand, validImageDataUrl } from './market-context.mjs';
+import { analysisMessages, buildMarketContext, compactMarketContext, isTradeCommand, validImageDataUrl } from './market-context.mjs';
 
 test('builds bounded read-only chart context and separates analysis from orders', () => {
   const candles = Array.from({ length: 130 }, (_, time) => ({ time, open: 10, high: 12, low: 9, close: 11, volume: 2 }));
@@ -21,4 +21,12 @@ test('builds a multimodal user message from a validated pasted image', () => {
   const messages = analysisMessages({ message: '分析图片', history: [{ role: 'assistant', content: '前文' }], marketContext: null, image });
   assert.equal(messages.at(-1).content[1].image_url.url, image);
   assert.equal(messages[1].content, '前文');
+});
+
+test('compacts multiscale market context and reports bounded token cost', () => {
+  const rows = Array.from({ length: 500 }, (_, time) => [time, 10, 12, 9, 11, 2]);
+  const context = compactMarketContext({ symbol: 'BTCUSD_PERP', series: { '1m': rows, '1d': rows } }, { maxChars: 2_000 });
+  assert.ok(context.estimatedTokens > 0);
+  assert.ok(context.serializedChars <= 2_000);
+  assert.ok(context.series['1m'].length < rows.length);
 });
