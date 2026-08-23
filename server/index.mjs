@@ -15,7 +15,7 @@ import { checkGmailPushToken, gmailOAuthCallback, gmailOAuthStart, gmailStatus, 
 import { processGmailMessage } from './gmail-pipeline.mjs';
 import { MarketMessageStore } from './market-message-store.mjs';
 import { sendTelegramNews } from './telegram-notifier.mjs';
-import { collectWhiteHouse } from './whitehouse-source.mjs';
+import { collectWhiteHouse } from './news/whitehouse-source.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -66,6 +66,13 @@ async function handleWhiteHouseItem(item) {
 function parseModelJson(value) {
   const text = String(value || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
   try { return JSON.parse(text); } catch { return null; }
+}
+async function updateConversationSummary(summary, messages, options) {
+  if (!messages?.length) return String(summary || '');
+  return gateway.complete([
+    { role: 'system', content: 'Maintain a compact factual conversation memory for a crypto trading assistant. Preserve user preferences, portfolio facts, confirmed analysis conclusions, open questions, and commitments. Do not add advice or invent facts. Return plain text under 1,200 characters.' },
+    { role: 'user', content: JSON.stringify({ previousSummary: String(summary || '').slice(0, 8_000), newMessages: messages.map(({ role, content }) => ({ role, content: String(content || '').slice(0, 4_000) })) }) },
+  ], options);
 }
 function createModelGateway({ baseUrl, apiKey, provider = 'openai', model, reasoningEffort }) {
   async function* stream(messages, options = {}) {
@@ -938,9 +945,10 @@ export function createCryptoServer() {
           const newsContext = (await readCachedMarketMessages()).slice(0, 20).map(({ id, publishedAt, title, content, source }) => ({ id, publishedAt, title, content: String(content || '').slice(0, 8_000), source }));
           mark('tradeMarketNewsMs', stageStartedAt);
           stageStartedAt = Date.now();
-          const prompt = analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image });
+          const conversationSummary = await updateConversationSummary(payload.conversationSummary, payload.summaryUpdates, { model, reasoningEffort });
+          const prompt = analysisMessages({ message: message || '请分析这张图片。', history: payload.history, conversationSummary, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image });
           if (payload.stream === true) {
-            const job = { id: chatRequestId, reply: '', status: 'streaming', subscribers: new Set(), result: null, error: '' };
+            const job = { id: chatRequestId, reply: '', status: 'streaming', subscribers: new Set(), result: { conversationSummary, summarizedMessageCount: Number(payload.summarizedMessageCount) || 0 }, error: '' };
             chatRequests.set(chatRequestId, job);
             void (async () => {
               try {
