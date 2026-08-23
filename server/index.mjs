@@ -72,19 +72,22 @@ async function liveQuoteContext() {
       safe(get('https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=BTCUSDT')),
       safe(get('https://dapi.binance.com/dapi/v1/ticker/bookTicker?symbol=BTCUSD_PERP')),
       safe(get('https://dapi.binance.com/dapi/v1/premiumIndex?symbol=BTCUSD_PERP')),
-      safe(get(process.env.CNY_USDT_RATE_URL || 'https://api.frankfurter.app/latest?from=USD&to=CNY')),
+      safe(get(process.env.CNY_USDT_RATE_URL || 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=CNY')),
       safe(get('https://api.binance.com/api/v3/ticker/price?symbol=USDCUSDT')),
     ]);
     const usdCny = Number(fx?.rates?.CNY);
     const usdtUsdValue = Number(usdtUsd?.price) || 1;
+    const coinmTicker = Array.isArray(coinm) ? coinm[0] : coinm;
+    const coinmMark = Array.isArray(coinmPremium) ? coinmPremium[0] : coinmPremium;
+    const usdmTicker = Array.isArray(usdm) ? usdm[0] : usdm;
     const value = {
       observedAt: stamp,
       timezone: 'Asia/Shanghai',
       cnyPerUsdt: Number.isFinite(usdCny) ? usdCny * usdtUsdValue : null,
-      cnyUsdt: { value: Number.isFinite(usdCny) ? usdCny * usdtUsdValue : null, source: process.env.CNY_USDT_RATE_URL || 'frankfurter.app USD/CNY + Binance USDC/USDT', approximate: true, note: 'USDT按美元近似；非Binance人民币现货成交价' },
+      cnyUsdt: { value: Number.isFinite(usdCny) ? usdCny * usdtUsdValue : null, source: process.env.CNY_USDT_RATE_URL || 'frankfurter.dev USD/CNY + Binance USDC/USDT', approximate: true, note: 'USDT按美元近似；非Binance人民币现货成交价' },
       btcSpot: { symbol: 'BTCUSDT', last: Number(spot?.bidPrice || spot?.askPrice) || null, bid: Number(spot?.bidPrice) || null, ask: Number(spot?.askPrice) || null, source: 'Binance Spot' },
-      btcUsdm: { symbol: 'BTCUSDT', last: Number(usdm?.bidPrice || usdm?.askPrice) || null, bid: Number(usdm?.bidPrice) || null, ask: Number(usdm?.askPrice) || null, source: 'Binance USDⓈ-M' },
-      btcCoinm: { symbol: 'BTCUSD_PERP', last: Number(coinm?.bidPrice || coinm?.askPrice) || null, bid: Number(coinm?.bidPrice) || null, ask: Number(coinm?.askPrice) || null, mark: Number(coinmPremium?.markPrice) || null, index: Number(coinmPremium?.indexPrice) || null, source: 'Binance COIN-M' },
+      btcUsdm: { symbol: 'BTCUSDT', last: Number(usdmTicker?.bidPrice || usdmTicker?.askPrice) || null, bid: Number(usdmTicker?.bidPrice) || null, ask: Number(usdmTicker?.askPrice) || null, source: 'Binance USDⓈ-M' },
+      btcCoinm: { symbol: 'BTCUSD_PERP', last: Number(coinmTicker?.bidPrice || coinmTicker?.askPrice) || null, bid: Number(coinmTicker?.bidPrice) || null, ask: Number(coinmTicker?.askPrice) || null, mark: Number(coinmMark?.markPrice) || null, index: Number(coinmMark?.indexPrice) || null, source: 'Binance COIN-M' },
     };
     liveQuoteCache.value = value;
     liveQuoteCache.updatedAt = Date.now();
@@ -790,6 +793,7 @@ export function createCryptoServer() {
       if (request.method === 'GET' && request.url === '/api/status') {
         return sendJson(response, 200, { configured, environment, liveTradingEnabled, allowedSymbols, maxOrderUsdt, futures: { configured, maxLeverage: 125, confirmationRequired: true }, margin: { configured, confirmationRequired: true, borrowRepayEnabled: false }, model: { provider: gatewayProvider, models: modelOptions, reasoning: reasoningOptions, defaultModel, defaultReasoning } });
       }
+      if (request.method === 'GET' && request.url === '/api/quotes') return sendJson(response, 200, await liveQuoteContext());
       if (request.method === 'POST' && request.url === '/api/chart-log') {
         const payload = await body(request, 100_000);
         await saveChartLogs(Array.isArray(payload.entries) ? payload.entries : [payload.entry]);

@@ -3811,7 +3811,7 @@ export function App() {
             </article>
           )}
           {error && <div className="global-error">{error}</div>}
-          <button className={`scroll-down ${showLatest ? "visible" : ""}`} title="回到底部" aria-label="回到底部" onClick={scrollMessagesToBottom}><ChevronDown size={18} /></button>
+          {showLatest && messages.length > 0 && messagesRef.current && messagesRef.current.scrollHeight > messagesRef.current.clientHeight && <button className="scroll-down visible" title="回到底部" aria-label="回到底部" onClick={scrollMessagesToBottom}><ChevronDown size={18} /></button>}
         </div>
         <div className="composer-wrap">
           <div className={`composer ${composerExpanded ? "expanded" : ""}`}>
