@@ -77,20 +77,25 @@ function createModelGateway({ baseUrl, apiKey, provider = 'openai', model, reaso
       return;
     }
     const decoder = new TextDecoder(); let buffer = '';
+    const parseLine = (line) => {
+      if (!line.startsWith('data:')) return null;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') return null;
+      try {
+        const value = JSON.parse(data);
+        return value.choices?.[0]?.delta?.content || value.choices?.[0]?.message?.content || '';
+      } catch { return null; }
+    };
     for await (const chunk of response.body) {
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split(/\r?\n/); buffer = lines.pop() || '';
       for (const line of lines) {
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim();
-        if (!data || data === '[DONE]') continue;
-        try {
-          const value = JSON.parse(data);
-          const content = value.choices?.[0]?.delta?.content || value.choices?.[0]?.message?.content || '';
-          if (content) yield content;
-        } catch {}
+        const content = parseLine(line);
+        if (content) yield content;
       }
     }
+    const content = parseLine(buffer);
+    if (content) yield content;
   }
   return { stream, async complete(messages, options = {}) {
     let content = '';

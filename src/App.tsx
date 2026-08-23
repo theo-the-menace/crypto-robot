@@ -261,8 +261,13 @@ const MATERIALS_KEY = "crypto-agent-materials";
 const MATERIAL_DEFAULTS: MaterialSettings = { "1m": "high", "5m": "medium", "1h": "medium", "4h": "medium" };
 const MATERIAL_INTERVALS: Array<keyof MaterialSettings> = ["1m", "5m", "1h", "4h"];
 const MATERIAL_LEVELS: MaterialDensity[] = ["off", "low", "medium", "high", "max"];
-const MATERIAL_LABELS: Record<MaterialDensity, string> = { off: "Off", low: "Low", medium: "Medium", high: "High", max: "Very high" };
 const MATERIAL_POINTS: Record<MaterialDensity, number> = { off: 0, low: 30, medium: 90, high: 180, max: 2_000 };
+const MATERIAL_DURATION_LABELS: Record<keyof MaterialSettings, string[]> = {
+  "1m": ["Off", "30m", "1.5h", "3h", "33h"],
+  "5m": ["Off", "2.5h", "7.5h", "15h", "7d"],
+  "1h": ["Off", "30h", "3.75d", "7.5d", "83d"],
+  "4h": ["Off", "5d", "15d", "30d", "333d"],
+};
 const CHAT_DRAFT_KEY = "crypto-agent-unsent-draft";
 const MODEL_KEY = "crypto-agent-model";
 const REASONING_KEY = "crypto-agent-reasoning";
@@ -3119,6 +3124,7 @@ export function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => readPendingChat()?.sessionId || null);
   const activeSessionIdRef = useRef<string | null>(null);
   const [input, setInput] = useState(() => window.localStorage.getItem(CHAT_DRAFT_KEY) || "");
+  const [composerExpanded, setComposerExpanded] = useState(false);
   const [materials, setMaterials] = useState<MaterialSettings>(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || "{}");
@@ -3138,9 +3144,10 @@ export function App() {
       document.querySelector<HTMLTextAreaElement>(".composer textarea");
     if (!textarea) return;
     textarea.style.height = "auto";
-    const height = Math.min(textarea.scrollHeight, 144);
+    const height = Math.min(textarea.scrollHeight, 84);
     textarea.style.height = `${height}px`;
-    textarea.style.overflowY = textarea.scrollHeight > 144 ? "auto" : "hidden";
+    textarea.style.overflowY = textarea.scrollHeight > 84 ? "auto" : "hidden";
+    setComposerExpanded(height > 24);
   }, [input]);
   useEffect(() => {
     if (input) window.localStorage.setItem(CHAT_DRAFT_KEY, input);
@@ -3493,6 +3500,7 @@ export function App() {
       for (const block of blocks) await handle(block);
       if (done) break;
     }
+    if (buffer.trim()) await handle(buffer);
   }
 
   async function send(contentOverride?: string, replaceFromMessageId?: string) {
@@ -3619,7 +3627,6 @@ export function App() {
                   <div className={`chat-session ${activeSessionId === session.id ? "active" : ""}`} key={session.id}>
                     <button onClick={() => openSession(session)}>
                       {session.pinned && <Pin size={12} fill="currentColor" />}
-                      <MessageSquare size={14} />
                       <span>{session.title}</span>
                     </button>
                     <div className="chat-session-more">
@@ -3750,7 +3757,7 @@ export function App() {
           <button className={`scroll-down ${showLatest ? "visible" : ""}`} title="回到底部" aria-label="回到底部" onClick={scrollMessagesToBottom}><ChevronDown size={18} /></button>
         </div>
         <div className="composer-wrap">
-          <div className="composer">
+          <div className={`composer ${composerExpanded ? "expanded" : ""}`}>
             <div className="materials-picker" ref={materialsPickerRef}>
               <button className={`materials-trigger ${materialsOpen ? "active" : ""}`} title="Choose analysis materials" aria-label="Choose analysis materials" aria-expanded={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)}><Plus size={18} /></button>
               {materialsOpen && <div className="materials-menu" role="dialog" aria-label="Analysis materials">
@@ -3758,9 +3765,9 @@ export function App() {
                 <p className="materials-baseline">A fixed long-term daily trend is always included.</p>
                 {MATERIAL_INTERVALS.map((interval) => {
                   const value = MATERIAL_LEVELS.indexOf(materials[interval]);
-                  return <label className="material-row" key={interval}><span>{interval}</span><input type="range" min="0" max="4" step="1" value={value} aria-label={`${interval} chart density`} onChange={(event) => setMaterials((current) => ({ ...current, [interval]: MATERIAL_LEVELS[Number(event.target.value)] }))} /><b>{MATERIAL_LABELS[materials[interval]]}</b></label>;
+                  return <label className="material-row" key={interval}><span>{interval}</span><input type="range" min="0" max="4" step="1" value={value} aria-label={`${interval} history duration`} onChange={(event) => setMaterials((current) => ({ ...current, [interval]: MATERIAL_LEVELS[Number(event.target.value)] }))} /><b>{MATERIAL_DURATION_LABELS[interval][value]}</b></label>;
                 })}
-                <small>Higher density includes more historical candles and uses more tokens.</small>
+                <small>Each slider shows the actual history duration sent for that interval.</small>
               </div>}
             </div>
             <div className="composer-input">
