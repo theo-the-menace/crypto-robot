@@ -405,7 +405,7 @@ function sampleRows(rows, limit) {
 async function automaticMarketContext(account, materials = {}) {
   const now = Date.now();
   const densityPoints = { off: 0, low: 30, medium: 90, high: 180, max: 2_000 };
-  const ranges = Object.fromEntries(Object.entries({ '1m': 180, '5m': 144, '1h': 84, '4h': 180 }).map(([interval, fallback]) => {
+  const ranges = Object.fromEntries(Object.entries({ '1m': 180, '5m': 144, '15m': 144, '1h': 84, '4h': 180 }).map(([interval, fallback]) => {
     const density = ['off', 'low', 'medium', 'high', 'max'].includes(materials?.[interval]) ? materials[interval] : 'medium';
     return [interval, density === 'off' ? 0 : densityPoints[density]];
   }).filter(([, limit]) => limit > 0));
@@ -441,8 +441,9 @@ async function automaticAccountContext() {
     }
     if (configured) {
       const snapshot = await coinMSnapshot({ symbol: 'BTCUSD_PERP', limit: 100 }).catch(() => null);
-      const [spotAccount, usdAccount] = await Promise.all([binance.account().catch(() => null), futures.account().catch(() => null)]);
+      const [spotAccount, usdAccount, coinmInfo, usdInfo] = await Promise.all([binance.account().catch(() => null), futures.account().catch(() => null), coinm.exchangeInfo().catch(() => null), futures.exchangeInfo('BTCUSDT').catch(() => null)]);
       const pick = (row, keys) => Object.fromEntries(keys.filter((key) => row?.[key] !== undefined).map((key) => [key, row[key]]));
+      const spec = (info, symbol) => { const row = (info?.symbols || []).find((item) => item.symbol === symbol); if (!row) return null; const filters = Object.fromEntries((row.filters || []).filter((item) => ['LOT_SIZE', 'MARKET_LOT_SIZE', 'MIN_NOTIONAL', 'PRICE_FILTER'].includes(item.filterType)).map((item) => [item.filterType, item])); return { symbol, contractType: row.contractType, contractSize: row.contractSize, marginAsset: row.marginAsset, baseAsset: row.baseAsset, quoteAsset: row.quoteAsset, quantityPrecision: row.quantityPrecision, pricePrecision: row.pricePrecision, filters }; };
       const risk = {
         spot: spotAccount ? { balances: (spotAccount.balances || []).filter((row) => Number(row.free || 0) + Number(row.locked || 0) !== 0).map((row) => pick(row, ['asset', 'free', 'locked'])) } : null,
         usdm: usdAccount ? pick(usdAccount, ['totalWalletBalance', 'totalUnrealizedProfit', 'totalMarginBalance', 'totalInitialMargin', 'totalMaintMargin', 'availableBalance', 'maxWithdrawAmount', 'totalOpenOrderInitialMargin']) : null,
@@ -452,6 +453,7 @@ async function automaticAccountContext() {
         ...(account || {}),
         source: 'binance-coinm-read-only',
         risk,
+        contractSpecs: { coinm: spec(coinmInfo, 'BTCUSD_PERP'), usdm: spec(usdInfo, 'BTCUSDT') },
         positions: (Array.isArray(snapshot?.positions) ? snapshot.positions : []).slice(0, 20).map((row) => pick(row, ['symbol', 'positionSide', 'positionAmt', 'entryPrice', 'markPrice', 'liquidationPrice', 'leverage', 'unRealizedProfit', 'updateTime'])),
         openOrders: (Array.isArray(snapshot?.openOrders) ? snapshot.openOrders : []).slice(0, 50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),
         orders: (Array.isArray(snapshot?.orders) ? snapshot.orders : []).slice(-50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),

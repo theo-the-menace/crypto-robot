@@ -121,6 +121,7 @@ export function createBinanceCoinMClient({ apiKey, secretKey, environment = 'tes
   }
   return {
     environment,
+    exchangeInfo: () => request('GET', '/dapi/v1/exchangeInfo'),
     account: () => request('GET', '/dapi/v1/account', {}, true),
     positionRisk: (symbol) => request('GET', '/dapi/v1/positionRisk', symbol ? { symbol } : {}, true),
     userTrades: (symbol, limit = 100) => request('GET', '/dapi/v1/userTrades', { symbol, limit }, true),

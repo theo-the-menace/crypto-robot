@@ -238,7 +238,7 @@ type MarketContext = {
   orderBook24h?: Record<string, unknown> | null;
 };
 type MaterialDensity = "off" | "low" | "medium" | "high" | "max";
-type MaterialSettings = Record<"1m" | "5m" | "1h" | "4h", MaterialDensity>;
+type MaterialSettings = Record<"1m" | "5m" | "15m" | "1h" | "4h", MaterialDensity>;
 type ImageAttachment = { dataUrl: string; name: string; type: string };
 type FuturesTrade = {
   id: number;
@@ -262,13 +262,14 @@ const MIN_KLINE_POINTS = 9;
 const MAX_KLINE_POINTS = 129;
 const MESSAGE_PAGE_SIZE = 60;
 const MATERIALS_KEY = "crypto-agent-materials";
-const MATERIAL_DEFAULTS: MaterialSettings = { "1m": "high", "5m": "medium", "1h": "medium", "4h": "medium" };
-const MATERIAL_INTERVALS: Array<keyof MaterialSettings> = ["1m", "5m", "1h", "4h"];
+const MATERIAL_DEFAULTS: MaterialSettings = { "1m": "high", "5m": "medium", "15m": "medium", "1h": "medium", "4h": "medium" };
+const MATERIAL_INTERVALS: Array<keyof MaterialSettings> = ["1m", "5m", "15m", "1h", "4h"];
 const MATERIAL_LEVELS: MaterialDensity[] = ["off", "low", "medium", "high", "max"];
 const MATERIAL_POINTS: Record<MaterialDensity, number> = { off: 0, low: 30, medium: 90, high: 180, max: 2_000 };
 const MATERIAL_DURATION_LABELS: Record<keyof MaterialSettings, string[]> = {
   "1m": ["Off", "30m", "1.5h", "3h", "33h"],
   "5m": ["Off", "2.5h", "7.5h", "15h", "7d"],
+  "15m": ["Off", "7.5h", "22.5h", "45h", "14d"],
   "1h": ["Off", "30h", "3.75d", "7.5d", "83d"],
   "4h": ["Off", "5d", "15d", "30d", "333d"],
 };
@@ -3817,7 +3818,7 @@ export function App() {
             <div className="materials-picker" ref={materialsPickerRef}>
               <button className={`materials-trigger ${materialsOpen ? "active" : ""}`} title="Choose analysis materials" aria-label="Choose analysis materials" aria-expanded={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)}><Plus size={18} /></button>
               {materialsOpen && <div className="materials-menu" role="dialog" aria-label="Analysis materials">
-                <header><strong>Analysis materials</strong><span>Estimated ~{Math.ceil((240 * 1.2 + Object.entries(materials).reduce((sum, [interval, density]) => sum + MATERIAL_POINTS[density] * ({ "1m": 1, "5m": 1, "1h": .8, "4h": 1 } as Record<string, number>)[interval], 0)) * 6 / 4)} tokens</span></header>
+                <header><strong>Analysis materials</strong><span>Estimated ~{Math.ceil((240 * 1.2 + Object.entries(materials).reduce((sum, [interval, density]) => sum + MATERIAL_POINTS[density] * ({ "1m": 1, "5m": 1, "15m": 1, "1h": .8, "4h": 1 } as Record<string, number>)[interval], 0)) * 6 / 4)} tokens</span></header>
                 <p className="materials-baseline">A fixed long-term daily trend is always included.</p>
                 {MATERIAL_INTERVALS.map((interval) => {
                   const value = MATERIAL_LEVELS.indexOf(materials[interval]);
