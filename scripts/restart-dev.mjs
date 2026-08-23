@@ -3,7 +3,7 @@ import { loadEnvFile } from 'node:process';
 
 try { loadEnvFile('.env'); } catch {}
 
-const apiUrl = (process.env.CRYPTO_AGENT_API_URL || '').replace(/\/$/, '');
+const apiUrl = (process.env.CRYPTO_AGENT_REMOTE_API_URL || '').replace(/\/$/, '');
 if (apiUrl) {
   try {
     const response = await fetch(`${apiUrl}/api/status`, { signal: AbortSignal.timeout(5_000) });

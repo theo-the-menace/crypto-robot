@@ -334,13 +334,15 @@ function MarketPanel({ items, onSelect, onLoadMore, loading, hasMore }: { items:
 }
 
 function MarketArticle({ item, onBack }: { item: NewsItem; onBack: () => void }) {
+  const firstMarkdownLine = item.content.trimStart().split(/\r?\n/, 1)[0] || "";
+  const hasMarkdownTitle = /^#{1,6}\s+\S/.test(firstMarkdownLine);
   return <article className="market-article">
     <header className="market-article-header">
       <button className="article-back" onClick={onBack} title="返回对话" aria-label="返回对话"><ArrowLeft size={17} /></button>
       <div><span>{item.source}</span><time>{new Date(item.publishedAt || item.createdAt).toLocaleString("zh-CN")}</time></div>
     </header>
     <div className="market-article-body">
-      <h1>{item.title}</h1>
+      {!hasMarkdownTitle && <h1>{item.title}</h1>}
       {item.image && <img className="market-article-image" src={item.image} alt="" />}
       <div className="article-analysis"><ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown></div>
     </div>
