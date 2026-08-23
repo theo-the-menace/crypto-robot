@@ -92,7 +92,12 @@ button { cursor: pointer; }
 .market-event > div { display: flex; justify-content: space-between; color: var(--muted); font-size: 9px; }
 .market-event a { display: -webkit-box; overflow: hidden; margin-top: 4px; color: var(--ink); font-size: 11px; line-height: 1.4; text-decoration: none; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .market-event a:hover { text-decoration: underline; }
-.market-message { cursor: pointer; }
+.market-message { position: relative; cursor: pointer; }
+.market-message::before { position: absolute; top: 0; bottom: 0; left: -11px; width: 3px; background: rgb(180 185 190 / 30%); content: ''; }
+.market-message.impact-level-2::before { background: rgb(226 166 112 / 42%); }
+.market-message.impact-level-3::before { background: rgb(238 157 74 / 58%); }
+.market-message.impact-level-4::before { background: rgb(225 93 57 / 74%); }
+.market-message.impact-level-5::before { background: rgb(207 49 42 / 88%); }
 .market-message strong { display: block; margin-top: 4px; color: var(--ink); font-size: 11px; line-height: 1.4; }
 .market-message > p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .market-message-detail { margin-top: 8px; color: var(--ink); font-size: 11px; line-height: 1.55; }

@@ -132,6 +132,7 @@ type NewsItem = {
   image?: string | null;
   createdAt: number;
   publishedAt: number;
+  impactScore?: number;
   original?: { subject?: string; from?: string; internalDate?: string };
 };
 type EmergencyState = {
@@ -332,6 +333,14 @@ function formatMarketTime(timestamp: number) {
   });
 }
 
+function impactLevel(score: number) {
+  if (score >= 95) return 5;
+  if (score >= 90) return 4;
+  if (score >= 85) return 3;
+  if (score >= 80) return 2;
+  return 1;
+}
+
 function modelLabel(model: ModelId, prefix = "GPT-") {
   const family = model.replace("gpt-", "").replace("-", " ");
   return `${prefix}${family[0].toUpperCase()}${family.slice(1)}`;
@@ -348,7 +357,7 @@ function MarketPanel({ items, onSelect, onLoadMore, loading, hasMore }: { items:
         {items.length ? (
           items.map((item) => (
             <article
-              className="market-event market-message"
+              className={`market-event market-message impact-level-${impactLevel(Number(item.impactScore || 75))}`}
               key={item.id}
               onClick={() => onSelect(item)}
             >
