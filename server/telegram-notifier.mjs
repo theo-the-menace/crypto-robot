@@ -15,7 +15,7 @@ export async function sendTelegramNews(item) {
   if (!telegramConfigured() || !item?.id) return { skipped: true, reason: 'not-configured' };
   const score = Number(item.impactScore || 0);
   if (score < 75) return { skipped: true, reason: 'below-threshold' };
-  const text = `【${impactLabel(score)} ${score}/100】${item.source || 'News'}\n${item.title || 'Market update'}\n${new Date(Number(item.publishedAt)).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}\n\n${String(item.content || '').slice(0, 3_700)}`;
+  const text = `【${impactLabel(score)} ${score}/100】${item.source || 'News'}\n${item.title || 'Market update'}\n${new Date(Number(item.publishedAt)).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}${item.sourceUrl ? `\n${item.sourceUrl}` : ''}\n\n${String(item.content || '').slice(0, 3_500)}`;
   const response = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: false }),

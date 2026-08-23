@@ -15,6 +15,7 @@ import { checkGmailPushToken, gmailOAuthCallback, gmailOAuthStart, gmailStatus, 
 import { processGmailMessage } from './gmail-pipeline.mjs';
 import { MarketMessageStore } from './market-message-store.mjs';
 import { sendTelegramNews } from './telegram-notifier.mjs';
+import { collectWhiteHouse } from './whitehouse-source.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -55,6 +56,12 @@ setGmailMessageHandler(async (message) => {
   if (result.message) sendTelegramNews(result.message).catch((error) => console.error('Telegram news notification failed', error.message));
   return result;
 });
+async function handleWhiteHouseItem(item) {
+  const raw = await completeWithOverseasStrategy({ content: `根据以下白宫网页原文生成加密市场分析，只返回Markdown，不要JSON。第一行是#中文标题，随后写事件概述、对BTC/ETH/稳定币的影响、政策机制、2到3个研究或对冲思路和风险提示。严格区分事实与推测。标题：${item.title}\n链接：${item.sourceUrl}\n原文：${item.content.slice(0, 30_000)}`, model: process.env.WHITEHOUSE_ANALYSIS_MODEL || 'gpt-5.6-terra' });
+  const title = raw.match(/^#\s+(.+)$/m)?.[1]?.trim() || item.title;
+  const message = await marketMessages.add({ source: item.source, sourceUrl: item.sourceUrl, sourceMessageId: item.id, publishedAt: item.publishedAt, impactScore: item.impactScore, title, content: raw, image: null });
+  if (message) sendTelegramNews(message).catch((error) => console.error('Telegram White House notification failed', error.message));
+}
 
 function parseModelJson(value) {
   const text = String(value || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
@@ -145,6 +152,7 @@ function finishChatRequest(job, status, value = {}) {
   setTimeout(() => chatRequests.delete(job.id), 10 * 60_000).unref();
 }
 const chartLogDirectory = resolve(process.cwd(), '.cache', 'chart-log');
+const composerLogDirectory = resolve(process.cwd(), '.cache', 'composer-log');
 const chatLogDirectory = resolve(process.cwd(), '.cache', 'chat-log');
 async function saveChatLog(entry) {
   const today = new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10);
@@ -160,6 +168,11 @@ async function saveChartLogs(entries) {
   await Promise.all(files.filter((file) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(file) && file.slice(0, 10) < today).map((file) => unlink(resolve(chartLogDirectory, file)).catch(() => {})));
   const rows = entries.filter((entry) => entry && typeof entry === 'object').slice(-100).map((entry) => `${JSON.stringify(entry)}\n`).join('');
   if (rows) await appendFile(resolve(chartLogDirectory, `${today}.jsonl`), rows, { mode: 0o600 });
+}
+async function saveComposerLog(entry) {
+  const today = new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10);
+  await mkdir(composerLogDirectory, { recursive: true });
+  await appendFile(resolve(composerLogDirectory, `${today}.jsonl`), `${JSON.stringify(entry)}\n`, { mode: 0o600 });
 }
 async function readCachedMarketMessages() {
   try {
@@ -652,6 +665,11 @@ export function createCryptoServer() {
         await saveChartLogs(Array.isArray(payload.entries) ? payload.entries : [payload.entry]);
         return sendJson(response, 204, {});
       }
+      if (request.method === 'POST' && request.url === '/api/composer-log') {
+        const payload = await body(request, 10_000);
+        await saveComposerLog({ event: 'composer_layout', at: Date.now(), ...payload });
+        return sendJson(response, 204, {});
+      }
       if (request.method === 'GET' && request.url === '/api/gmail/status') return sendJson(response, 200, await gmailStatus());
       if (request.method === 'GET' && request.url === '/api/market/messages/stream') {
         response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
@@ -991,11 +1009,13 @@ export function createCryptoServer() {
 
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   const server = createCryptoServer(); let stopMarketStream; let gmailRenewTimer;
+  let whiteHouseTimer;
   server.listen(port, '127.0.0.1', async () => {
     console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void syncMarketMessages().catch((error) => console.warn('Initial market message sync unavailable', error.message)); stopMarketStream = startMarketStream();
     try { const status = await gmailStatus(); if (status.configured && status.authorized) { await renewGmailWatch(); gmailRenewTimer = setInterval(() => renewGmailWatch().catch((error) => console.error('Gmail watch renewal failed', error.message)), 24 * 60 * 60_000); } } catch (error) { console.error('Gmail startup sync unavailable', error.message); }
+    collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)); whiteHouseTimer = setInterval(() => collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)), 10 * 60_000);
   });
-  server.on('close', () => { stopMarketStream?.(); if (gmailRenewTimer) clearInterval(gmailRenewTimer); });
+  server.on('close', () => { stopMarketStream?.(); if (gmailRenewTimer) clearInterval(gmailRenewTimer); if (whiteHouseTimer) clearInterval(whiteHouseTimer); });
 }
 
 export { coinMFunding, coinMKlineRow };

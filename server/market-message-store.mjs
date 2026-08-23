@@ -16,7 +16,7 @@ export class MarketMessageStore {
   subscribe(response) { this.streams.add(response); return () => this.streams.delete(response); }
   async add(message) {
     const items = await read();
-    if (items.some((item) => item.id === message.id || (message.sourceMessageId && item.sourceMessageId === message.sourceMessageId))) return null;
+    if (items.some((item) => item.id === message.id || (message.sourceMessageId && item.sourceMessageId === message.sourceMessageId) || (message.sourceUrl && item.sourceUrl === message.sourceUrl))) return null;
     const item = { id: randomUUID(), createdAt: Date.now(), ...message };
     await save([...items, item].slice(-2000));
     const event = `event: market-message\ndata: ${JSON.stringify(item)}\n\n`;
