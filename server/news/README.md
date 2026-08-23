@@ -11,14 +11,25 @@ This directory contains server-side news collectors. Collectors run on the remot
 - Flow: Luna scores the message using its subject and opening text. Messages below 75 stop there. Messages scoring 75 or higher are analyzed fully by Terra.
 - Current filter: CME Group crypto-related alerts, especially block trades.
 
-### White House
+### Government sources
 
 - Collector: `whitehouse-source.mjs`.
-- Public pages: Remarks, Briefing Room, Presidential Actions, and Videos.
+- Public pages: White House Remarks, Briefing Room, Presidential Actions, Videos; U.S. Treasury press releases; SEC press releases; CFTC press releases; Federal Reserve press releases; and Federal Register cryptocurrency search results.
 - Polling: once at startup and every 10 minutes. The first sync is capped at 20 new pages to keep request and token usage bounded.
-- Cache: `data/news/whitehouse.json`.
+- Cache: `data/news/government.json`.
 - Flow: the page title and opening text are scored by Luna. A score below 75 is cached only. A score of 75 or higher is analyzed by Terra, stored in Market, and sent to Telegram with the original URL.
 - Cross-source deduplication is intentionally not enabled yet.
+
+### Crypto-native sources to add next
+
+Recommended public sources for a dedicated crypto layer:
+
+- CoinDesk RSS: broad crypto breaking news and policy coverage.
+- Cointelegraph RSS: a second editorial source for industry coverage.
+- Bitcoin Optech newsletter: Bitcoin protocol and infrastructure research.
+- Official SEC crypto-assets and CFTC digital-assets pages: primary regulatory material should outrank media summaries.
+
+Crypto media should be scored strictly. Rumors, price commentary, and exchange promotions should not enter Market without a primary link or corroborating official source.
 
 ## Scoring Levels
 
