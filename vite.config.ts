@@ -8,5 +8,5 @@ export default defineConfig(({ mode }) => {
   const marketApiTarget = env.VITE_MARKET_API_URL || env.CRYPTO_AGENT_REMOTE_API_URL || 'https://yeatom.site:8443';
   const dashboardUrl = env.VITE_DASHBOARD_API_URL || 'http://43.163.91.179:8888';
   const dashboardToken = env.VITE_DASHBOARD_TOKEN || '';
-  return { plugins: [react()], optimizeDeps: { entries: ['index.html'] }, define: { __DASHBOARD_API_URL__: JSON.stringify(dashboardUrl), __DASHBOARD_TOKEN__: JSON.stringify(dashboardToken) }, server: { port: Number(env.CRYPTO_AGENT_WEB_PORT || 8888), strictPort: true, proxy: { '/api/market/messages': { target: marketApiTarget, changeOrigin: true, secure: false }, '/api': { target: apiTarget, changeOrigin: true, secure: false } } } };
+  return { plugins: [react()], optimizeDeps: { entries: ['index.html'] }, define: { __DASHBOARD_API_URL__: JSON.stringify(dashboardUrl), __DASHBOARD_TOKEN__: JSON.stringify(dashboardToken) }, server: { port: Number(env.CRYPTO_AGENT_WEB_PORT || 8888), strictPort: true, proxy: { '/api/market/messages': { target: apiTarget, changeOrigin: true, secure: false }, '/api': { target: apiTarget, changeOrigin: true, secure: false } } } };
 });

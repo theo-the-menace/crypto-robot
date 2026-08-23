@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { appendFile, mkdir, readdir, unlink } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { BinanceApiError, createBinanceCoinMClient, createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient } from '../src/binance.mjs';
 import { auditBinancePermissions } from '../src/permissions.mjs';
@@ -34,6 +34,9 @@ const gatewayBaseUrl = (process.env.OPENAI_VIP_BASE_URL || process.env.VIPAPI_BA
 const gatewayApiKey = process.env.OPENAI_VIP_API_KEY || process.env.VIPAPI_API_KEY || process.env.GATEWAY_API_KEY || '';
 const marketDataBase = (process.env.MARKET_DATA_BASE_URL || gatewayBaseUrl).replace(/\/$/, '');
 const marketDataKey = process.env.MARKET_DATA_API_KEY || gatewayApiKey;
+const marketMessagesBase = (process.env.MARKET_MESSAGES_BASE_URL || process.env.VITE_MARKET_API_URL || '').replace(/\/$/, '');
+const marketMessagesKey = process.env.MARKET_MESSAGES_API_KEY || process.env.VITE_DASHBOARD_TOKEN || '';
+const marketMessagesCacheFile = resolve(process.cwd(), '.cache', 'market-messages.json');
 const modelOptions = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'];
 const reasoningOptions = ['low', 'medium', 'high', 'xhigh', 'max'];
 const defaultModel = modelOptions.includes(process.env.GATEWAY_MODEL) ? process.env.GATEWAY_MODEL : 'gpt-5.6-luna';
@@ -41,6 +44,7 @@ const defaultReasoning = reasoningOptions.includes(process.env.GATEWAY_REASONING
 const marketStore = new MarketStore({ directory: resolve(process.cwd(), 'data', 'market') });
 let fundingCache = { value: null, updatedAt: 0 };
 let accountContextCache = { value: null, updatedAt: 0, inflight: null };
+let marketMessagesCache = { value: null, updatedAt: 0, inflight: null };
 const marketStreams = new Set();
 let marketReady = Promise.resolve();
 const marketMessages = new MarketMessageStore();
@@ -100,6 +104,38 @@ async function saveChartLogs(entries) {
   await Promise.all(files.filter((file) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(file) && file.slice(0, 10) < today).map((file) => unlink(resolve(chartLogDirectory, file)).catch(() => {})));
   const rows = entries.filter((entry) => entry && typeof entry === 'object').slice(-100).map((entry) => `${JSON.stringify(entry)}\n`).join('');
   if (rows) await appendFile(resolve(chartLogDirectory, `${today}.jsonl`), rows, { mode: 0o600 });
+}
+async function readCachedMarketMessages() {
+  try {
+    const value = JSON.parse(await readFile(marketMessagesCacheFile, 'utf8'));
+    return Array.isArray(value) ? value : [];
+  } catch { return []; }
+}
+async function syncMarketMessages(limit = 200) {
+  if (marketMessagesCache.inflight) return marketMessagesCache.inflight;
+  marketMessagesCache.inflight = (async () => {
+    const cached = await readCachedMarketMessages();
+    let messages = cached;
+    if (marketMessagesBase && marketMessagesKey) {
+      try {
+        const response = await fetch(`${marketMessagesBase}/api/market/messages?limit=${limit}`, { headers: { Authorization: `Bearer ${marketMessagesKey}` }, signal: AbortSignal.timeout(10_000) });
+        if (response.ok) {
+          const remote = await response.json();
+          if (Array.isArray(remote.messages)) messages = remote.messages.slice(0, limit);
+        }
+      } catch (error) { console.warn(JSON.stringify({ event: 'market_messages_sync_failed', error: error instanceof Error ? error.message : String(error) })); }
+    } else if (!messages.length) messages = await marketMessages.list(limit);
+    if (JSON.stringify(messages) !== JSON.stringify(cached)) {
+      await mkdir(resolve(process.cwd(), '.cache'), { recursive: true });
+      const temporary = `${marketMessagesCacheFile}.${process.pid}.tmp`;
+      await writeFile(temporary, JSON.stringify(messages), { mode: 0o600 });
+      await rename(temporary, marketMessagesCacheFile);
+    }
+    marketMessagesCache.value = messages;
+    marketMessagesCache.updatedAt = Date.now();
+    return messages;
+  })().finally(() => { marketMessagesCache.inflight = null; });
+  return marketMessagesCache.inflight;
 }
 async function body(request, maxLength = 50_000) {
   let raw = '';
@@ -531,7 +567,7 @@ export function createCryptoServer() {
         for (const item of await marketMessages.list(100)) response.write(`event: market-message\ndata: ${JSON.stringify(item)}\n\n`);
         const unsubscribe = marketMessages.subscribe(response); request.on('close', unsubscribe); return;
       }
-      if (request.method === 'GET' && request.url?.startsWith('/api/market/messages')) { const query = new URL(request.url, 'http://localhost').searchParams; return sendJson(response, 200, { messages: await marketMessages.list(Number(query.get('limit') || 50), query.get('before')) }); }
+      if (request.method === 'GET' && request.url?.startsWith('/api/market/messages')) { const query = new URL(request.url, 'http://localhost').searchParams; const synced = await syncMarketMessages(200); const before = query.get('before'); const messages = (before ? synced.filter((item) => Number(item.publishedAt || item.createdAt) < Number(before)) : synced).slice(0, Math.min(500, Math.max(1, Number(query.get('limit') || 50)))); return sendJson(response, 200, { messages }); }
       if (request.method === 'GET' && request.url === '/api/gmail/oauth/start') {
         const location = gmailOAuthStart(); response.writeHead(302, { Location: location }); return response.end();
       }
@@ -783,7 +819,7 @@ export function createCryptoServer() {
           stageStartedAt = Date.now();
           const tradeHistory = await tradeContext(message, accountContext);
           const autoMarket = await automaticMarketContext(payload.accountContext || accountContext);
-          const newsContext = (await marketMessages.list(20)).map(({ id, publishedAt, title, content, source }) => ({ id, publishedAt, title, content: String(content || '').slice(0, 8_000), source }));
+          const newsContext = (await readCachedMarketMessages()).slice(0, 20).map(({ id, publishedAt, title, content, source }) => ({ id, publishedAt, title, content: String(content || '').slice(0, 8_000), source }));
           mark('tradeMarketNewsMs', stageStartedAt);
           stageStartedAt = Date.now();
           const reply = await gateway.complete(analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image }), { model, reasoningEffort });
@@ -834,7 +870,7 @@ export function createCryptoServer() {
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   const server = createCryptoServer(); let stopMarketStream; let gmailRenewTimer;
   server.listen(port, '127.0.0.1', async () => {
-    console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); stopMarketStream = startMarketStream();
+    console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void syncMarketMessages().catch((error) => console.warn('Initial market message sync unavailable', error.message)); stopMarketStream = startMarketStream();
     try { const status = await gmailStatus(); if (status.configured && status.authorized) { await renewGmailWatch(); gmailRenewTimer = setInterval(() => renewGmailWatch().catch((error) => console.error('Gmail watch renewal failed', error.message)), 24 * 60 * 60_000); } } catch (error) { console.error('Gmail startup sync unavailable', error.message); }
   });
   server.on('close', () => { stopMarketStream?.(); if (gmailRenewTimer) clearInterval(gmailRenewTimer); });
