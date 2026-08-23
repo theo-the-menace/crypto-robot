@@ -14,6 +14,7 @@ import { aggregateMarketKlines, marketIntervals } from './market-aggregate.mjs';
 import { checkGmailPushToken, gmailOAuthCallback, gmailOAuthStart, gmailStatus, handleGmailPush, renewGmailWatch, setGmailMessageHandler } from './gmail.mjs';
 import { processGmailMessage } from './gmail-pipeline.mjs';
 import { MarketMessageStore } from './market-message-store.mjs';
+import { sendTelegramNews } from './telegram-notifier.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
@@ -51,6 +52,7 @@ const marketMessages = new MarketMessageStore();
 setGmailMessageHandler(async (message) => {
   const result = await processGmailMessage(message, marketMessages);
   if (result.error) console.error('Gmail market-message processing failed', result.error);
+  if (result.message) sendTelegramNews(result.message).catch((error) => console.error('Telegram news notification failed', error.message));
   return result;
 });
 
