@@ -20,6 +20,8 @@ export async function processGmailMessage(message, store) {
   try {
     const analysis = await analyzeGmailMessage(message);
     if (analysis.title === '无关邮件') return { ignored: true, reason: 'irrelevant' };
-    return { message: await store.add({ source: 'CME Group', sourceMessageId: message.id, publishedAt: Number(message.internalDate) || Date.now(), title: analysis.title || message.subject || 'CME Group market update', content: analysis.content || '', image: analysis.image || null }) };
+    const publishedAt = Number(message.internalDate);
+    if (!Number.isFinite(publishedAt)) return { error: 'Gmail message has no valid internalDate.' };
+    return { message: await store.add({ source: 'CME Group', sourceMessageId: message.id, publishedAt, title: analysis.title || message.subject || 'CME Group market update', content: analysis.content || '', image: analysis.image || null }) };
   } catch (error) { return { error: error instanceof Error ? error.message : 'Gmail message processing failed.' }; }
 }

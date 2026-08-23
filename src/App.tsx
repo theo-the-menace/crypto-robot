@@ -128,7 +128,7 @@ type NewsItem = {
   content: string;
   image?: string | null;
   createdAt: number;
-  publishedAt?: number;
+  publishedAt: number;
   original?: { subject?: string; from?: string; internalDate?: string };
 };
 type EmergencyState = {
@@ -292,6 +292,19 @@ function formatNumber(value: number | string) {
     : "-";
 }
 
+function formatMarketTime(timestamp: number) {
+  return new Date(timestamp).toLocaleString("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 function modelLabel(model: ModelId, prefix = "GPT-") {
   const family = model.replace("gpt-", "").replace("-", " ");
   return `${prefix}${family[0].toUpperCase()}${family.slice(1)}`;
@@ -314,12 +327,7 @@ function MarketPanel({ items, onSelect, onLoadMore, loading, hasMore }: { items:
             >
               <div>
                 <span>{item.source}</span>
-                <time>
-                  {new Date(item.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </time>
+                <time>{formatMarketTime(item.publishedAt)}</time>
               </div>
               <strong>{item.title}</strong>
             </article>
@@ -339,7 +347,7 @@ function MarketArticle({ item, onBack }: { item: NewsItem; onBack: () => void })
   return <article className="market-article">
     <header className="market-article-header">
       <button className="article-back" onClick={onBack} title="返回对话" aria-label="返回对话"><ArrowLeft size={17} /></button>
-      <div><span>{item.source}</span><time>{new Date(item.publishedAt || item.createdAt).toLocaleString("zh-CN")}</time></div>
+      <div><span>{item.source}</span><time>{formatMarketTime(item.publishedAt)}</time></div>
     </header>
     <div className="market-article-body">
       {!hasMarkdownTitle && <h1>{item.title}</h1>}
@@ -3117,13 +3125,13 @@ export function App() {
     let active = true;
     fetch("/api/market/messages?limit=50", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((body) => { if (active && body?.messages) { setNews(body.messages); setNewsHasMore(body.messages.length === 50); } }).catch(() => {});
     const stream = new EventSource("/api/market/messages/stream");
-    stream.addEventListener("market-message", (event) => { try { const item = JSON.parse((event as MessageEvent).data) as NewsItem; setNews((current) => [item, ...current.filter((entry) => entry.id !== item.id)].sort((a, b) => Number(b.publishedAt || b.createdAt) - Number(a.publishedAt || a.createdAt)).slice(0, 200)); } catch {} });
+    stream.addEventListener("market-message", (event) => { try { const item = JSON.parse((event as MessageEvent).data) as NewsItem; if (!Number.isFinite(Number(item.publishedAt))) return; setNews((current) => [item, ...current.filter((entry) => entry.id !== item.id)].sort((a, b) => Number(b.publishedAt) - Number(a.publishedAt)).slice(0, 200)); } catch {} });
     return () => { active = false; stream.close(); };
   }, []);
   const loadMoreNews = useCallback(async () => {
     if (newsLoading || !newsHasMore) return;
     setNewsLoading(true);
-    try { const before = news.at(-1)?.publishedAt || news.at(-1)?.createdAt; const response = await fetch(`/api/market/messages?limit=50&before=${before || ""}`, { cache: "no-store" }); const body = response.ok ? await response.json() : null; const page = body?.messages || []; setNews((current) => [...current, ...page.filter((item: NewsItem) => !current.some((entry) => entry.id === item.id))]); setNewsHasMore(page.length === 50); } catch {} finally { setNewsLoading(false); }
+    try { const before = news.at(-1)?.publishedAt; const response = await fetch(`/api/market/messages?limit=50&before=${before || ""}`, { cache: "no-store" }); const body = response.ok ? await response.json() : null; const page = (body?.messages || []).filter((item: NewsItem) => Number.isFinite(Number(item.publishedAt))); setNews((current) => [...current, ...page.filter((item: NewsItem) => !current.some((entry) => entry.id === item.id))]); setNewsHasMore(page.length === 50); } catch {} finally { setNewsLoading(false); }
   }, [news, newsHasMore, newsLoading]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);

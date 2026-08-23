@@ -9,8 +9,8 @@ const save = async (items) => { await mkdir(resolve(process.cwd(), 'data', 'mark
 export class MarketMessageStore {
   constructor() { this.streams = new Set(); }
   async list(limit = 100, before) {
-    const items = (await read()).sort((a, b) => Number(b.publishedAt || b.createdAt) - Number(a.publishedAt || a.createdAt));
-    const filtered = before ? items.filter((item) => Number(item.publishedAt || item.createdAt) < Number(before)) : items;
+    const items = (await read()).filter((item) => Number.isFinite(Number(item.publishedAt))).sort((a, b) => Number(b.publishedAt) - Number(a.publishedAt));
+    const filtered = before ? items.filter((item) => Number(item.publishedAt) < Number(before)) : items;
     return filtered.slice(0, Math.min(500, Math.max(1, limit)));
   }
   subscribe(response) { this.streams.add(response); return () => this.streams.delete(response); }
