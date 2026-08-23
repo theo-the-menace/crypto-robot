@@ -573,7 +573,7 @@ function createFuturesDraft(raw) {
   const symbol = String(raw?.symbol || '').toUpperCase();
   const side = String(raw?.side || '').toUpperCase();
   const type = String(raw?.type || 'MARKET').toUpperCase();
-  const marginType = String(raw?.marginType || 'ISOLATED').toUpperCase();
+  const marginType = String(raw?.marginType || (symbol.endsWith('USD_PERP') ? 'CROSSED' : 'ISOLATED')).toUpperCase();
   const leverage = Number(raw?.leverage || 1);
   const quantity = String(raw?.quantity || '');
   if (!symbol || !symbolAllowed(symbol)) throw new Error('Futures symbol is not in the trading allowlist.');
@@ -590,6 +590,8 @@ function createFuturesDraft(raw) {
   if (stopLoss !== null && entry > 0 && (side === 'BUY' ? stopLoss >= entry : stopLoss <= entry)) throw new Error('Stop loss is on the wrong side of the entry.');
   if (takeProfits.length && entry > 0 && takeProfits.some((value) => side === 'BUY' ? value <= entry : value >= entry)) throw new Error('Take-profit is on the wrong side of the entry.');
   const draft = { id: randomUUID(), confirmationToken: randomUUID(), intent: { symbol, side, type, quantity, ...(price ? { price, timeInForce: 'GTC' } : {}), leverage, marginType, reduceOnly: Boolean(raw.reduceOnly), ...(stopLoss !== null ? { stopLoss: String(stopLoss) } : {}), ...(takeProfits.length ? { takeProfits: takeProfits.map(String) } : {}) }, environment, createdAt: Date.now(), state: 'pending' };
+  draft.intent.positionSide = String(raw.positionSide || (side === 'BUY' ? 'LONG' : 'SHORT')).toUpperCase();
+  if (!['BOTH', 'LONG', 'SHORT'].includes(draft.intent.positionSide)) throw new Error('positionSide must be BOTH, LONG, or SHORT.');
   futuresDrafts.set(draft.id, draft);
   return draft;
 }
@@ -598,16 +600,18 @@ const directExecutionRequested = (message) => /立即执行|直接执行|无需�
 
 async function executeFuturesDraft(draft) {
   const { intent } = draft;
-  await futures.marginType(intent.symbol, intent.marginType);
-  await futures.leverage(intent.symbol, intent.leverage);
-  const entryOrder = await futures.placeOrder({ symbol: intent.symbol, side: intent.side, type: intent.type, quantity: intent.quantity, price: intent.price, timeInForce: intent.timeInForce, reduceOnly: intent.reduceOnly ? 'true' : undefined, newClientOrderId: `ea_futures_${draft.id.replaceAll('-', '').slice(0, 20)}` });
+  const client = intent.symbol.endsWith('USD_PERP') ? coinm : futures;
+  try { await client.marginType(intent.symbol, intent.marginType); }
+  catch (error) { if (!(error instanceof BinanceApiError && error.code === -4046)) throw error; }
+  await client.leverage(intent.symbol, intent.leverage);
+  const entryOrder = await client.placeOrder({ symbol: intent.symbol, side: intent.side, positionSide: intent.positionSide, type: intent.type, quantity: intent.quantity, price: intent.price, timeInForce: intent.timeInForce, reduceOnly: intent.positionSide === 'BOTH' && intent.reduceOnly ? 'true' : undefined, newClientOrderId: `ea_${intent.symbol.endsWith('USD_PERP') ? 'coinm' : 'futures'}_${draft.id.replaceAll('-', '').slice(0, 20)}` });
   const exitSide = intent.side === 'BUY' ? 'SELL' : 'BUY';
   const protection = [];
-  if (intent.stopLoss) protection.push(await futures.placeOrder({ symbol: intent.symbol, side: exitSide, type: 'STOP_MARKET', stopPrice: intent.stopLoss, closePosition: 'true', workingType: 'MARK_PRICE', newClientOrderId: `ea_sl_${draft.id.replaceAll('-', '').slice(0, 20)}` }));
+  if (intent.stopLoss) protection.push(await client.placeOrder({ symbol: intent.symbol, side: exitSide, positionSide: intent.positionSide, type: 'STOP_MARKET', stopPrice: intent.stopLoss, closePosition: 'true', workingType: 'MARK_PRICE', newClientOrderId: `ea_sl_${draft.id.replaceAll('-', '').slice(0, 20)}` }));
   const allocations = [0.4, 0.35, 0.25];
   for (const [index, stopPrice] of (intent.takeProfits || []).entries()) {
     const quantity = (Number(intent.quantity) * (allocations[index] || 1 / intent.takeProfits.length)).toString();
-    protection.push(await futures.placeOrder({ symbol: intent.symbol, side: exitSide, type: 'TAKE_PROFIT_MARKET', stopPrice, quantity, reduceOnly: 'true', workingType: 'MARK_PRICE', newClientOrderId: `ea_tp${index}_${draft.id.replaceAll('-', '').slice(0, 18)}` }));
+    protection.push(await client.placeOrder({ symbol: intent.symbol, side: exitSide, positionSide: intent.positionSide, type: 'TAKE_PROFIT_MARKET', stopPrice, quantity, reduceOnly: intent.positionSide === 'BOTH' ? 'true' : undefined, workingType: 'MARK_PRICE', newClientOrderId: `ea_tp${index}_${draft.id.replaceAll('-', '').slice(0, 18)}` }));
   }
   return { entry: entryOrder, protection };
 }
@@ -750,8 +754,6 @@ export function createCryptoServer() {
         if (!liveTradingEnabled) return sendJson(response, 403, { error: 'Live trading is locked; Futures submission is disabled.' });
         draft.state = 'submitting';
         try {
-          await futures.marginType(draft.intent.symbol, draft.intent.marginType);
-          await futures.leverage(draft.intent.symbol, draft.intent.leverage);
           const order = await executeFuturesDraft(draft);
           draft.state = 'submitted';
           return sendJson(response, 200, { order });

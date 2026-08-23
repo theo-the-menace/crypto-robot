@@ -144,7 +144,30 @@ button { cursor: pointer; }
 .message { position: relative; display: flex; margin: 0 auto 10px; }
 .message.user { justify-content: flex-end; }
 .bubble { max-width: min(85%, 640px); font-size: 14px; line-height: 1.65; }
-.bubble > p { margin: 0; }
+.bubble > p { margin: 0 0 10px; }
+.bubble > p:last-child { margin-bottom: 0; }
+.bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6 { margin: 20px 0 8px; color: var(--ink); font-weight: 700; line-height: 1.35; }
+.bubble h1 { font-size: 20px; }.bubble h2 { font-size: 18px; }.bubble h3 { font-size: 16px; }.bubble h4, .bubble h5, .bubble h6 { font-size: 14px; }
+.bubble h1:first-child, .bubble h2:first-child, .bubble h3:first-child { margin-top: 0; }
+.bubble ul, .bubble ol { margin: 8px 0 12px; padding-left: 24px; }
+.bubble li { margin: 4px 0; padding-left: 2px; }
+.bubble li > p { margin: 0; }
+.bubble li > ul, .bubble li > ol { margin: 4px 0 4px; }
+.bubble strong { color: var(--ink); font-weight: 750; }
+.bubble em { color: inherit; }
+.bubble a { color: var(--green); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--green) 42%, transparent); text-underline-offset: 2px; }
+.bubble a:hover { text-decoration-color: currentColor; }
+.bubble blockquote { margin: 12px 0; border-left: 3px solid var(--border); padding: 2px 0 2px 14px; color: var(--muted); }
+.bubble blockquote > p { margin: 0 0 7px; }.bubble blockquote > p:last-child { margin-bottom: 0; }
+.bubble hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+.bubble code { border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; color: var(--ink); background: var(--panel-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+.bubble pre { overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 6px; padding: 12px; color: var(--ink); background: var(--panel-muted); line-height: 1.55; tab-size: 2; }
+.bubble pre code { border: 0; padding: 0; background: transparent; font-size: 12px; white-space: pre; }
+.bubble table { display: block; width: 100%; overflow-x: auto; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+.bubble th, .bubble td { min-width: 92px; border: 1px solid var(--border); padding: 7px 9px; text-align: left; vertical-align: top; }
+.bubble th { color: var(--ink); background: var(--panel-muted); font-weight: 700; white-space: nowrap; }
+.bubble tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-muted) 45%, transparent); }
+.bubble img { max-width: 100%; height: auto; }
 .message.user .bubble { border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; background: var(--panel); }
 .message.assistant .bubble { width: min(100%, 640px); }
 .message-actions { position: absolute; right: 0; bottom: -2px; display: flex; gap: 2px; opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity .16s ease, transform .16s ease; }

@@ -124,6 +124,11 @@ export function createBinanceCoinMClient({ apiKey, secretKey, environment = 'tes
     openOrders: (symbol) => request('GET', '/dapi/v1/openOrders', symbol ? { symbol } : {}, true),
     allOrders: (symbol, limit = 100) => request('GET', '/dapi/v1/allOrders', { symbol, limit }, true),
     premiumIndex: (symbol) => request('GET', '/dapi/v1/premiumIndex', symbol ? { symbol } : {}),
+    marginType: (symbol, marginType) => request('POST', '/dapi/v1/marginType', { symbol, marginType }, true),
+    leverage: (symbol, leverage) => request('POST', '/dapi/v1/leverage', { symbol, leverage }, true),
+    placeOrder: (order) => request('POST', '/dapi/v1/order', order, true),
+    testOrder: (order) => request('POST', '/dapi/v1/order/test', order, true),
+    cancelOrder: (symbol, orderId) => request('DELETE', '/dapi/v1/order', { symbol, orderId }, true),
   };
 }
 
