@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { appendFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { BinanceApiError, createBinanceCoinMClient, createBinanceMarginClient, createBinanceSpotClient, createBinanceUsdMClient } from '../src/binance.mjs';
@@ -16,7 +17,14 @@ import { MarketMessageStore } from './market-message-store.mjs';
 
 const port = Number(process.env.CRYPTO_AGENT_API_PORT || 8889);
 const environment = process.env.BINANCE_ENV === 'live' ? 'live' : 'testnet';
-const liveTradingEnabled = environment === 'live' && process.env.BINANCE_LIVE_TRADING === 'true';
+function localEnv(name) {
+  try {
+    const match = readFileSync(resolve(process.cwd(), '.env'), 'utf8').match(new RegExp(`^${name}=(.*)$`, 'm'));
+    if (match) return match[1].trim().replace(/^['"]|['"]$/g, '');
+  } catch {}
+  return process.env[name];
+}
+const liveTradingEnabled = environment === 'live' && localEnv('BINANCE_LIVE_TRADING') === 'true';
 const symbolConfig = (process.env.BINANCE_SYMBOLS || 'BTCUSDT,ETHUSDT').trim();
 const allowedSymbols = symbolConfig === '*' ? null : symbolConfig.split(',').map((item) => item.trim().toUpperCase()).filter(Boolean);
 const maxOrderUsdt = Number(process.env.MAX_ORDER_USDT || 100);
