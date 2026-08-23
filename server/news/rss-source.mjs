@@ -22,7 +22,7 @@ export async function collectCryptoRss({ onRelevant } = {}) {
     let xml; try { xml = await (await fetch(feed, { signal: AbortSignal.timeout(15_000), headers: { 'User-Agent': 'CryptoAgent/1.0 RSS collector' } })).text(); } catch (error) { console.warn('Crypto RSS unavailable', source, error.message); continue; }
     for (const entry of itemsFrom(xml).slice(0, 20)) {
       if (processed >= 20) break;
-      const id = `${source}:${entry.sourceUrl}`; if (cache[id]) continue; discovered += 1;
+      const id = `${source}:${entry.sourceUrl}`; if (cache[id] && !cache[id].error) continue; discovered += 1;
       try { processed += 1; const item = { id, source, sourceUrl: entry.sourceUrl, title: entry.title, content: entry.content, excerpt: entry.content.slice(0, 2_500), publishedAt: entry.publishedAt, collectedAt: Date.now(), impactScore: await score({ title: entry.title, excerpt: entry.content.slice(0, 2_500) }) }; cache[id] = item; await saveCache(cache); if (item.impactScore >= 75 && onRelevant) { relevant += 1; await onRelevant(item); } } catch (error) { cache[id] = { id, source, sourceUrl: entry.sourceUrl, error: error.message, collectedAt: Date.now() }; await saveCache(cache); }
     }
   }

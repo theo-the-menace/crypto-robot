@@ -23,7 +23,7 @@ export async function collectWhiteHouse({ onRelevant } = {}) {
     let html; try { html = await fetchPage(page); } catch (error) { console.warn('White House source unavailable', page, error.message); continue; }
     for (const url of [...new Set(linksFrom(html, page))].slice(0, 20)) {
       if (processed >= 20) break;
-      if (cache[url]) continue;
+      if (cache[url] && !cache[url].error) continue;
       discovered += 1;
       try {
         processed += 1;
