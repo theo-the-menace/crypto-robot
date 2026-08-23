@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
+  Copy,
   Eye,
   FileText,
   History,
@@ -38,6 +39,7 @@ import {
   RefreshCw,
   Search,
   SendHorizontal,
+  Square,
   Settings2,
   ShieldCheck,
   Sun,
@@ -119,6 +121,7 @@ type ChatSession = {
   updatedAt: number;
   pinned?: boolean;
 };
+type PendingChat = { requestId: string; sessionId: string; assistantId: string };
 type ChartPoint = { time: number; close: number };
 type Theme = "light" | "dark" | "system";
 type NewsItem = {
@@ -251,6 +254,14 @@ const MIN_TIME_SHARE_POINTS = 9;
 const MAX_TIME_SHARE_POINTS = 145;
 const MIN_KLINE_POINTS = 9;
 const MAX_KLINE_POINTS = 129;
+const CHAT_DRAFT_KEY = "crypto-agent-unsent-draft";
+const PENDING_CHAT_KEY = "crypto-agent-pending-chat";
+function readPendingChat(): PendingChat | null {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(PENDING_CHAT_KEY) || "null");
+    return value?.requestId && value?.sessionId && value?.assistantId ? value : null;
+  } catch { return null; }
+}
 const KLINE_INTERVAL_MS: Record<string, number> = {
   "1s": 1_000,
   "1m": 60_000,
@@ -3085,10 +3096,14 @@ export function App() {
       return [];
     }
   });
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => readPendingChat()?.sessionId || null);
   const activeSessionIdRef = useRef<string | null>(null);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => window.localStorage.getItem(CHAT_DRAFT_KEY) || "");
   const [attachment, setAttachment] = useState<ImageAttachment | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const streamController = useRef<AbortController | null>(null);
+  const activeRequestId = useRef<string | null>(readPendingChat()?.requestId || null);
   const marketContext = useRef<MarketContext | null>(null);
   useLayoutEffect(() => {
     const textarea =
@@ -3098,6 +3113,9 @@ export function App() {
     const height = Math.min(textarea.scrollHeight, 144);
     textarea.style.height = `${height}px`;
     textarea.style.overflowY = textarea.scrollHeight > 144 ? "auto" : "hidden";
+  }, [input]);
+  useEffect(() => {
+    if (input) window.localStorage.setItem(CHAT_DRAFT_KEY, input);
   }, [input]);
   useLayoutEffect(() => {
     if (followingMessages.current && messagesRef.current) {
@@ -3285,6 +3303,34 @@ export function App() {
       JSON.stringify(safeSessions),
     );
   }, [sessions]);
+  useEffect(() => {
+    const pending = readPendingChat();
+    if (!pending) return;
+    const session = sessions.find((item) => item.id === pending.sessionId);
+    const assistant = session?.messages.find((item) => item.id === pending.assistantId);
+    if (!session || !assistant) {
+      window.localStorage.removeItem(PENDING_CHAT_KEY);
+      return;
+    }
+    setActiveSessionId(session.id);
+    setMessages(session.messages);
+    setBusy(true);
+    const controller = new AbortController();
+    streamController.current = controller;
+    activeRequestId.current = pending.requestId;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/chat/stream?requestId=${encodeURIComponent(pending.requestId)}`, { signal: controller.signal });
+        await consumeChatStream(response, session.id, session.title, session.messages, assistant.id);
+      } catch (caught) {
+        if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : "Unable to resume the chat request.");
+      } finally {
+        if (streamController.current === controller) streamController.current = null;
+        setBusy(false);
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   function newChat() {
     setActiveSessionId(null);
@@ -3293,6 +3339,7 @@ export function App() {
     setAttachment(null);
     setError("");
     setSelectedNews(null);
+    setEditingMessageId(null);
   }
   function openSession(session: ChatSession) {
     setActiveSessionId(session.id);
@@ -3318,10 +3365,61 @@ export function App() {
     setSessionMenu(null);
   }
 
-  async function send() {
-    const content = input.trim() || (attachment ? "请分析这张图片。" : "");
+  async function finishChat(sessionId: string, title: string, messages: Message[], assistantId: string, reply: string, result: Partial<Message> = {}) {
+    const nextMessages = messages.map((message) => message.id === assistantId ? { ...message, content: reply, ...result } : message);
+    setMessages(nextMessages);
+    setSessions((existing) => [
+      { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: nextMessages, updatedAt: Date.now() },
+      ...existing.filter((item) => item.id !== sessionId),
+    ]);
+    window.localStorage.removeItem(PENDING_CHAT_KEY);
+    window.localStorage.removeItem(CHAT_DRAFT_KEY);
+    activeRequestId.current = null;
+  }
+
+  async function consumeChatStream(response: Response, sessionId: string, title: string, initialMessages: Message[], assistantId: string) {
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${response.status}).`);
+    }
+    if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+      const result = await response.json();
+      await finishChat(sessionId, title, initialMessages, assistantId, result.reply || "", result);
+      return;
+    }
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("Chat stream was unavailable.");
+    const decoder = new TextDecoder(); let buffer = ''; let reply = '';
+    const handle = async (block: string) => {
+      const event = block.match(/^event: (.+)$/m)?.[1];
+      const line = block.match(/^data: (.+)$/m)?.[1];
+      if (!event || !line) return;
+      const data = JSON.parse(line);
+      if (event === "snapshot") {
+        reply = data.reply || "";
+        if (reply) setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: reply } : message));
+      } else if (event === "delta") {
+        reply += data.delta || "";
+        setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, content: reply } : message));
+      } else if (event === "done") {
+        await finishChat(sessionId, title, initialMessages, assistantId, data.reply || reply, data);
+      } else if (event === "error") throw new Error(data.error || "Chat request failed.");
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const blocks = buffer.split(/\r?\n\r?\n/); buffer = blocks.pop() || '';
+      for (const block of blocks) await handle(block);
+      if (done) break;
+    }
+  }
+
+  async function send(contentOverride?: string, replaceFromMessageId?: string) {
+    const content = (contentOverride ?? input).trim() || (attachment ? "请分析这张图片。" : "");
     if (!content || busy) return;
     const sentAttachment = attachment;
+    const editIndex = replaceFromMessageId ? messages.findIndex((message) => message.id === replaceFromMessageId) : -1;
+    const sourceMessages = editIndex >= 0 ? messages.slice(0, editIndex) : messages;
     const user: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -3330,73 +3428,71 @@ export function App() {
     };
     const sessionId = activeSessionId || crypto.randomUUID();
     const title = content.length > 32 ? `${content.slice(0, 32)}...` : content;
-    const baseMessages = [...messages, user];
+    const assistant: Message = { id: crypto.randomUUID(), role: "assistant", content: "" };
+    const baseMessages = [...sourceMessages, user, assistant];
     setActiveSessionId(sessionId);
     setMessages(baseMessages);
     setInput("");
     setAttachment(null);
+    setEditingMessageId(null);
+    setEditingText("");
+    window.localStorage.setItem(CHAT_DRAFT_KEY, content);
     setBusy(true);
     setError("");
+    const controller = new AbortController();
+    streamController.current = controller;
+    const requestId = crypto.randomUUID();
+    activeRequestId.current = requestId;
+    window.localStorage.setItem(PENDING_CHAT_KEY, JSON.stringify({ requestId, sessionId, assistantId: assistant.id }));
+    setSessions((existing) => [
+      { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: baseMessages, updatedAt: Date.now() },
+      ...existing.filter((item) => item.id !== sessionId),
+    ]);
     try {
-      const history = messages
+      const history = sourceMessages
         .slice(-12)
         .map(({ role, content }) => ({ role, content }));
-      const result = await api<{
-        reply: string;
-        product?: Message["product"];
-        draft?: Draft;
-      }>("/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: content,
+          stream: true,
+          requestId,
           model: modelId,
           reasoning_effort: reasoningEffort,
           history,
           marketContext: marketContext.current,
           ...(sentAttachment ? { image: sentAttachment.dataUrl } : {}),
         }),
+        signal: controller.signal,
       });
-      const assistant: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: "",
-        product: result.product,
-        draft: result.draft,
-      };
-      setMessages((current) => [...current, assistant]);
-      for (const chunk of result.reply.match(/.{1,4}/gs) || []) {
-        await new Promise((resolve) => window.setTimeout(resolve, 12));
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistant.id
-              ? { ...message, content: message.content + chunk }
-              : message,
-          ),
-        );
-      }
-      const nextMessages = [
-        ...baseMessages,
-        { ...assistant, content: result.reply },
-      ];
-      setMessages(nextMessages);
-      setSessions((existing) => [
-        {
-          id: sessionId,
-          title: existing.find((item) => item.id === sessionId)?.title || title,
-          messages: nextMessages,
-          updatedAt: Date.now(),
-        },
-        ...existing.filter((item) => item.id !== sessionId),
-      ]);
+      await consumeChatStream(response, sessionId, title, baseMessages, assistant.id);
     } catch (caught) {
+      if (controller.signal.aborted) return;
       setError(
         caught instanceof Error
           ? caught.message
           : "Unable to prepare the order.",
       );
     } finally {
+      if (streamController.current === controller) streamController.current = null;
       setBusy(false);
     }
+  }
+
+  function stopStreaming() {
+    streamController.current?.abort();
+  }
+
+  function editMessage(message: Message) {
+    setEditingMessageId(message.id);
+    setEditingText(message.content);
+  }
+
+  function cancelEdit() {
+    setEditingMessageId(null);
+    setEditingText("");
   }
 
   const shellStyle = {
@@ -3496,7 +3592,24 @@ export function App() {
           )}
           {messages.map((message) => (
             <article className={`message ${message.role}`} key={message.id}>
-              <div className="bubble">
+              {editingMessageId === message.id ? <div className="message-editor">
+                <textarea
+                  autoFocus
+                  value={editingText}
+                  onChange={(event) => setEditingText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                      event.preventDefault();
+                      void send(editingText, message.id);
+                    }
+                    if (event.key === "Escape") cancelEdit();
+                  }}
+                />
+                <div>
+                  <button onClick={cancelEdit}>取消</button>
+                  <button disabled={!editingText.trim() || busy} onClick={() => void send(editingText, message.id)}>发送</button>
+                </div>
+              </div> : <div className="bubble">
                 {message.attachment && (
                   <img
                     className="message-attachment"
@@ -3532,7 +3645,11 @@ export function App() {
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
+              {message.content && editingMessageId !== message.id && <div className="message-actions">
+                <button title="复制消息" aria-label="复制消息" onClick={() => void navigator.clipboard?.writeText(message.content)}><Copy size={16} /></button>
+                {message.role === "user" && <button title="编辑消息" aria-label="编辑消息" onClick={() => editMessage(message)}><Pencil size={16} /></button>}
+              </div>}
             </article>
           ))}
           {busy && (
@@ -3584,6 +3701,14 @@ export function App() {
                     );
                 }}
                 onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && !input.trim()) {
+                    const draft = window.localStorage.getItem(CHAT_DRAFT_KEY);
+                    if (draft) {
+                      event.preventDefault();
+                      setInput(draft);
+                      return;
+                    }
+                  }
                   if (
                     event.key === "Enter" &&
                     !event.shiftKey &&
@@ -3688,13 +3813,13 @@ export function App() {
               )}
             </div>
             <button
-              className="composer-send"
-              title="发送"
-              aria-label="发送"
-              disabled={(!input.trim() && !attachment) || busy}
-              onClick={() => void send()}
+              className={`composer-send ${busy ? "is-stop" : ""}`}
+              title={busy ? "停止生成" : "发送"}
+              aria-label={busy ? "停止生成" : "发送"}
+              disabled={busy ? false : (!input.trim() && !attachment)}
+              onClick={() => busy ? stopStreaming() : void send()}
             >
-              <SendHorizontal size={19} />
+              {busy ? <Square size={15} fill="currentColor" /> : <SendHorizontal size={19} />}
             </button>
           </div>
         </div></>}

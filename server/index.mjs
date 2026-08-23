@@ -59,15 +59,43 @@ function parseModelJson(value) {
   try { return JSON.parse(text); } catch { return null; }
 }
 function createModelGateway({ baseUrl, apiKey, provider = 'openai', model, reasoningEffort }) {
-  return { async complete(messages, options = {}) {
+  async function* stream(messages, options = {}) {
     const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: options.model || model, reasoning_effort: options.reasoningEffort || reasoningEffort, provider, messages }),
+      body: JSON.stringify({ model: options.model || model, reasoning_effort: options.reasoningEffort || reasoningEffort, provider, stream: true, messages }),
       signal: AbortSignal.timeout(Number(process.env.PROVIDER_TIMEOUT_MS || 120_000)),
     });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error?.message || `Model gateway failed (${response.status}).`);
-    return body.choices?.[0]?.message?.content || '';
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error?.message || `Model gateway failed (${response.status}).`);
+    }
+    if (!response.body) return;
+    if (!response.headers.get('content-type')?.includes('text/event-stream')) {
+      const body = await response.json().catch(() => ({}));
+      const content = body.choices?.[0]?.message?.content || '';
+      if (content) yield content;
+      return;
+    }
+    const decoder = new TextDecoder(); let buffer = '';
+    for await (const chunk of response.body) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split(/\r?\n/); buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') continue;
+        try {
+          const value = JSON.parse(data);
+          const content = value.choices?.[0]?.delta?.content || value.choices?.[0]?.message?.content || '';
+          if (content) yield content;
+        } catch {}
+      }
+    }
+  }
+  return { stream, async complete(messages, options = {}) {
+    let content = '';
+    for await (const chunk of stream(messages, options)) content += chunk;
+    return content;
   } };
 }
 const binance = createBinanceSpotClient({ apiKey: process.env.BINANCE_API_KEY, secretKey: process.env.BINANCE_SECRET_KEY, environment });
@@ -78,6 +106,7 @@ const gateway = gatewayBaseUrl && gatewayApiKey
   ? createModelGateway({ baseUrl: gatewayBaseUrl, apiKey: gatewayApiKey, provider: gatewayProvider, model: defaultModel, reasoningEffort: defaultReasoning })
   : null;
 const drafts = new Map();
+const chatRequests = new Map();
 const futuresDrafts = new Map();
 const marginDrafts = new Map();
 const marginActionDrafts = new Map();
@@ -88,6 +117,26 @@ const symbolAllowed = (symbol) => !allowedSymbols || allowedSymbols.includes(sym
 const emergency = new EmergencyPolicy({ budgetFraction: Number(process.env.EMERGENCY_BUDGET_FRACTION || 0.2), grantMs: Number(process.env.EMERGENCY_GRANT_MS || 30 * 60_000), cooldownMs: Number(process.env.EMERGENCY_COOLDOWN_MS || 15 * 60_000) });
 
 function sendJson(response, status, body) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(body)); }
+function writeSse(response, event, value) { response.write(`event: ${event}\ndata: ${JSON.stringify(value)}\n\n`); }
+function subscribeChatRequest(request, response, job) {
+  response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  job.subscribers.add(response);
+  writeSse(response, 'snapshot', { reply: job.reply, status: job.status, ...(job.result || {}) });
+  if (job.status === 'completed') { writeSse(response, 'done', { reply: job.reply, ...(job.result || {}) }); response.end(); return; }
+  if (job.status === 'failed') { writeSse(response, 'error', { error: job.error || 'Chat request failed.' }); response.end(); return; }
+  request.on('close', () => job.subscribers.delete(response));
+}
+function broadcastChatRequest(job, event, value) {
+  for (const response of job.subscribers) writeSse(response, event, value);
+}
+function finishChatRequest(job, status, value = {}) {
+  job.status = status;
+  Object.assign(job, value);
+  broadcastChatRequest(job, status === 'completed' ? 'done' : 'error', status === 'completed' ? { reply: job.reply, ...(job.result || {}) } : { error: job.error || 'Chat request failed.' });
+  for (const response of job.subscribers) response.end();
+  job.subscribers.clear();
+  setTimeout(() => chatRequests.delete(job.id), 10 * 60_000).unref();
+}
 const chartLogDirectory = resolve(process.cwd(), '.cache', 'chart-log');
 const chatLogDirectory = resolve(process.cwd(), '.cache', 'chat-log');
 async function saveChatLog(entry) {
@@ -821,6 +870,12 @@ export function createCryptoServer() {
         if (await pipeServerCoinMStream(request, response, interval)) return;
         return sendJson(response, 503, { error: 'Server market relay unavailable.' });
       }
+      if (request.method === 'GET' && request.url?.startsWith('/api/chat/stream?')) {
+        const chatRequestId = new URL(request.url, 'http://localhost').searchParams.get('requestId') || '';
+        const job = chatRequests.get(chatRequestId);
+        if (!job) return sendJson(response, 404, { error: 'Chat request was not found.' });
+        return subscribeChatRequest(request, response, job);
+      }
       if (request.method === 'POST' && request.url === '/api/chat') {
         const timings = {};
         const mark = (name, startedAt) => { timings[name] = Date.now() - startedAt; };
@@ -834,6 +889,9 @@ export function createCryptoServer() {
         const reasoningEffort = reasoningOptions.includes(payload.reasoning_effort) ? payload.reasoning_effort : defaultReasoning;
         if (!isTradeCommand(message)) {
           if (!gateway) return sendJson(response, 503, { error: 'Configure a model gateway before asking for market analysis.' });
+          const chatRequestId = typeof payload.requestId === 'string' && /^[a-zA-Z0-9_-]{8,128}$/.test(payload.requestId) ? payload.requestId : randomUUID();
+          const existing = chatRequests.get(chatRequestId);
+          if (payload.stream === true && existing) return subscribeChatRequest(request, response, existing);
           let stageStartedAt = Date.now();
           const range = requestedOrderBookRange(message);
           const bookWindow = await orderBookContext(range);
@@ -848,7 +906,25 @@ export function createCryptoServer() {
           const newsContext = (await readCachedMarketMessages()).slice(0, 20).map(({ id, publishedAt, title, content, source }) => ({ id, publishedAt, title, content: String(content || '').slice(0, 8_000), source }));
           mark('tradeMarketNewsMs', stageStartedAt);
           stageStartedAt = Date.now();
-          const reply = await gateway.complete(analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image }), { model, reasoningEffort });
+          const prompt = analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image });
+          if (payload.stream === true) {
+            const job = { id: chatRequestId, reply: '', status: 'streaming', subscribers: new Set(), result: null, error: '' };
+            chatRequests.set(chatRequestId, job);
+            void (async () => {
+              try {
+                for await (const chunk of gateway.stream(prompt, { model, reasoningEffort })) {
+                  job.reply += chunk;
+                  broadcastChatRequest(job, 'delta', { delta: chunk });
+                }
+                finishChatRequest(job, 'completed');
+              } catch (error) {
+                finishChatRequest(job, 'failed', { error: error instanceof Error ? error.message : 'Model gateway failed.' });
+              }
+            })();
+            mark('vipapiMs', stageStartedAt);
+            return subscribeChatRequest(request, response, job);
+          }
+          const reply = await gateway.complete(prompt, { model, reasoningEffort });
           mark('vipapiMs', stageStartedAt);
           const timingLog = { event: 'chat_timing', requestId, messageChars: message.length, model, reasoningEffort, newsCount: newsContext.length, hasAccountContext: Boolean(accountContext), autoMarketTokens: autoMarket?.estimatedTokens || 0, timings: { ...timings, totalMs: Date.now() - requestStartedAt } };
           console.log(JSON.stringify(timingLog));
