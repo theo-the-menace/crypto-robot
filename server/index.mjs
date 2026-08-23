@@ -22,8 +22,8 @@ const allowedSymbols = symbolConfig === '*' ? null : symbolConfig.split(',').map
 const maxOrderUsdt = Number(process.env.MAX_ORDER_USDT || 100);
 const configured = Boolean(process.env.BINANCE_API_KEY && process.env.BINANCE_SECRET_KEY);
 const gatewayProvider = process.env.VIPAPI_PROVIDER || process.env.GATEWAY_PROVIDER || 'openai';
-const gatewayBaseUrl = (process.env.DEEPSEEK_VIP_BASE_URL || process.env.VIPAPI_BASE_URL || process.env.GATEWAY_BASE_URL || '').replace(/\/$/, '');
-const gatewayApiKey = process.env.DEEPSEEK_VIP_API_KEY || process.env.VIPAPI_API_KEY || process.env.GATEWAY_API_KEY || '';
+const gatewayBaseUrl = (process.env.OPENAI_VIP_BASE_URL || process.env.VIPAPI_BASE_URL || process.env.GATEWAY_BASE_URL || '').replace(/\/$/, '');
+const gatewayApiKey = process.env.OPENAI_VIP_API_KEY || process.env.VIPAPI_API_KEY || process.env.GATEWAY_API_KEY || '';
 const marketDataBase = (process.env.MARKET_DATA_BASE_URL || gatewayBaseUrl).replace(/\/$/, '');
 const marketDataKey = process.env.MARKET_DATA_API_KEY || gatewayApiKey;
 const modelOptions = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'];

@@ -41,7 +41,7 @@ npm run dev -- crypto-agent
 
 Open `http://127.0.0.1:5450`. Without a model gateway, explicit market instructions such as `用 50 USDT 市价买入 BTC` still work. Configuring `GATEWAY_BASE_URL` and `GATEWAY_API_KEY` enables natural-language clarification and LIMIT order extraction; Binance credentials are never sent to the model.
 
-For VIPAPI DeepSeek, set `DEEPSEEK_VIP_BASE_URL=https://api.vipapi.ai:99/v1` and `DEEPSEEK_VIP_API_KEY`; these take precedence over `GATEWAY_*`. Analysis requests automatically include bounded `1m`, `1h`, `4h`, and daily K-line series (daily data is sampled from 2020 onward), current market data, and cached account context from `/v1/account/context` when available. The payload is compacted before dispatch and includes an estimated token count.
+For the OpenAI-compatible VIPAPI relay, set `OPENAI_VIP_BASE_URL=https://api.vipapi.ai:99` and `OPENAI_VIP_API_KEY`; these take precedence over `GATEWAY_*`. The server appends `/v1/chat/completions`. Analysis requests automatically include bounded `1m`, `1h`, `4h`, and daily K-line series (daily data is sampled from 2020 onward), current market data, and cached account context from `/v1/account/context` when available. The payload is compacted before dispatch and includes an estimated token count.
 
 The model control uses the gateway's transparent `openai` provider payload. It exposes `GPT-5.6 Luna`, `GPT-5.6 Sol`, and `GPT-5.6 Terra`, with independent `Light` (`low`), `Medium`, `High`, `Extra High` (`xhigh`), and `Ultra` (`max`) reasoning choices. The selected values are sent as `model` and `reasoning_effort`.
 
