@@ -51,7 +51,7 @@ function createModelGateway({ baseUrl, apiKey, provider = 'openai', model, reaso
     const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ model: options.model || model, reasoning_effort: options.reasoningEffort || reasoningEffort, provider, messages }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(Number(process.env.PROVIDER_TIMEOUT_MS || 120_000)),
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.error?.message || `Model gateway failed (${response.status}).`);
@@ -289,6 +289,17 @@ async function automaticAccountContext() {
     if (!account) {
       const rows = await remoteAccountTrades({ limit: 120 }).catch(() => []);
       account = rows.length ? { trades: rows, count: rows.length } : null;
+    }
+    if (!account && configured) {
+      const snapshot = await coinMSnapshot({ symbol: 'BTCUSD_PERP', limit: 100 }).catch(() => null);
+      const pick = (row, keys) => Object.fromEntries(keys.filter((key) => row?.[key] !== undefined).map((key) => [key, row[key]]));
+      if (snapshot) account = {
+        source: 'binance-coinm-read-only',
+        positions: (snapshot.positions || []).slice(0, 20).map((row) => pick(row, ['symbol', 'positionSide', 'positionAmt', 'entryPrice', 'markPrice', 'liquidationPrice', 'leverage', 'unRealizedProfit', 'updateTime'])),
+        openOrders: (snapshot.openOrders || []).slice(0, 50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),
+        orders: (snapshot.orders || []).slice(-50).map((row) => pick(row, ['orderId', 'clientOrderId', 'symbol', 'side', 'type', 'price', 'stopPrice', 'origQty', 'executedQty', 'status', 'time', 'updateTime'])),
+        trades: (snapshot.trades || []).slice(-100).map((row) => pick(row, ['id', 'orderId', 'symbol', 'side', 'price', 'qty', 'quoteQty', 'realizedPnl', 'commission', 'commissionAsset', 'time'])),
+      };
     }
     accountContextCache.value = account;
     accountContextCache.updatedAt = Date.now();
@@ -747,7 +758,8 @@ export function createCryptoServer() {
           const [historicalMarket, accountContext] = await Promise.all([historicalMarketContext(message), automaticAccountContext()]);
           const tradeHistory = await tradeContext(message, accountContext);
           const autoMarket = await automaticMarketContext(payload.accountContext || accountContext);
-          const reply = await gateway.complete(analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, image }), { model, reasoningEffort });
+          const newsContext = (await marketMessages.list(20)).map(({ id, receivedAt, subject, summary, source }) => ({ id, receivedAt, subject, summary, source }));
+          const reply = await gateway.complete(analysisMessages({ message: message || '请分析这张图片。', history: payload.history, marketContext, historicalMarket, tradeContext: tradeHistory || accountContext, autoMarket, newsContext, image }), { model, reasoningEffort });
           return sendJson(response, 200, { reply });
         }
         if (!configured) return sendJson(response, 503, { error: 'Configure Binance credentials before preparing an order.' });
