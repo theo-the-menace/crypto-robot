@@ -120,10 +120,11 @@ function Chart({ candles, loadOlder, line, indicators, initialRange, onRangeChan
           const hasAnchors = Number.isFinite(savedRange.fromTime) && Number.isFinite(savedRange.toTime);
           const fromIndex = hasAnchors ? nearestIndex(candles, savedRange.fromTime!, Math.max(0, candles.length - defaultVisible[period])) : savedRange.from;
           const toIndex = hasAnchors ? nearestIndex(candles, savedRange.toTime!, candles.length - 1) : savedRange.to;
-          const width = Math.max(2, Math.min(candles.length, savedRange.to - savedRange.from));
           const safeFrom = Math.min(Math.max(0, fromIndex), Math.max(0, candles.length - 1));
           const safeTo = Math.min(Math.max(safeFrom + 1, toIndex), candles.length + 5);
-          const target = { from: safeFrom, to: Math.min(candles.length + 5, Math.max(safeTo, safeFrom + width)) };
+          const target = hasAnchors
+            ? { from: safeFrom, to: Math.min(candles.length + 5, safeTo + 5) }
+            : { from: safeFrom, to: Math.min(candles.length + 5, Math.max(safeTo, safeFrom + Math.max(2, Math.min(candles.length, savedRange.to - savedRange.from)))) };
           chartTrace("restore-target", { period, saved: savedRange, target, candles: candles.length });
           restoring.current = true;
           chart.current.timeScale().setVisibleLogicalRange(target);
