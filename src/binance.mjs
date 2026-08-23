@@ -97,6 +97,7 @@ export function createBinanceUsdMClient({ apiKey, secretKey, environment = 'test
     marginType: (symbol, marginType) => request('POST', '/fapi/v1/marginType', { symbol, marginType }, true),
     testOrder: (order) => request('POST', '/fapi/v1/order/test', order, true),
     placeOrder: (order) => request('POST', '/fapi/v1/order', order, true),
+    cancelOrder: (symbol, orderId) => request('DELETE', '/fapi/v1/order', { symbol, orderId }, true),
   };
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fallbackIntent, hasUnsupportedRiskInstruction, inferProduct, normalizeOrderIntent, validateOrder } from '../src/trading.mjs';
+import { buildLongPlan, fallbackIntent, hasUnsupportedRiskInstruction, inferProduct, normalizeOrderIntent, validateOrder } from '../src/trading.mjs';
 
 const symbolInfo = {
   symbol: 'BTCUSDT', status: 'TRADING', isSpotTradingAllowed: true, baseAsset: 'BTC', quoteAsset: 'USDT',
@@ -46,4 +46,12 @@ test('routes chat instructions to the correct Binance product', () => {
   assert.equal(inferProduct('开20x全仓 BTC 永续多单'), 'futures');
   assert.equal(inferProduct('Margin 借币买 BTC'), 'margin');
   assert.equal(inferProduct('现货买入 BTC'), 'spot');
+});
+
+test('builds a non-executable long plan from bounded strategy levels', () => {
+  const plan = buildLongPlan({ entryLow: 76500, entryHigh: 76850, stop: 76200, targets: [77400, 78300, 79300], quantity: 10, leverage: 2 });
+  assert.equal(plan.executable, false);
+  assert.deepEqual(plan.entry.priceRange, ['76500', '76850']);
+  assert.deepEqual(plan.takeProfits.map((item) => item.allocation), [0.4, 0.35, 0.25]);
+  assert.throws(() => buildLongPlan({ entryLow: 76500, entryHigh: 76850, stop: 77000, targets: [77400], quantity: 1 }), /invalid/);
 });

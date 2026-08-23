@@ -528,13 +528,39 @@ function createFuturesDraft(raw) {
   const leverage = Number(raw?.leverage || 1);
   const quantity = String(raw?.quantity || '');
   if (!symbol || !symbolAllowed(symbol)) throw new Error('Futures symbol is not in the trading allowlist.');
-  if (!['BUY', 'SELL'].includes(side) || type !== 'MARKET') throw new Error('Futures currently supports MARKET BUY or SELL only.');
+  if (!['BUY', 'SELL'].includes(side) || !['MARKET', 'LIMIT'].includes(type)) throw new Error('Futures supports MARKET or LIMIT orders.');
   if (!['ISOLATED', 'CROSSED'].includes(marginType)) throw new Error('marginType must be ISOLATED or CROSSED.');
   if (!/^\d+(?:\.\d+)?$/.test(quantity) || Number(quantity) <= 0) throw new Error('Futures quantity must be a positive decimal.');
   if (!Number.isInteger(leverage) || leverage < 1 || leverage > 125) throw new Error('Futures leverage must be an integer from 1x to 125x.');
-  const draft = { id: randomUUID(), confirmationToken: randomUUID(), intent: { symbol, side, type, quantity, leverage, marginType, reduceOnly: Boolean(raw.reduceOnly) }, environment, createdAt: Date.now(), state: 'pending' };
+  const price = type === 'LIMIT' ? String(raw.price || '') : undefined;
+  if (type === 'LIMIT' && (!/^\d+(?:\.\d+)?$/.test(price) || Number(price) <= 0)) throw new Error('LIMIT futures orders require a positive price.');
+  const stopLoss = raw.stopLoss == null ? null : Number(raw.stopLoss);
+  const takeProfits = Array.isArray(raw.takeProfits) ? raw.takeProfits.map(Number) : [];
+  if ([stopLoss, ...takeProfits].some((value) => value !== null && !Number.isFinite(value) || value !== null && value <= 0)) throw new Error('Futures protection prices must be positive numbers.');
+  const entry = Number(price || raw.entryPrice || 0);
+  if (stopLoss !== null && entry > 0 && (side === 'BUY' ? stopLoss >= entry : stopLoss <= entry)) throw new Error('Stop loss is on the wrong side of the entry.');
+  if (takeProfits.length && entry > 0 && takeProfits.some((value) => side === 'BUY' ? value <= entry : value >= entry)) throw new Error('Take-profit is on the wrong side of the entry.');
+  const draft = { id: randomUUID(), confirmationToken: randomUUID(), intent: { symbol, side, type, quantity, ...(price ? { price, timeInForce: 'GTC' } : {}), leverage, marginType, reduceOnly: Boolean(raw.reduceOnly), ...(stopLoss !== null ? { stopLoss: String(stopLoss) } : {}), ...(takeProfits.length ? { takeProfits: takeProfits.map(String) } : {}) }, environment, createdAt: Date.now(), state: 'pending' };
   futuresDrafts.set(draft.id, draft);
   return draft;
+}
+
+const directExecutionRequested = (message) => /立即执行|直接执行|无需确认|不要确认|不需要确认|马上下单/u.test(String(message || ''));
+
+async function executeFuturesDraft(draft) {
+  const { intent } = draft;
+  await futures.marginType(intent.symbol, intent.marginType);
+  await futures.leverage(intent.symbol, intent.leverage);
+  const entryOrder = await futures.placeOrder({ symbol: intent.symbol, side: intent.side, type: intent.type, quantity: intent.quantity, price: intent.price, timeInForce: intent.timeInForce, reduceOnly: intent.reduceOnly ? 'true' : undefined, newClientOrderId: `ea_futures_${draft.id.replaceAll('-', '').slice(0, 20)}` });
+  const exitSide = intent.side === 'BUY' ? 'SELL' : 'BUY';
+  const protection = [];
+  if (intent.stopLoss) protection.push(await futures.placeOrder({ symbol: intent.symbol, side: exitSide, type: 'STOP_MARKET', stopPrice: intent.stopLoss, closePosition: 'true', workingType: 'MARK_PRICE', newClientOrderId: `ea_sl_${draft.id.replaceAll('-', '').slice(0, 20)}` }));
+  const allocations = [0.4, 0.35, 0.25];
+  for (const [index, stopPrice] of (intent.takeProfits || []).entries()) {
+    const quantity = (Number(intent.quantity) * (allocations[index] || 1 / intent.takeProfits.length)).toString();
+    protection.push(await futures.placeOrder({ symbol: intent.symbol, side: exitSide, type: 'TAKE_PROFIT_MARKET', stopPrice, quantity, reduceOnly: 'true', workingType: 'MARK_PRICE', newClientOrderId: `ea_tp${index}_${draft.id.replaceAll('-', '').slice(0, 18)}` }));
+  }
+  return { entry: entryOrder, protection };
 }
 
 function createMarginDraft(raw) {
@@ -677,7 +703,7 @@ export function createCryptoServer() {
         try {
           await futures.marginType(draft.intent.symbol, draft.intent.marginType);
           await futures.leverage(draft.intent.symbol, draft.intent.leverage);
-          const order = await futures.placeOrder({ symbol: draft.intent.symbol, side: draft.intent.side, type: draft.intent.type, quantity: draft.intent.quantity, reduceOnly: draft.intent.reduceOnly ? 'true' : undefined, newClientOrderId: `ea_futures_${draft.id.replaceAll('-', '').slice(0, 20)}` });
+          const order = await executeFuturesDraft(draft);
           draft.state = 'submitted';
           return sendJson(response, 200, { order });
         } catch (error) { draft.state = error instanceof BinanceApiError && error.executionUnknown ? 'unknown' : 'failed'; throw error; }
@@ -836,6 +862,12 @@ export function createCryptoServer() {
         if (!parsed?.intent) return sendJson(response, 200, { reply: parsed?.reply || '请明确交易方向、交易对和数量，例如“用 50 USDT 市价买入 BTC”。' });
         const resolvedProduct = parsed.product || product;
         const draft = resolvedProduct === 'futures' ? createFuturesDraft(parsed.intent) : resolvedProduct === 'margin' ? createMarginDraft(parsed.intent) : await createDraft(parsed.intent);
+        if (resolvedProduct === 'futures' && parsed.directExecute === true && directExecutionRequested(message)) {
+          if (!liveTradingEnabled) return sendJson(response, 403, { error: 'Live trading is locked.' });
+          draft.state = 'submitting';
+          try { const order = await executeFuturesDraft(draft); draft.state = 'submitted'; return sendJson(response, 200, { reply: parsed.reply || '订单已直接提交。', product: resolvedProduct, order }); }
+          catch (error) { draft.state = error instanceof BinanceApiError && error.executionUnknown ? 'unknown' : 'failed'; throw error; }
+        }
         return sendJson(response, 200, { reply: parsed.reply || '订单草案已准备好。请核对产品、方向、数量、杠杆和保证金模式后确认。', product: resolvedProduct, draft });
       }
       const confirm = request.url?.match(/^\/api\/orders\/([^/]+)\/confirm$/);
