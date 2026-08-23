@@ -1,4 +1,4 @@
-const TRADE_COMMAND = /买入|卖出|开多|开空|平仓|下单|\b(?:buy|sell|long|short)\b/iu;
+const TRADE_COMMAND = /买入|卖出|开多|开空|平仓|下单|转账|转到|闪兑|兑换|换成|\b(?:buy|sell|long|short|transfer|convert)\b/iu;
 
 export function isTradeCommand(message) {
   const text = String(message || '');

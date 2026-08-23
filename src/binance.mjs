@@ -68,6 +68,10 @@ export function createBinanceSpotClient({ apiKey, secretKey, environment = 'test
     earnFlexible: (size = 100) => request('GET', '/sapi/v1/simple-earn/flexible/position', { size }, true),
     testOrder: (order) => request('POST', '/api/v3/order/test', order, true),
     placeOrder: (order) => request('POST', '/api/v3/order', order, true),
+    universalTransfer: (params) => request('POST', '/sapi/v1/asset/transfer', params, true),
+    convertQuote: (params) => request('POST', '/sapi/v1/convert/getQuote', params, true),
+    convertAcceptQuote: (params) => request('POST', '/sapi/v1/convert/acceptQuote', params, true),
+    convertOrderStatus: (orderId) => request('GET', '/sapi/v1/convert/orderStatus', { orderId }, true),
   };
 }
 

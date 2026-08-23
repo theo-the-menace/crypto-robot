@@ -62,6 +62,19 @@ test('asset clients use the official signed wallet, earn, funding, and Futures e
   assert.match(futuresCalls[1], /\/fapi\/v3\/account/);
 });
 
+test('spot client exposes signed universal transfer and Convert operations', async () => {
+  const calls = [];
+  const client = createBinanceSpotClient({ apiKey: 'public', secretKey: 'private', now: () => 1_000, fetchImpl: async (url, options) => { calls.push({ url, method: options?.method }); return new Response(JSON.stringify(url.endsWith('/api/v3/time') ? { serverTime: 2_000 } : { quoteId: 'q1', orderId: 'o1' })); } });
+  await client.universalTransfer({ type: 'MAIN_UMFUTURE', asset: 'USDT', amount: '1' });
+  await client.convertQuote({ fromAsset: 'BTC', toAsset: 'USDT', fromAmount: '0.0001' });
+  await client.convertAcceptQuote({ quoteId: 'q1' });
+  await client.convertOrderStatus('o1');
+  assert.match(calls[1].url, /\/sapi\/v1\/asset\/transfer/);
+  assert.match(calls[2].url, /\/sapi\/v1\/convert\/getQuote/);
+  assert.match(calls[3].url, /\/sapi\/v1\/convert\/acceptQuote/);
+  assert.match(calls[4].url, /\/sapi\/v1\/convert\/orderStatus/);
+});
+
 test('Margin client uses signed margin account and order endpoints', async () => {
   const calls = [];
   const fetchImpl = async (url) => { calls.push(url); return new Response(JSON.stringify(url.endsWith('/api/v3/time') ? { serverTime: 2_000 } : { userAssets: [] }), { status: 200 }); };

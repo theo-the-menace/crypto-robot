@@ -3160,7 +3160,11 @@ export function App() {
     const height = Math.min(textarea.scrollHeight, 84);
     textarea.style.height = `${height}px`;
     textarea.style.overflowY = textarea.scrollHeight > 84 ? "auto" : "hidden";
-    setComposerExpanded(height > 24);
+    const wraps = textarea.scrollHeight > 24;
+    setComposerExpanded((current) => {
+      if (current) return input.length >= 24 || wraps;
+      return wraps;
+    });
   }, [input]);
   useEffect(() => {
     if (input) window.localStorage.setItem(CHAT_DRAFT_KEY, input);
