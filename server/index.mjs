@@ -37,10 +37,11 @@ const configured = Boolean(process.env.BINANCE_API_KEY && process.env.BINANCE_SE
 const gatewayProvider = 'openai';
 const gatewayBaseUrl = (process.env.OPENAI_VIP_BASE_URL || '').replace(/\/$/, '');
 const gatewayApiKey = process.env.OPENAI_VIP_API_KEY || '';
-const marketDataBase = (process.env.MARKET_DATA_BASE_URL || gatewayBaseUrl).replace(/\/$/, '');
-const marketDataKey = process.env.MARKET_DATA_API_KEY || gatewayApiKey;
+const marketDataBase = (process.env.MARKET_DATA_BASE_URL || '').replace(/\/$/, '');
+const marketDataKey = process.env.MARKET_DATA_API_KEY || '';
 const marketMessagesBase = (process.env.MARKET_MESSAGES_BASE_URL || process.env.VITE_MARKET_API_URL || '').replace(/\/$/, '');
 const marketMessagesKey = process.env.MARKET_MESSAGES_API_KEY || process.env.VITE_DASHBOARD_TOKEN || '';
+const newsCollectionEnabled = localEnv('NEWS_COLLECTION_ENABLED') !== 'false';
 const marketMessagesCacheFile = resolve(process.cwd(), '.cache', 'market-messages.json');
 const modelOptions = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'];
 const reasoningOptions = ['low', 'medium', 'high', 'xhigh', 'max'];
@@ -253,7 +254,7 @@ async function syncMarketMessages(limit = 200) {
   marketMessagesCache.inflight = (async () => {
     const cached = await readCachedMarketMessages();
     let messages = cached;
-    if (marketMessagesBase && marketMessagesKey) {
+    if (newsCollectionEnabled && marketMessagesBase && marketMessagesKey) {
       try {
         const response = await fetch(`${marketMessagesBase}/api/market/messages?limit=${limit}`, { headers: { Authorization: `Bearer ${marketMessagesKey}` }, signal: AbortSignal.timeout(10_000) });
         if (response.ok) {
@@ -530,7 +531,7 @@ function coinMFunding(event) {
 }
 
 function startMarketStream(symbol = 'BTCUSD_PERP') {
-  let socket; let retryMs = 1_000; let stopped = false; let merge = Promise.resolve(); let lastReconcileAt = 0; let reconcile = Promise.resolve(); let lastStreamKlineTime = 0;
+  let socket; let retryMs = 1_000; let stopped = false; let merge = Promise.resolve(); let lastReconcileAt = 0; let reconcile = Promise.resolve(); let lastStreamKlineTime = 0; let reconcileTimer;
   const reconcileGap = () => {
     if (Date.now() - lastReconcileAt < 60_000) return reconcile;
     lastReconcileAt = Date.now();
@@ -541,11 +542,13 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
       const gapRanges = await marketStore.gaps(Math.max(0, now - 24 * 60 * 60_000), now);
       ranges.push(...gapRanges.filter((range) => range.to < now - 60_000));
       for (const range of ranges.slice(0, 10)) {
-        console.log(JSON.stringify({ event: 'coinm_gap_reconcile', ...range }));
-        const limit = Math.min(1_500, Math.ceil((range.to - range.from + 60_000) / 60_000));
-        const page = await coinMMarket(symbol, '1m', range.to + 59_999, limit, range.from);
-        if (page.klines?.length) await marketStore.merge(page.klines, { persist: true });
-        console.log(JSON.stringify({ event: 'coinm_gap_reconciled', from: range.from, to: range.to, rows: page.klines?.length || 0 }));
+        try {
+          console.log(JSON.stringify({ event: 'coinm_gap_reconcile', ...range }));
+          const limit = Math.min(1_500, Math.ceil((range.to - range.from + 60_000) / 60_000));
+          const page = await coinMMarket(symbol, '1m', range.to + 59_999, limit, range.from);
+          if (page.klines?.length) await marketStore.merge(page.klines, { persist: true });
+          console.log(JSON.stringify({ event: 'coinm_gap_reconciled', from: range.from, to: range.to, rows: page.klines?.length || 0 }));
+        } catch (error) { console.warn(JSON.stringify({ event: 'coinm_gap_reconcile_failed', ...range, error: error instanceof Error ? error.message : String(error) })); }
       }
     }).catch((error) => console.warn('COIN-M gap reconciliation unavailable', error instanceof Error ? error.message : error));
     return reconcile;
@@ -575,7 +578,9 @@ function startMarketStream(symbol = 'BTCUSD_PERP') {
   };
   marketReady = reconcileGap();
   void connect();
-  return () => { stopped = true; socket?.close(); };
+  // One server-owned reconciliation every five minutes: 12 upstream requests/hour normally, capped at 120/hour while repairing up to 9 retained gaps.
+  reconcileTimer = setInterval(() => { void reconcileGap(); }, 5 * 60_000);
+  return () => { stopped = true; socket?.close(); if (reconcileTimer) clearInterval(reconcileTimer); };
 }
 
 async function orderBookContext(range) {
@@ -1050,7 +1055,9 @@ export function createCryptoServer() {
         const interval = new URL(request.url, 'http://localhost').searchParams.get('interval') || '5m';
         if (!['1s', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w'].includes(interval)) return sendJson(response, 400, { error: 'Interval is not allowed.' });
         if (await pipeServerCoinMStream(request, response, interval)) return;
-        return sendJson(response, 503, { error: 'Server market relay unavailable.' });
+        response.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+        response.write(': connected to local Binance stream\n\n'); marketStreams.add(response);
+        request.on('close', () => marketStreams.delete(response)); return;
       }
       if (request.method === 'GET' && request.url?.startsWith('/api/chat/stream?')) {
         const chatRequestId = new URL(request.url, 'http://localhost').searchParams.get('requestId') || '';
@@ -1178,7 +1185,8 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   const server = createCryptoServer(); let stopMarketStream; let gmailRenewTimer;
   let whiteHouseTimer;
   server.listen(port, '127.0.0.1', async () => {
-    console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); void syncMarketMessages().catch((error) => console.warn('Initial market message sync unavailable', error.message)); stopMarketStream = startMarketStream();
+    console.log(`CryptoAgent API listening on http://127.0.0.1:${port} (${environment})`); if (newsCollectionEnabled) void syncMarketMessages().catch((error) => console.warn('Initial market message sync unavailable', error.message)); stopMarketStream = startMarketStream();
+    if (!newsCollectionEnabled) return console.log('News collection is disabled.');
     try { const status = await gmailStatus(); if (status.configured && status.authorized) { await renewGmailWatch(); gmailRenewTimer = setInterval(() => renewGmailWatch().catch((error) => console.error('Gmail watch renewal failed', error.message)), 24 * 60 * 60_000); } } catch (error) { console.error('Gmail startup sync unavailable', error.message); }
     collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)); whiteHouseTimer = setInterval(() => collectWhiteHouse({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('White House collection failed', error.message)), 10 * 60_000);
     collectCryptoRss({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Crypto RSS collection failed', error.message)); setInterval(() => collectCryptoRss({ onRelevant: handleWhiteHouseItem }).catch((error) => console.error('Crypto RSS collection failed', error.message)), 10 * 60_000);

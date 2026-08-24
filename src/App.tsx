@@ -1852,10 +1852,16 @@ function CoinMWorkspace({
           /* ignore malformed relay events */
         }
       });
-      serverStream.onerror = () => {
-        serverStream.close();
-        if (active) setError("服务端行情暂时中断");
-      };
+      serverStream.addEventListener("kline", (event) => {
+        try {
+          const row = JSON.parse((event as MessageEvent).data)?.row as KlineRow;
+          const price = Number(row?.[4]);
+          if (price > 0) pendingPrice.current = price;
+        } catch {
+          /* ignore malformed local kline events */
+        }
+      });
+      serverStream.onerror = () => { if (active) setError("服务端行情暂时中断"); };
     }
     const bookTimer = window.setInterval(() => {
       const price = pendingPrice.current;
