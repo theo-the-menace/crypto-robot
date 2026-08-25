@@ -262,6 +262,10 @@ const MIN_KLINE_POINTS = 9;
 const MAX_KLINE_POINTS = 129;
 const MESSAGE_PAGE_SIZE = 60;
 const MATERIALS_KEY = "crypto-agent-materials";
+function saveLocalPreference(key: string, value: string) {
+  try { window.localStorage.setItem(key, value); }
+  catch { try { window.localStorage.removeItem(key); window.localStorage.setItem(key, value); } catch { /* preferences are optional */ } }
+}
 const MATERIAL_DEFAULTS: MaterialSettings = { "1m": "high", "5m": "medium", "15m": "medium", "1h": "medium", "4h": "medium" };
 const MATERIAL_INTERVALS: Array<keyof MaterialSettings> = ["1m", "5m", "15m", "1h", "4h"];
 const MATERIAL_LEVELS: MaterialDensity[] = ["off", "low", "medium", "high", "max"];
@@ -1035,7 +1039,7 @@ function useChartNavigation({
   };
   applyZoomRef.current = applyZoom;
   const saveZoom = () =>
-    window.localStorage.setItem(
+    saveLocalPreference(
       storageKeyRef.current,
       String(visibleCountRef.current),
     );
@@ -1727,7 +1731,7 @@ function CoinMWorkspace({
     klineViewCache.current.set(marketCacheKey, {
       offset: klineOffset,
     });
-    window.localStorage.setItem(
+    saveLocalPreference(
       `crypto-agent-kline-visible-points:${interval}`,
       String(klineVisibleCount),
     );
@@ -3174,7 +3178,7 @@ export function App() {
     });
   }, [input]);
   useEffect(() => {
-    if (input) window.localStorage.setItem(CHAT_DRAFT_KEY, input);
+    if (input) saveLocalPreference(CHAT_DRAFT_KEY, input);
   }, [input]);
   useEffect(() => {
     if (!input) return;
@@ -3205,7 +3209,7 @@ export function App() {
     }, 250);
     return () => { if (composerLogTimer.current !== null) window.clearTimeout(composerLogTimer.current); };
   }, [input, composerExpanded]);
-  useEffect(() => { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(materials)); }, [materials]);
+  useEffect(() => { saveLocalPreference(MATERIALS_KEY, JSON.stringify(materials)); }, [materials]);
   useEffect(() => {
     if (!materialsOpen) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
@@ -3215,10 +3219,10 @@ export function App() {
     return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
   }, [materialsOpen]);
   useEffect(() => {
-    window.localStorage.setItem(MODEL_KEY, modelId);
+    saveLocalPreference(MODEL_KEY, modelId);
   }, [modelId]);
   useEffect(() => {
-    window.localStorage.setItem(REASONING_KEY, reasoningEffort);
+    saveLocalPreference(REASONING_KEY, reasoningEffort);
   }, [reasoningEffort]);
   useLayoutEffect(() => {
     if (followingMessages.current && messagesRef.current) {
@@ -3322,13 +3326,13 @@ export function App() {
   }, [activeSessionId]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("crypto-agent-theme", theme);
+    saveLocalPreference("crypto-agent-theme", theme);
   }, [theme]);
   useEffect(() => {
-    window.localStorage.setItem("crypto-agent-left-width", String(leftWidth));
+    saveLocalPreference("crypto-agent-left-width", String(leftWidth));
   }, [leftWidth]);
   useEffect(() => {
-    window.localStorage.setItem("crypto-agent-right-width", String(rightWidth));
+    saveLocalPreference("crypto-agent-right-width", String(rightWidth));
   }, [rightWidth]);
   useEffect(() => {
     if (!modelOpen) return;
@@ -3404,7 +3408,7 @@ export function App() {
         conversationSummary: session.conversationSummary,
         summarizedMessageCount: session.summarizedMessageCount,
       }));
-    window.localStorage.setItem(
+    saveLocalPreference(
       "crypto-agent-recents",
       JSON.stringify(safeSessions),
     );
@@ -3588,14 +3592,14 @@ export function App() {
     setAttachment(null);
     setEditingMessageId(null);
     setEditingText("");
-    window.localStorage.setItem(CHAT_DRAFT_KEY, content);
+    saveLocalPreference(CHAT_DRAFT_KEY, content);
     setBusy(true);
     setError("");
     const controller = new AbortController();
     streamController.current = controller;
     const requestId = crypto.randomUUID();
     activeRequestId.current = requestId;
-    window.localStorage.setItem(PENDING_CHAT_KEY, JSON.stringify({ requestId, sessionId, assistantId: assistant.id }));
+    saveLocalPreference(PENDING_CHAT_KEY, JSON.stringify({ requestId, sessionId, assistantId: assistant.id }));
     setSessions((existing) => [
       { id: sessionId, title: existing.find((item) => item.id === sessionId)?.title || title, messages: baseMessages, updatedAt: Date.now(), conversationSummary, summarizedMessageCount: summaryStart },
       ...existing.filter((item) => item.id !== sessionId),
