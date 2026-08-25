@@ -1859,8 +1859,14 @@ function CoinMWorkspace({
       serverStream.addEventListener("kline", (event) => {
         try {
           const row = JSON.parse((event as MessageEvent).data)?.row as KlineRow;
-          const price = Number(row?.[4]);
+          if (!Array.isArray(row) || !Number.isFinite(Number(row[0]))) return;
+          const price = Number(row[4]);
           if (price > 0) pendingPrice.current = price;
+          setMarket((current) => {
+            if (!current || interval === "1s") return current;
+            const klines = interval === "1m" ? mergeKlineRows(current.klines, [row]) : updateKlinePrice(current.klines, price);
+            return { ...current, klines, premium: { ...current.premium, markPrice: String(price) } };
+          });
         } catch {
           /* ignore malformed local kline events */
         }
